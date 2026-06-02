@@ -1,0 +1,217 @@
+import { useState, useEffect, useRef } from 'react';
+import { Outlet } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
+import { Bell } from 'lucide-react';
+import api from '@/services/api';
+import { Button } from '@/components/ui/Button';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+
+export default function DashboardLayout() {
+    const { i18n } = useTranslation();
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const notificationRef = useRef<HTMLDivElement>(null);
+    const knownNotificationIds = useRef<Set<string>>(new Set());
+
+    const fetchNotifications = async () => {
+        try {
+            const res = await api.get('/notifications');
+            const incomingData = res.data.data?.notifications || [];
+            const serverUnreadCount = res.data.data?.unread_count ?? 0;
+
+            let hasNew = false;
+            let latestMessage = "";
+
+            // If it's not the first load and we already have known IDs...
+            if (knownNotificationIds.current.size > 0) {
+                for (const item of incomingData) {
+                    if (!knownNotificationIds.current.has(item.id)) {
+                        hasNew = true;
+                        latestMessage = item.data?.message || "New notification received";
+                        break;
+                    }
+                }
+            }
+
+            // Update the set of known IDs so we don't trigger again for these
+            const currentIds = new Set<string>();
+            incomingData.forEach((item: any) => currentIds.add(item.id));
+            knownNotificationIds.current = currentIds;
+
+            setNotifications(incomingData);
+            setUnreadCount(serverUnreadCount);
+
+            // Show Toast Alert if there's a new notification
+            if (hasNew) {
+                setToastMessage(latestMessage);
+                setTimeout(() => setToastMessage(null), 5000); // hide after 5s
+            }
+
+        } catch (error) {
+            console.error("Failed to fetch notifications", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchNotifications();
+        
+        // Poll for new notifications every 15 seconds
+        const intervalId = setInterval(fetchNotifications, 15000);
+
+        // Close dropdown on click outside
+        function handleClickOutside(event: MouseEvent) {
+            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+                setShowNotifications(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        
+        return () => {
+            clearInterval(intervalId); // Cleanup interval
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const markAsRead = async () => {
+        try {
+            await api.post('/notifications/mark-read');
+            // Optimistically clear the badge immediately
+            setUnreadCount(0);
+            setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
+        } catch (error) {
+            console.error("Failed to mark as read", error);
+        }
+    };
+
+    const toggleLanguage = () => {
+        const newLang = i18n.language === 'en' ? 'km' : 'en';
+        i18n.changeLanguage(newLang);
+        localStorage.setItem('language', newLang);
+    };
+
+    // unreadCount is now managed via state from the API
+
+    return (
+        <div className="flex min-h-screen w-full bg-slate-100/30">
+            <Sidebar />
+            <div className="flex flex-col flex-1 overflow-hidden relative">
+                <header className="flex h-14 items-center gap-4 border-b bg-white/70 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0">
+                    <div className="flex-1">
+                        {/* Breadcrumbs or Search */}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <button onClick={toggleLanguage} className="bg-secondary/20 border border-secondary/50 px-3 py-1.5 rounded-md text-sm hover:bg-secondary/40 transition-colors font-medium">
+                            {i18n.language === 'en' ? '🇰🇭 ខ្មែរ' : '🇬🇧 EN'}
+                        </button>
+
+                        {/* Notification Bell */}
+                        <div className="relative" ref={notificationRef}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="relative"
+                            onClick={() => setShowNotifications(!showNotifications)}
+                        >
+                            <Bell className="h-5 w-5" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 border-2 border-background text-white text-[10px] font-bold flex items-center justify-center">
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
+                        </Button>
+
+                        <AnimatePresence>
+                            {showNotifications && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="absolute right-0 mt-2 w-80 rounded-md border bg-card shadow-lg z-50"
+                                >
+                                    <div className="p-4 border-b bg-muted/30">
+                                        <h4 className="text-sm font-semibold">Notifications</h4>
+                                    </div>
+                                    <div className="max-h-[300px] overflow-y-auto">
+                                        {notifications.length === 0 ? (
+                                            <div className="p-8 flex flex-col items-center justify-center text-center text-sm text-muted-foreground">
+                                                <Bell className="h-8 w-8 mb-2 opacity-20" />
+                                                No new notifications
+                                            </div>
+                                        ) : (
+                                            <div className="divide-y">
+                                                {notifications.map((n) => {
+                                                    const isUnread = !n.read_at;
+                                                    return (
+                                                        <div key={n.id} className={`p-4 hover:bg-muted/50 transition-colors ${isUnread ? 'bg-blue-50/60 dark:bg-blue-900/10' : ''}`}>
+                                                            <div className="flex items-start gap-3">
+                                                                {isUnread && (
+                                                                    <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                                                                )}
+                                                                {!isUnread && <span className="mt-1.5 h-2 w-2 shrink-0" />}
+                                                                <div className="text-sm flex-1">
+                                                                    <p className={`${isUnread ? 'font-semibold text-slate-900' : 'font-medium text-slate-600'}`}>
+                                                                        {n.data?.message || "Notification"}
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {notifications.length > 0 && (
+                                        <div className="p-3 border-t bg-muted/50 text-center">
+                                            <button
+                                                onClick={markAsRead}
+                                                className="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                Mark all as read
+                                            </button>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                        </div>
+                    </div>
+                </header>
+                <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-slate-100/50">
+                    <Outlet />
+                </main>
+
+                {/* Custom Alert Toast Popup */}
+                <AnimatePresence>
+                    {toastMessage && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            className="fixed bottom-6 right-6 bg-blue-600 text-white shadow-2xl rounded-xl p-4 flex items-center gap-4 z-50 border border-blue-500/50"
+                        >
+                            <div className="bg-white/20 p-2 rounded-full h-10 w-10 flex items-center justify-center shrink-0">
+                                <Bell className="h-5 w-5 animate-bounce" />
+                            </div>
+                            <div className="min-w-[200px]">
+                                <h4 className="font-semibold text-sm">New Alert!</h4>
+                                <p className="text-sm text-blue-100">{toastMessage}</p>
+                            </div>
+                            <button 
+                                onClick={() => setToastMessage(null)}
+                                className="ml-2 text-blue-200 hover:text-white transition-colors"
+                            >
+                                &times;
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </div>
+    );
+}

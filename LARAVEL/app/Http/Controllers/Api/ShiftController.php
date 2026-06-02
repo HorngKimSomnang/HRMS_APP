@@ -1,0 +1,90 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Support\HrCatalog;
+
+class ShiftController extends Controller
+{
+    public function index()
+    {
+        $shifts = HrCatalog::getShifts();
+        return response()->json(['data' => $shifts]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'grace_period_minutes' => 'nullable|integer',
+        ]);
+
+        $shifts = HrCatalog::getShifts();
+        $shift = [
+            'id' => HrCatalog::nextId($shifts),
+            'name' => $validated['name'],
+            'start_time' => $validated['start_time'] . ':00',
+            'end_time' => $validated['end_time'] . ':00',
+            'grace_period_minutes' => $validated['grace_period_minutes'] ?? 15,
+        ];
+        $shifts[] = $shift;
+        HrCatalog::saveShifts($shifts);
+
+        return response()->json(['data' => $shift, 'message' => 'Shift created successfully.']);
+    }
+
+    public function show($id)
+    {
+        $shift = HrCatalog::findShiftById((int) $id);
+        if (!$shift) {
+            return response()->json(['message' => 'Shift not found.'], 404);
+        }
+
+        return response()->json(['data' => $shift]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'start_time' => 'required|date_format:H:i:s,H:i',
+            'end_time' => 'required|date_format:H:i:s,H:i',
+            'grace_period_minutes' => 'nullable|integer',
+        ]);
+
+        $shifts = HrCatalog::getShifts();
+        $updated = null;
+        foreach ($shifts as &$shift) {
+            if ((int) ($shift['id'] ?? 0) === (int) $id) {
+                $shift['name'] = $validated['name'];
+                $shift['start_time'] = strlen($validated['start_time']) === 5 ? $validated['start_time'] . ':00' : $validated['start_time'];
+                $shift['end_time'] = strlen($validated['end_time']) === 5 ? $validated['end_time'] . ':00' : $validated['end_time'];
+                $shift['grace_period_minutes'] = (int) ($validated['grace_period_minutes'] ?? 15);
+                $updated = $shift;
+                break;
+            }
+        }
+
+        if (!$updated) {
+            return response()->json(['message' => 'Shift not found.'], 404);
+        }
+
+        HrCatalog::saveShifts($shifts);
+
+        return response()->json(['data' => $updated, 'message' => 'Shift updated successfully.']);
+    }
+
+    public function destroy($id)
+    {
+        $shifts = array_values(array_filter(
+            HrCatalog::getShifts(),
+            fn ($shift) => (int) ($shift['id'] ?? 0) !== (int) $id
+        ));
+        HrCatalog::saveShifts($shifts);
+        return response()->json(['message' => 'Shift deleted successfully.']);
+    }
+}
