@@ -16,6 +16,7 @@ class Task extends Model
         'due_date',
         'attachment_path',
         'submission_path',
+        'submission_note',
     ];
 
     public function employee()

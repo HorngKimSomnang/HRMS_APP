@@ -100,6 +100,10 @@ class TaskController extends Controller
                 $task->submission_path = $request->file('submission')->store('tasks/submissions', 'public');
             }
             
+            if ($request->has('submission_note')) {
+                $task->submission_note = $request->submission_note;
+            }
+            
             $task->save();
 
             // Notify admins when task is completed

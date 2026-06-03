@@ -189,7 +189,6 @@ export default function AuditLogs() {
 
     // Derived stats from current page
     const godModeCount   = logs.filter(l => l.context?.override === true).length;
-    const failedLogins   = logs.filter(l => l.action === "LOGIN_FAILED").length;
     const superAdminActs = logs.filter(l => l.role === "Super Admin").length;
     const adminActs      = logs.filter(l => l.role === "Admin").length;
 

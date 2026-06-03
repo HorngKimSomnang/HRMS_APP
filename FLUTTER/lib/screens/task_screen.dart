@@ -3,6 +3,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import '../l10n/app_localizations.dart';
 import '../services/task_service.dart';
 import '../core/constants.dart';
 
@@ -164,16 +166,16 @@ class _TaskScreenState extends State<TaskScreen> {
     }
   }
 
-  void _showTaskDetails(BuildContext context, dynamic task) {
+  void _showTaskDetails(BuildContext context, Map<String, dynamic> task) {
+    String? localSheetFilePath;
+    final TextEditingController noteController = TextEditingController(text: task['submission_note'] ?? '');
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
-        String? localSheetFilePath;
-        
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             final isCompleted = task['status'] == 'completed';
@@ -270,8 +272,40 @@ class _TaskScreenState extends State<TaskScreen> {
                   ),
               ],
               
+              if (task['submission_note'] != null && (task['submission_note'] as String).isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text('Submission Note', style: GoogleFonts.notoSansKhmer(fontSize: 14, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green.shade200)),
+                  child: Text(
+                    task['submission_note'],
+                    style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.green.shade800),
+                  ),
+                ),
+              ],
+              
               const SizedBox(height: 24),
               
+              if (!isCompleted) ...[
+                 TextField(
+                   controller: noteController,
+                   decoration: InputDecoration(
+                     hintText: 'Add a note or remark (optional)',
+                     hintStyle: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey),
+                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue)),
+                     filled: true,
+                     fillColor: Colors.white,
+                   ),
+                   maxLines: 2,
+                 ),
+                 const SizedBox(height: 16),
+              ],
+
               if (localSheetFilePath == null)
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -312,20 +346,25 @@ class _TaskScreenState extends State<TaskScreen> {
                     Navigator.pop(ctx);
                     if (!isCompleted || localSheetFilePath != null) {
                         if (localSheetFilePath != null) {
-                            // Capture messenger before async gap
                             final messenger = ScaffoldMessenger.of(context);
-                            // User explicitly attached a file in the sheet, submit it directly
                             setState(() { task['status'] = 'completed'; });
                             try {
-                              await _taskService.updateTaskWithSubmission(task['id'], 'completed', filePath: localSheetFilePath);
+                              await _taskService.updateTaskWithSubmission(task['id'], 'completed', filePath: localSheetFilePath, note: noteController.text);
                               _fetchTasks();
                             } catch (e) {
                               _fetchTasks();
                               if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
                             }
                         } else if (!isCompleted) {
-                            // Run the standard toggle which prompts via Dialog
-                            _toggleStatus(task);
+                            final messenger = ScaffoldMessenger.of(context);
+                            setState(() { task['status'] = 'completed'; });
+                            try {
+                              await _taskService.updateTaskWithSubmission(task['id'], 'completed', note: noteController.text);
+                              _fetchTasks();
+                            } catch (e) {
+                              _fetchTasks();
+                              if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
+                            }
                         }
                     }
                   },
@@ -362,7 +401,7 @@ class _TaskScreenState extends State<TaskScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('My Tasks', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context)!.myTasks, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
         centerTitle: true,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
@@ -375,9 +414,9 @@ class _TaskScreenState extends State<TaskScreen> {
         ),
         foregroundColor: Colors.white,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
+      body: Skeletonizer(
+        enabled: _loading,
+        child: _error != null && !_loading
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -399,7 +438,7 @@ class _TaskScreenState extends State<TaskScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: _fetchTasks,
-                  child: _tasks.isEmpty
+                  child: (_tasks.isEmpty && !_loading)
                       ? ListView(
                           children: [
                             const SizedBox(height: 150),
@@ -414,10 +453,16 @@ class _TaskScreenState extends State<TaskScreen> {
                           ],
                         )
                       : ListView.builder(
-                          itemCount: _tasks.length,
+                          itemCount: _loading ? 3 : _tasks.length,
                           padding: const EdgeInsets.all(16),
                           itemBuilder: (context, index) {
-                            final task = _tasks[index];
+                            final task = _loading ? {
+                              'title': 'Loading Task...',
+                              'description': 'Loading description...',
+                              'due_date': '2023-01-01',
+                              'priority': 'medium',
+                              'status': 'pending'
+                            } : _tasks[index];
                             final isCompleted = task['status'] == 'completed';
                             final priorityColor = _getPriorityColor(task['priority'] ?? 'low');
                             
@@ -526,6 +571,7 @@ class _TaskScreenState extends State<TaskScreen> {
                           },
                         ),
                 ),
+      ),
     );
   }
 }

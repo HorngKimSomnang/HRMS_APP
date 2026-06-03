@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import '../l10n/app_localizations.dart';
 import '../services/leave_service.dart';
 import '../providers/leave_provider.dart';
 
@@ -119,7 +121,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50], // Light background
       appBar: AppBar(
-        title: Text('New Request', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context)!.newRequest, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -140,7 +142,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 1. Leave Type Dropdown
-              Text("Leave Type", style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+              Text(AppLocalizations.of(context)!.leaveType, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -150,14 +152,14 @@ class _LeaveScreenState extends State<LeaveScreen> {
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
                   border: Border.all(color: Colors.grey.shade100),
                 ),
-                child: _loadingTypes 
-                  ? const Center(child: Padding(padding: EdgeInsets.all(12), child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))))
-                  : DropdownButtonHideUnderline(
+                child: Skeletonizer(
+                  enabled: _loadingTypes,
+                  child: DropdownButtonHideUnderline(
                   child: DropdownButtonFormField<int>(
                     value: provider.selectedType != null ? provider.selectedType['id'] as int : null,
                     decoration: const InputDecoration(border: InputBorder.none, icon: Icon(LucideIcons.list, size: 18, color: Color(0xFF2563EB))),
-                    hint: Text('Select Type', style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
-                    items: _leaveTypes.map<DropdownMenuItem<int>>((type) {
+                    hint: Text(AppLocalizations.of(context)!.selectType, style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
+                    items: (_loadingTypes ? [{'id': 1, 'name': 'Loading...'}] : _leaveTypes).map<DropdownMenuItem<int>>((type) {
                       return DropdownMenuItem<int>(
                         value: type['id'] as int, 
                         child: Text(type['name'].toString(), style: GoogleFonts.notoSansKhmer())
@@ -172,6 +174,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     validator: (v) => v == null ? 'Required' : null,
                   ),
                 ),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -182,7 +185,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Start Date", style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                        Text(AppLocalizations.of(context)!.startDate, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                         const SizedBox(height: 8),
                         _DateSelector(
                           label: 'From',
@@ -197,7 +200,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("End Date", style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                        Text(AppLocalizations.of(context)!.endDate, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                         const SizedBox(height: 8),
                         _DateSelector(
                           label: 'To',
@@ -212,7 +215,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
               const SizedBox(height: 20),
 
               // 3. Reason
-              Text("Reason", style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+              Text(AppLocalizations.of(context)!.reason, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
@@ -224,7 +227,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 child: TextFormField(
                   controller: provider.reasonController,
                   decoration: InputDecoration(
-                    hintText: 'Enter reason for leave...',
+                    hintText: AppLocalizations.of(context)!.enterReasonForLeave,
                     hintStyle: GoogleFonts.notoSansKhmer(color: Colors.grey[400]),
                     contentPadding: const EdgeInsets.all(16),
                     border: InputBorder.none,
@@ -256,7 +259,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                           children: [
                             const Icon(LucideIcons.send, size: 20),
                             const SizedBox(width: 8),
-                            Text('Submit Request', style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w700)),
+                            Text(AppLocalizations.of(context)!.submitRequest, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w700)),
                           ],
                         ),
                 ),
@@ -295,7 +298,7 @@ class _DateSelector extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                date == null ? 'Select Date' : DateFormat('dd MMM yyyy').format(date!),
+                date == null ? AppLocalizations.of(context)!.selectDate : DateFormat('dd MMM yyyy').format(date!),
                 style: GoogleFonts.notoSansKhmer(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -380,16 +383,21 @@ class _HistorySheetState extends State<_HistorySheet> {
                 child: Text("Leave History", style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
               Expanded(
-                child: _loading 
-                  ? const Center(child: CircularProgressIndicator())
-                  : _leaves.isEmpty 
+                child: Skeletonizer(
+                  enabled: _loading,
+                  child: (_leaves.isEmpty && !_loading)
                     ? Center(child: Text("No history", style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
                     : ListView.builder(
                         controller: controller,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: _leaves.length,
+                        itemCount: _loading ? 3 : _leaves.length,
                         itemBuilder: (context, index) {
-                          final leave = _leaves[index];
+                          final leave = _loading ? {
+                            'leave_type': {'name': 'Loading...'},
+                            'start_date': '2023-01-01',
+                            'end_date': '2023-01-02',
+                            'status': 'pending'
+                          } : _leaves[index];
                           final color = _getStatusColor(leave['status']);
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -411,6 +419,7 @@ class _HistorySheetState extends State<_HistorySheet> {
                           );
                         },
                       ),
+                ),
               ),
             ],
           ),

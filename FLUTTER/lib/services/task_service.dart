@@ -19,18 +19,27 @@ class TaskService {
     }
   }
 
-  Future<void> updateTaskWithSubmission(int id, String status, {String? filePath}) async {
+  Future<void> updateTaskWithSubmission(int id, String status, {String? filePath, String? note}) async {
     try {
-      if (filePath == null) {
+      if (filePath == null && note == null) {
          await _apiService.client.put('/tasks/$id', data: {'status': status});
          return;
       }
       
-      final formData = FormData.fromMap({
+      final Map<String, dynamic> formDataMap = {
         '_method': 'PUT',
         'status': status,
-        'submission': await MultipartFile.fromFile(filePath),
-      });
+      };
+      
+      if (note != null && note.isNotEmpty) {
+        formDataMap['submission_note'] = note;
+      }
+      
+      if (filePath != null) {
+        formDataMap['submission'] = await MultipartFile.fromFile(filePath);
+      }
+
+      final formData = FormData.fromMap(formDataMap);
       await _apiService.client.post(
         '/tasks/$id', 
         data: formData,

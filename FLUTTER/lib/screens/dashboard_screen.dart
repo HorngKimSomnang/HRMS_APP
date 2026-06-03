@@ -19,6 +19,7 @@ import 'payroll_screen.dart';
 import 'payslip_screen.dart';
 import 'overtime_screen.dart';
 import 'document_viewer_screen.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -225,8 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           }
 
                           if (fileUrl != null) {
-                            Navigator.push(
-                              context,
+                            Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
                                 builder: (context) => DocumentViewerScreen(
                                   fileUrl: fileUrl!,
@@ -249,11 +249,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Loading State
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    // Mock user for skeleton loading
+    final displayUser = _loading ? {
+      'name': 'Loading Name...',
+      'needs_password_change': false,
+      'employee': {
+        'employee_code': 'EMP000',
+        'shift': null,
+      }
+    } : _user;
 
     // 2. Error State (Retry UI)
-    if (_user == null) {
+    if (!_loading && _user == null) {
       return Scaffold(
         body: Center(
           child: Padding(
@@ -304,18 +311,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // 3. Success State (Dashboard)
+    // 3. Success State & Skeleton State (Dashboard)
     return Scaffold(
       backgroundColor: Colors.grey[50], // Light Background
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: Skeletonizer(
+        enabled: _loading,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               const SizedBox(height: 40),
               
-              if (_user?['needs_password_change'] == true)
+              if (displayUser?['needs_password_change'] == true)
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
@@ -460,7 +469,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 12),
                       CircleAvatar(
                         backgroundColor: Colors.blue,
-                        child: Text(_user?['name']?[0] ?? 'U', style: const TextStyle(color: Colors.white)),
+                        backgroundImage: displayUser?['employee']?['profile_picture_url'] != null 
+                            ? NetworkImage(displayUser!['employee']['profile_picture_url']) 
+                            : null,
+                        child: displayUser?['employee']?['profile_picture_url'] == null 
+                            ? Text(displayUser?['name']?[0] ?? 'U', style: const TextStyle(color: Colors.white))
+                            : null,
                       ),
                     ],
                   ),
@@ -491,8 +505,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           Text(AppLocalizations.of(context)!.welcomeBack, style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
-                          Text(_user?['name'] ?? 'Employee', style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 16)),
-                          Text(_user?['employee']?['employee_code'] ?? 'ID: --', style: GoogleFonts.notoSansKhmer(color: Colors.white70, fontSize: 14)),
+                          Text(displayUser?['name'] ?? 'Employee', style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 16)),
+                          Text(displayUser?['employee']?['employee_code'] ?? 'ID: --', style: GoogleFonts.notoSansKhmer(color: Colors.white70, fontSize: 14)),
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -501,9 +515,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              _user?['employee']?['shift'] != null 
-                              ? "Shift: ${_user!['employee']['shift']['start_time'].substring(0, 5)} - ${_user!['employee']['shift']['end_time'].substring(0, 5)}"
-                              : "Standard Shift (No grace period)", 
+                              displayUser?['employee']?['shift'] != null 
+                              ? "Shift: ${displayUser!['employee']['shift']['start_time'].substring(0, 5)} - ${displayUser['employee']['shift']['end_time'].substring(0, 5)}"
+                              : (displayUser?['employee']?['job_title'] != null ? "Role: ${displayUser!['employee']['job_title']}" : AppLocalizations.of(context)!.standardShift), 
                               style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)
                             ),
                           ),
@@ -516,9 +530,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
 
               const SizedBox(height: 20),
-
+              
               // Today's Attendance — Primary action
-              Text("Today's Attendance", style: GoogleFonts.notoSansKhmer(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(AppLocalizations.of(context)!.todaysAttendance, style: GoogleFonts.notoSansKhmer(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               if (_statusMessage != null)
                 Padding(
@@ -543,7 +557,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             const Icon(LucideIcons.logIn, color: Colors.green, size: 32),
                             const SizedBox(height: 8),
-                            Text('Check-In', style: GoogleFonts.notoSansKhmer(color: Colors.black87, fontWeight: FontWeight.bold)),
+                            Text(AppLocalizations.of(context)!.checkIn, style: GoogleFonts.notoSansKhmer(color: Colors.black87, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -566,7 +580,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             const Icon(LucideIcons.logOut, color: Colors.orange, size: 32),
                             const SizedBox(height: 8),
-                            Text('Check-Out', style: GoogleFonts.notoSansKhmer(color: Colors.black87, fontWeight: FontWeight.bold)),
+                            Text(AppLocalizations.of(context)!.checkOut, style: GoogleFonts.notoSansKhmer(color: Colors.black87, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -606,8 +620,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("My Payslips", style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, fontSize: 16, color: const Color(0xFF1E293B))),
-                            Text("View and download your salary slips", style: GoogleFonts.notoSansKhmer(fontSize: 12, color: Colors.grey.shade600)),
+                            Text(AppLocalizations.of(context)!.myPayslips, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, fontSize: 16, color: const Color(0xFF1E293B))),
+                            Text(AppLocalizations.of(context)!.viewSalarySlips, style: GoogleFonts.notoSansKhmer(fontSize: 12, color: Colors.grey.shade600)),
                           ],
                         ),
                       ),
@@ -645,7 +659,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: _QuickActionIcon(
                       icon: LucideIcons.wallet,
                       color: const Color(0xFF14B8A6),
-                      title: 'Requests',
+                      title: AppLocalizations.of(context)!.requests,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PayrollScreen(initialTabIndex: 0))),
                     ),
                   ),
@@ -663,6 +677,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -39,10 +39,11 @@ Route::get('/download/{path}', function ($path) {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
+    Route::put('/profile/update', [AuthController::class, 'updateProfile']);
     Route::get('/user', [AuthController::class, 'me']);
     
-    Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
     
+
     // Announcements & Holidays (Public read, admin write handled in controller or leave open for now)
     Route::get('/announcements/latest', [\App\Http\Controllers\Api\AnnouncementController::class, 'latest']);
     Route::apiResource('announcements', \App\Http\Controllers\Api\AnnouncementController::class);
@@ -62,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('payslips', \App\Http\Controllers\Api\PayslipController::class);
     Route::post('payslips/{payslip}/sign', [\App\Http\Controllers\Api\PayslipController::class, 'sign']);
     Route::apiResource('payroll-requests', \App\Http\Controllers\Api\PayrollRequestController::class);
+    Route::apiResource('overtimes', \App\Http\Controllers\Api\OvertimeController::class);
     
     // Dashboard & Notifications
     Route::get('/dashboard', [\App\Http\Controllers\Api\DashboardController::class, 'index']);
@@ -75,7 +77,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // ==========================================
     Route::middleware('role:Super Admin|Admin')->group(function () {
         Route::apiResource('employees', \App\Http\Controllers\Api\EmployeeController::class);
-        Route::apiResource('overtimes', \App\Http\Controllers\Api\OvertimeController::class);
         
         // Reports
         Route::get('/reports/attendance', [\App\Http\Controllers\Api\ReportController::class, 'attendanceReport']);
@@ -101,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/settings', [\App\Http\Controllers\Api\SettingController::class, 'update']);
         Route::post('/settings/logo', [\App\Http\Controllers\Api\SettingController::class, 'uploadLogo']);
         Route::apiResource('shifts', \App\Http\Controllers\Api\ShiftController::class);
+        Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
         Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index']);
     });
 });

@@ -64,7 +64,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       };
 
-      await _apiService.client.put('/employees/$employeeId', data: data);
+      await _apiService.client.put('/profile/update', data: data);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

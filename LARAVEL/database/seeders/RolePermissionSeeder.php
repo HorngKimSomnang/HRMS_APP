@@ -25,41 +25,49 @@ class RolePermissionSeeder extends Seeder
             'manage employees',
             'manage attendance',
             'manage leaves',
+            'manage payroll',
             'view reports',
             'check in',
             'check out',
+            // Super Admin specific
+            'manage admins',
+            'manage roles',
+            'configure settings',
+            'view audit logs',
+            'manage backups',
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
         // Create Roles and Assign Created Permissions
 
         // Super Admin
-        $superAdminRole = Role::create(['name' => 'Super Admin']);
+        $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);
         // Super Admin gets all permissions
         $superAdminRole->givePermissionTo(Permission::all());
 
         // Admin (HR Manager)
-        $adminRole = Role::create(['name' => 'Admin']);
-        $adminRole->givePermissionTo([
+        $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+        $adminRole->syncPermissions([
             'view dashboard',
-            'manage companies', // Maybe restricted?
-            'manage branches', // Maybe restricted?
+            'manage companies',
+            'manage branches',
             'manage departments',
             'manage employees',
             'manage attendance',
             'manage leaves',
+            'manage payroll',
             'view reports',
         ]);
 
         // Employee
-        $employeeRole = Role::create(['name' => 'Employee']);
-        $employeeRole->givePermissionTo([
+        $employeeRole = Role::firstOrCreate(['name' => 'Employee']);
+        $employeeRole->syncPermissions([
             'check in',
             'check out',
-            'view dashboard', // maybe their own dashboard
+            'view dashboard',
         ]);
     }
 }

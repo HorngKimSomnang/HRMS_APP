@@ -96,6 +96,15 @@ class OvertimeController extends Controller
                     'calculated_pay' => round($otPay, 2),
                 ]);
             }
+            
+            // Notify employee if status changed
+            if ($oldStatus !== $request->status) {
+                try {
+                    $overtime->employee?->user?->notify(new \App\Notifications\OvertimeStatusUpdated($overtime));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send overtime notification: ' . $e->getMessage());
+                }
+            }
         } else {
             if (!$user->employee || $overtime->employee_id !== $user->employee->id) {
                 return response()->json(['message' => 'Unauthorized'], 403);

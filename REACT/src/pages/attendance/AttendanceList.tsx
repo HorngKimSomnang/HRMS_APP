@@ -38,7 +38,7 @@ export default function AttendanceList() {
         if (!manualTime || !selectedRecord) return;
         
         api.put(`/attendance/${selectedRecord.id}/manual-clock-out`, { clock_out_time: manualTime })
-            .then(res => {
+            .then(() => {
                 setShowModal(false);
                 setManualTime("");
                 fetchAttendances();

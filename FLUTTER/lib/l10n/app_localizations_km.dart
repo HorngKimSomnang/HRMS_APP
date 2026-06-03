@@ -136,4 +136,61 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get overtime => 'ថែមម៉ោង';
+
+  @override
+  String get hrPortal => 'វិបផតថល HR';
+
+  @override
+  String get standardShift => 'វេនធម្មតា';
+
+  @override
+  String get todaysAttendance => 'វត្តមានថ្ងៃនេះ';
+
+  @override
+  String get checkIn => 'ចូលធ្វើការ';
+
+  @override
+  String get checkOut => 'ចេញពីធ្វើការ';
+
+  @override
+  String get myPayslips => 'ប័ណ្ណប្រាក់ខែរបស់ខ្ញុំ';
+
+  @override
+  String get viewSalarySlips => 'មើលនិងទាញយកប័ណ្ណប្រាក់ខែរបស់អ្នក';
+
+  @override
+  String get requests => 'សំណើផ្សេងៗ';
+
+  @override
+  String get newRequest => 'សំណើថ្មី';
+
+  @override
+  String get leaveType => 'ប្រភេទច្បាប់';
+
+  @override
+  String get selectType => 'ជ្រើសរើសប្រភេទ';
+
+  @override
+  String get startDate => 'ថ្ងៃចាប់ផ្តើម';
+
+  @override
+  String get endDate => 'ថ្ងៃបញ្ចប់';
+
+  @override
+  String get selectDate => 'ជ្រើសរើសថ្ងៃ';
+
+  @override
+  String get reason => 'មូលហេតុ';
+
+  @override
+  String get enterReasonForLeave => 'បញ្ចូលមូលហេតុនៃការសុំច្បាប់...';
+
+  @override
+  String get submitRequest => 'បញ្ជូនសំណើ';
+
+  @override
+  String get myTasks => 'កិច្ចការរបស់ខ្ញុំ';
+
+  @override
+  String get medium => 'មធ្យម';
 }

@@ -22,6 +22,7 @@ return new class extends Migration
             $table->date('due_date')->nullable();
             $table->string('attachment_path')->nullable()->comment('File added by admin');
             $table->string('submission_path')->nullable()->comment('File added by employee upon completion');
+            $table->text('submission_note')->nullable();
             $table->timestamps();
         });
     }

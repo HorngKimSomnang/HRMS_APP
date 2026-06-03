@@ -355,6 +355,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Overtime'**
   String get overtime;
+
+  /// No description provided for @hrPortal.
+  ///
+  /// In en, this message translates to:
+  /// **'HR Portal'**
+  String get hrPortal;
+
+  /// No description provided for @standardShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard Shift'**
+  String get standardShift;
+
+  /// No description provided for @todaysAttendance.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Attendance'**
+  String get todaysAttendance;
+
+  /// No description provided for @checkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Check-In'**
+  String get checkIn;
+
+  /// No description provided for @checkOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Check-Out'**
+  String get checkOut;
+
+  /// No description provided for @myPayslips.
+  ///
+  /// In en, this message translates to:
+  /// **'My Payslips'**
+  String get myPayslips;
+
+  /// No description provided for @viewSalarySlips.
+  ///
+  /// In en, this message translates to:
+  /// **'View and download your salary slips'**
+  String get viewSalarySlips;
+
+  /// No description provided for @requests.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests'**
+  String get requests;
+
+  /// No description provided for @newRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'New Request'**
+  String get newRequest;
+
+  /// No description provided for @leaveType.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Type'**
+  String get leaveType;
+
+  /// No description provided for @selectType.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Type'**
+  String get selectType;
+
+  /// No description provided for @startDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Date'**
+  String get startDate;
+
+  /// No description provided for @endDate.
+  ///
+  /// In en, this message translates to:
+  /// **'End Date'**
+  String get endDate;
+
+  /// No description provided for @selectDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Date'**
+  String get selectDate;
+
+  /// No description provided for @reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get reason;
+
+  /// No description provided for @enterReasonForLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter reason for leave...'**
+  String get enterReasonForLeave;
+
+  /// No description provided for @submitRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Request'**
+  String get submitRequest;
+
+  /// No description provided for @myTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'My Tasks'**
+  String get myTasks;
+
+  /// No description provided for @medium.
+  ///
+  /// In en, this message translates to:
+  /// **'MEDIUM'**
+  String get medium;
 }
 
 class _AppLocalizationsDelegate

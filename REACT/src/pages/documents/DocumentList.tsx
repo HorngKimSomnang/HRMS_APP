@@ -4,6 +4,7 @@ import api from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { FileText, Download, Trash2, Upload, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import UploadDocumentModal from './UploadDocumentModal';
 import EditDocumentModal from './EditDocumentModal';
 

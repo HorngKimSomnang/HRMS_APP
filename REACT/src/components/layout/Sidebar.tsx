@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Users, CalendarCheck, Settings, LogOut,
     FileText, CheckSquare, FileBarChart, Wallet, Clock,
-    Building2, ShieldCheck, UserCog, ChevronRight, ClipboardList, ScrollText
+    Building2, ShieldCheck, UserCog, ChevronRight, ScrollText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';

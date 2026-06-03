@@ -25,10 +25,7 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request)
     {
-        // Only Super Admin can assign the Super Admin role
-        if ($request->role === 'Super Admin' && !auth()->user()->hasRole('Super Admin')) {
-            return $this->errorResponse('Only a Super Admin can create another Super Admin account.', 403);
-        }
+        // Role is guaranteed to be Super Admin or managed by one.
 
         $user = User::create([
             'name'     => $request->name,
@@ -51,15 +48,9 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user)
     {
-        // Check if target is Super Admin and current user is NOT Super Admin
-        if ($user->hasRole('Super Admin') && !auth()->user()->hasRole('Super Admin')) {
-            return $this->errorResponse('You do not have permission to modify a Super Admin.', 403);
-        }
+        // Check removed: Route is guarded by Super Admin middleware
 
-        // Prevent role escalation: Admin cannot assign Super Admin role
-        if ($request->role === 'Super Admin' && !auth()->user()->hasRole('Super Admin')) {
-            return $this->errorResponse('Only a Super Admin can assign the Super Admin role.', 403);
-        }
+
 
         $userData = [
             'name'  => $request->name,
@@ -82,10 +73,7 @@ class UserController extends Controller
             return $this->errorResponse('Cannot delete yourself', 403);
         }
 
-        // Check if target is Super Admin and current user is NOT Super Admin
-        if ($user->hasRole('Super Admin') && !auth()->user()->hasRole('Super Admin')) {
-            return $this->errorResponse('You do not have permission to delete a Super Admin.', 403);
-        }
+        // Check removed: Route is guarded by Super Admin middleware
 
         $user->delete();
         return $this->successResponse(null, 'User deleted successfully');

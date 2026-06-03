@@ -136,4 +136,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get overtime => 'Overtime';
+
+  @override
+  String get hrPortal => 'HR Portal';
+
+  @override
+  String get standardShift => 'Standard Shift';
+
+  @override
+  String get todaysAttendance => 'Today\'s Attendance';
+
+  @override
+  String get checkIn => 'Check-In';
+
+  @override
+  String get checkOut => 'Check-Out';
+
+  @override
+  String get myPayslips => 'My Payslips';
+
+  @override
+  String get viewSalarySlips => 'View and download your salary slips';
+
+  @override
+  String get requests => 'Requests';
+
+  @override
+  String get newRequest => 'New Request';
+
+  @override
+  String get leaveType => 'Leave Type';
+
+  @override
+  String get selectType => 'Select Type';
+
+  @override
+  String get startDate => 'Start Date';
+
+  @override
+  String get endDate => 'End Date';
+
+  @override
+  String get selectDate => 'Select Date';
+
+  @override
+  String get reason => 'Reason';
+
+  @override
+  String get enterReasonForLeave => 'Enter reason for leave...';
+
+  @override
+  String get submitRequest => 'Submit Request';
+
+  @override
+  String get myTasks => 'My Tasks';
+
+  @override
+  String get medium => 'MEDIUM';
 }

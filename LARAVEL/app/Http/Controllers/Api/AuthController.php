@@ -106,4 +106,32 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password changed successfully.']);
     }
+
+    public function updateProfile(Request $request) {
+        $user = $request->user();
+        $employee = $user->employee;
+        if (!$employee) {
+            return response()->json(['message' => 'No employee record found'], 404);
+        }
+
+        if ($request->has('email')) {
+            $user->email = $request->email;
+            $user->save();
+        }
+
+        if ($request->has('phone')) $employee->phone = $request->phone;
+        if ($request->has('address')) $employee->address = $request->address;
+        
+        if ($request->has('documents')) {
+            $employee->documents = $request->documents;
+        }
+        
+        $employee->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'user' => $user->fresh(['roles', 'employee'])
+        ]);
+    }
 }

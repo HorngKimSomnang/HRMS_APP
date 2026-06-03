@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
-import { Users, Server, Activity, ShieldCheck } from "lucide-react";
+import { Users, Activity, ShieldCheck } from "lucide-react";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 

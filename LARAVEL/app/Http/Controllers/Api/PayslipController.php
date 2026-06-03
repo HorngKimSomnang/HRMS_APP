@@ -89,6 +89,14 @@ class PayslipController extends Controller
             'net_salary' => $net_salary,
         ]);
 
+        if (in_array($payslip->status, ['approved', 'paid'])) {
+            try {
+                $payslip->employee?->user?->notify(new \App\Notifications\PayslipGenerated($payslip));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send payslip generation notification: ' . $e->getMessage());
+            }
+        }
+
         return response()->json(['message' => 'Payslip generated successfully.', 'data' => $payslip], 201);
     }
 
@@ -132,6 +140,12 @@ class PayslipController extends Controller
             ]);
             
             $payslip->update(['status' => $request->status]);
+
+            try {
+                $payslip->employee?->user?->notify(new \App\Notifications\PayslipStatusChanged($payslip));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send payslip status notification: ' . $e->getMessage());
+            }
         }
 
         if ($request->hasAny(['basic_salary','overtime_amount','commission','attendance_bonus','allowances','advance_deduction','deductions'])) {

@@ -146,14 +146,6 @@ export default function TaskList() {
         }
     };
 
-    const updateStatus = async (id: number, status: string) => {
-        try {
-            await api.put(`/tasks/${id}`, { status });
-            setTasks(tasks.map(t => t.id === id ? { ...t, status } : t));
-        } catch (error) {
-            console.error("Failed to update status", error);
-        }
-    };
 
     const confirmDelete = async () => {
         if (!taskToDelete) return;
@@ -364,6 +356,16 @@ export default function TaskList() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Employee Note */}
+                            {viewTask.submission_note && (
+                                <div className="mt-2 pt-4 border-t">
+                                    <h4 className="text-sm font-semibold text-muted-foreground mb-2">Employee Remarks</h4>
+                                    <div className="bg-green-50/50 border border-green-100 p-3 rounded-md text-sm text-green-900 whitespace-pre-wrap">
+                                        {viewTask.submission_note}
+                                    </div>
+                                </div>
+                            )}
 
                         </div>
                     )}

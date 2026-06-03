@@ -8,9 +8,8 @@ class EnvConfig {
 
   /// Get the correct Base URL based on the current platform/device
   static String get baseUrl {
-    // For the demo, we will use 127.0.0.1 and rely on ADB Reverse via USB.
-    // This is 100% bulletproof and won't break if your Wi-Fi changes.
-    return 'http://127.0.0.1:$_port/api';
+    // Using the static ngrok domain so the Android device can connect over the internet
+    return 'https://lilla-semivulcanized-geopolitically.ngrok-free.dev/api';
   }
 
   /// Get the Storage/Image URL prefix

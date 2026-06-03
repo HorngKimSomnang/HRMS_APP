@@ -9,14 +9,6 @@ import { toast } from 'sonner';
 const MONTHS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-const loadLogo = (): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.src = "/logo.png";
-        img.onload = () => resolve(img);
-        img.onerror = (e) => reject(e);
-    });
-};
 
 const STATUS_CFG: any = {
     draft:    { label:"Draft",    color:"text-gray-600",    bg:"bg-gray-50",    border:"border-gray-200",    icon: Clock },
@@ -152,17 +144,17 @@ export default function PayrollAdmin() {
             const formatMoney = (val: any) => `$${parseFloat(val || "0").toFixed(2)}`;
 
             const tableData = [
-                [{ content: "EARNINGS", colSpan: 2, styles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' } }],
+                [{ content: "EARNINGS", colSpan: 2, styles: { fillColor: [16, 185, 129] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const } }],
                 ["Basic Salary", formatMoney(slip.basic_salary)],
                 ["Overtime", formatMoney(slip.overtime_amount)],
                 ["Commission", formatMoney(slip.commission)],
                 ["Attendance Bonus", formatMoney(slip.attendance_bonus)],
                 ["Allowances", formatMoney(slip.allowances)],
-                [{ content: "DEDUCTIONS", colSpan: 2, styles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: 'bold' } }],
+                [{ content: "DEDUCTIONS", colSpan: 2, styles: { fillColor: [239, 68, 68] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const } }],
                 ["Tax", formatMoney(slip.tax || "0")],
                 ["Advance Deduction", formatMoney(slip.advance_deduction)],
                 ["Other Deductions", formatMoney(slip.deductions)],
-                [{ content: "NET SALARY", styles: { fontStyle: 'bold' } }, { content: formatMoney(slip.net_salary), styles: { fontStyle: 'bold' } }]
+                [{ content: "NET SALARY", styles: { fontStyle: 'bold' as const } }, { content: formatMoney(slip.net_salary), styles: { fontStyle: 'bold' as const } }]
             ];
 
             autoTable(doc, {
@@ -303,17 +295,17 @@ export default function PayrollAdmin() {
                 const formatMoney = (val: any) => `$${parseFloat(val || "0").toFixed(2)}`;
 
                 const tableData = [
-                    [{ content: "EARNINGS", colSpan: 2, styles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' } }],
+                    [{ content: "EARNINGS", colSpan: 2, styles: { fillColor: [16, 185, 129] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const } }],
                     ["Basic Salary", formatMoney(slip.basic_salary)],
                     ["Overtime", formatMoney(slip.overtime_amount)],
                     ["Commission", formatMoney(slip.commission)],
                     ["Attendance Bonus", formatMoney(slip.attendance_bonus)],
                     ["Allowances", formatMoney(slip.allowances)],
-                    [{ content: "DEDUCTIONS", colSpan: 2, styles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: 'bold' } }],
+                    [{ content: "DEDUCTIONS", colSpan: 2, styles: { fillColor: [239, 68, 68] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const } }],
                     ["Tax", formatMoney(slip.tax || "0")],
                     ["Advance Deduction", formatMoney(slip.advance_deduction)],
                     ["Other Deductions", formatMoney(slip.deductions)],
-                    [{ content: "NET SALARY", styles: { fontStyle: 'bold' } }, { content: formatMoney(slip.net_salary), styles: { fontStyle: 'bold' } }]
+                    [{ content: "NET SALARY", styles: { fontStyle: 'bold' as const } }, { content: formatMoney(slip.net_salary), styles: { fontStyle: 'bold' as const } }]
                 ];
 
                 autoTable(doc, {

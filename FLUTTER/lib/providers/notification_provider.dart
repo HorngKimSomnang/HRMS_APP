@@ -3,6 +3,8 @@ import 'dart:async';
 import '../services/notification_service.dart';
 import '../services/local_notification_service.dart';
 
+import 'package:flutter/services.dart';
+
 class NotificationProvider with ChangeNotifier {
   final NotificationService _service = NotificationService();
 
@@ -48,6 +50,10 @@ class NotificationProvider with ChangeNotifier {
         if (_lastSeenId != null && _lastSeenId != latestId) {
           // Trigger local in-app notification!
           final latestData = _notifications.first['data'] ?? {};
+          
+          // Trigger physical vibration
+          HapticFeedback.vibrate();
+          
           LocalNotificationService().showNotification(
             id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
             title: 'New HRMS Alert',
