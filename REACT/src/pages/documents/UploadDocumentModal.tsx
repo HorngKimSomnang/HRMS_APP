@@ -33,7 +33,7 @@ export default function UploadDocumentModal({ isOpen, onClose, onSuccess }: Uplo
 
     const fetchEmployees = async () => {
         try {
-            const response = await api.get('/employees');
+            const response = await api.get('/employees?status=active&all=true');
             setEmployees(response.data.data);
         } catch (err) {
             console.error("Failed to fetch employees", err);

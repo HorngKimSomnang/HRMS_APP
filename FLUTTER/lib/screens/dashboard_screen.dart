@@ -15,9 +15,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../l10n/app_localizations.dart';
 import 'holiday_screen.dart';
-import 'payroll_screen.dart';
 import 'payslip_screen.dart';
 import 'overtime_screen.dart';
+import 'attendance_history_screen.dart';
 import 'document_viewer_screen.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -163,9 +163,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (isClockIn) {
         await _attendanceService.clockIn(position.latitude, position.longitude);
         _statusMessage = "Clocked In at: $locationName";
+        _loadData();
       } else {
         await _attendanceService.clockOut(position.latitude, position.longitude);
         _statusMessage = "Clocked Out from: $locationName";
+        _loadData();
       }
       _isSuccess = true;
 
@@ -179,6 +181,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _showMyDocuments(BuildContext context, dynamic attachments) {
     List docs = (attachments is List) ? attachments : [];
+    
+    // Categorize documents into Personal vs Work
+    final personalDocs = docs.where((doc) {
+      if (doc == null || doc['name'] == null) return false;
+      final name = doc['name'].toString().toLowerCase();
+      
+      // Work keywords have highest priority for Work docs
+      final workKeywords = ['contract', 'agreement', 'policy', 'handbook', 'nda', 'company', 'work', 'employment', 'business', 'notice', 'announcement', 'task'];
+      if (workKeywords.any((keyword) => name.contains(keyword))) {
+        return false;
+      }
+
+      final personalKeywords = [
+        'national id', 'degree', 'certificate', 'cv', 'resume', 'passport', 
+        'id card', 'birth certificate', 'family book', 'diploma', 'transcript', 
+        'personal', 'academic', 'qualification', 'educational', 'license', 'engineering', 'study'
+      ];
+      return personalKeywords.any((keyword) => name.contains(keyword));
+    }).toList();
+
+    final workDocs = docs.where((doc) => !personalDocs.contains(doc)).toList();
+
+    Widget buildDocTile(dynamic doc) {
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.indigo.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(LucideIcons.fileText, color: Colors.indigo, size: 20),
+        ),
+        title: Text(doc['name'] ?? 'Document', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 14)),
+        trailing: const Icon(LucideIcons.externalLink, size: 16, color: Colors.grey),
+        onTap: () async {
+          String? fileUrl = doc['url'];
+          String? documentPath = doc['path'] ?? doc['file_path'];
+          
+          if (fileUrl == null && documentPath != null) {
+            fileUrl = '${AppConstants.storageUrl}/$documentPath';
+          }
+
+          if (fileUrl != null) {
+            Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute(
+                builder: (context) => DocumentViewerScreen(
+                  fileUrl: fileUrl!,
+                  fileName: doc['name'] ?? 'Document',
+                ),
+              ),
+            );
+          }
+        },
+      );
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -205,39 +264,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: GoogleFonts.notoSansKhmer(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              if (docs.isEmpty)
+              if (workDocs.isEmpty)
                 Expanded(child: Center(child: Text('No documents found.', style: GoogleFonts.notoSansKhmer(color: Colors.grey))))
               else
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: docs.length,
-                    itemBuilder: (c, i) {
-                      final doc = docs[i];
-                      return ListTile(
-                        leading: const Icon(LucideIcons.fileText, color: Colors.blue),
-                        title: Text(doc['name'] ?? 'Document', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
-                        trailing: const Icon(LucideIcons.externalLink, size: 16),
-                        onTap: () async {
-                          String? fileUrl = doc['url'];
-                          String? documentPath = doc['path'] ?? doc['file_path'];
-                          
-                          if (fileUrl == null && documentPath != null) {
-                            fileUrl = '${AppConstants.storageUrl}/$documentPath';
-                          }
-
-                          if (fileUrl != null) {
-                            Navigator.of(context, rootNavigator: true).push(
-                              MaterialPageRoute(
-                                builder: (context) => DocumentViewerScreen(
-                                  fileUrl: fileUrl!,
-                                  fileName: doc['name'] ?? 'Document',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
+                  child: ListView(
+                    children: workDocs.map((doc) => buildDocTile(doc)).toList(),
                   ),
                 ),
             ],
@@ -657,23 +689,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   Expanded(
                     child: _QuickActionIcon(
-                      icon: LucideIcons.wallet,
-                      color: const Color(0xFF14B8A6),
-                      title: AppLocalizations.of(context)!.requests,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PayrollScreen(initialTabIndex: 0))),
-                    ),
-                  ),
-                  Expanded(
-                    child: _QuickActionIcon(
                       icon: LucideIcons.clock,
                       color: const Color(0xFFF43F5E),
                       title: AppLocalizations.of(context)!.overtime,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OvertimeScreen())),
                     ),
                   ),
+                  Expanded(
+                    child: _QuickActionIcon(
+                      icon: LucideIcons.clipboardList,
+                      color: const Color(0xFF3B82F6),
+                      title: AppLocalizations.of(context)!.attendanceHistory,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AttendanceHistoryScreen())),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 10),
             ],
           ),
         ),

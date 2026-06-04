@@ -193,4 +193,28 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get medium => 'មធ្យម';
+
+  @override
+  String get attendanceHistory => 'ប្រវត្តិវត្តមាន';
+
+  @override
+  String get overtimeRequests => 'សំណើថែមម៉ោង';
+
+  @override
+  String get requestOvertime => 'ស្នើសុំថែមម៉ោង';
+
+  @override
+  String get noOvertimeRequests => 'មិនទាន់មានសំណើថែមម៉ោងនៅឡើយទេ';
+
+  @override
+  String get startTimeOptional => 'ម៉ោងចាប់ផ្តើម';
+
+  @override
+  String get endTimeOptional => 'ម៉ោងបញ្ចប់';
+
+  @override
+  String get totalHours => 'ចំនួនម៉ោងសរុប';
+
+  @override
+  String get date => 'កាលបរិច្ឆេទ';
 }

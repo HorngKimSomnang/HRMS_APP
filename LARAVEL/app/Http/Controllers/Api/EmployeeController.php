@@ -17,9 +17,20 @@ use Spatie\Permission\Models\Role;
 
 class EmployeeController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
-        $employees = Employee::with(['user'])->paginate(10);
+        $query = Employee::with(['user']);
+        
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('all') && $request->all == 'true') {
+            $employees = $query->get();
+            return EmployeeResource::collection($employees);
+        }
+
+        $employees = $query->paginate(10);
         return EmployeeResource::collection($employees);
     }
 
@@ -62,6 +73,20 @@ class EmployeeController extends Controller
                 'attachments' => []
             ];
 
+            if ($request->hasFile('doc_national_id')) {
+                $path = $request->file('doc_national_id')->store('employee_documents', 'public');
+                $documentsData['attachments'][] = ['name' => 'National ID', 'path' => $path];
+            }
+            if ($request->hasFile('doc_degree')) {
+                $path = $request->file('doc_degree')->store('employee_documents', 'public');
+                $documentsData['attachments'][] = ['name' => 'Degree / Certificate', 'path' => $path];
+            }
+            if ($request->hasFile('doc_cv')) {
+                $path = $request->file('doc_cv')->store('employee_documents', 'public');
+                $documentsData['attachments'][] = ['name' => 'CV / Resume', 'path' => $path];
+            }
+            
+            // Still support old "documents[]" array if any existing apps use it
             if ($request->hasFile('documents')) {
                 foreach ($request->file('documents') as $file) {
                     $path = $file->store('employee_documents', 'public');
@@ -132,6 +157,39 @@ class EmployeeController extends Controller
             return $this->errorResponse('Employee not found', 404);
         }
     }
+
+    public function attendance($id)
+    {
+        try {
+            $employee = Employee::findOrFail($id);
+            $history = \App\Models\Attendance::where('employee_id', $employee->id)
+                ->orderBy('date', 'desc')
+                ->take(10)
+                ->get();
+            return response()->json(['data' => $history]);
+        } catch (\Exception $e) {
+            return $this->errorResponse('Employee not found', 404);
+        }
+    }
+
+    public function deleteDocument($id, $name)
+    {
+        try {
+            $employee = Employee::findOrFail($id);
+            $documentsData = $employee->documents ?? [];
+            if (isset($documentsData['attachments'])) {
+                $decodedName = urldecode($name);
+                $documentsData['attachments'] = array_filter($documentsData['attachments'], function($doc) use ($decodedName) {
+                    return $doc['name'] !== $decodedName;
+                });
+                $documentsData['attachments'] = array_values($documentsData['attachments']);
+                $employee->update(['documents' => $documentsData]);
+            }
+            return response()->json(['success' => true, 'message' => 'Document deleted']);
+        } catch (\Exception $e) {
+            return $this->errorResponse('Failed to delete document', 500);
+        }
+    }
     
     public function update(\App\Http\Requests\UpdateEmployeeRequest $request, $id)
     {
@@ -160,31 +218,44 @@ class EmployeeController extends Controller
                 $employeeData['basic_salary'] = $request->salary;
             }
             
-            $existingDocs = $employee->documents ?? ['marital_status' => 'Single', 'attachments' => []];
+            $documentsData = $employee->documents ?? ['attachments' => []];
+            $documentsData['marital_status'] = $request->marital_status ?? ($documentsData['marital_status'] ?? 'Single');
+            $documentsData['name_kh'] = $request->name_kh ?? ($documentsData['name_kh'] ?? null);
+            $documentsData['emergency_contact'] = $request->emergency_contact ?? ($documentsData['emergency_contact'] ?? null);
             
-            if ($request->has('marital_status')) {
-                $existingDocs['marital_status'] = $request->marital_status;
-            }
-            if ($request->has('name_kh')) {
-                $existingDocs['name_kh'] = $request->name_kh;
-            }
-            if ($request->has('emergency_contact')) {
-                $existingDocs['emergency_contact'] = $request->emergency_contact;
+            if (!isset($documentsData['attachments'])) {
+                $documentsData['attachments'] = [];
             }
 
-            if ($request->hasFile('documents')) {
-                if (!isset($existingDocs['attachments'])) {
-                    $existingDocs['attachments'] = [];
+            // Handle specific documents
+            $docTypes = [
+                'doc_national_id' => 'National ID',
+                'doc_degree' => 'Degree / Certificate',
+                'doc_cv' => 'CV / Resume'
+            ];
+            
+            foreach ($docTypes as $field => $label) {
+                if ($request->hasFile($field)) {
+                    $path = $request->file($field)->store('employee_documents', 'public');
+                    // Remove old if exists
+                    $documentsData['attachments'] = array_filter($documentsData['attachments'], function($doc) use ($label) {
+                        return $doc['name'] !== $label;
+                    });
+                    $documentsData['attachments'][] = ['name' => $label, 'path' => $path];
                 }
+            }
+
+            // Handle legacy multiple
+            if ($request->hasFile('documents')) {
                 foreach ($request->file('documents') as $file) {
                     $path = $file->store('employee_documents', 'public');
-                    $existingDocs['attachments'][] = [
+                    $documentsData['attachments'][] = [
                         'name' => $file->getClientOriginalName(),
                         'path' => $path
                     ];
                 }
             }
-            $employeeData['documents'] = $existingDocs;
+            $employeeData['documents'] = $documentsData;
 
             if (!empty($employeeData)) $employee->update($employeeData);
 

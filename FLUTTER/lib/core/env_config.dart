@@ -3,8 +3,6 @@ class EnvConfig {
  
 
   
-  // 2. The Port your Laravel server is running on
-  static const String _port = '8000';
 
   /// Get the correct Base URL based on the current platform/device
   static String get baseUrl {

@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../services/overtime_service.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
@@ -48,6 +49,29 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
     final hoursCtrl = TextEditingController();
     final reasonCtrl = TextEditingController();
 
+    void calculateHours() {
+      if (startCtrl.text.isNotEmpty && endCtrl.text.isNotEmpty) {
+        final startParts = startCtrl.text.split(':');
+        final endParts = endCtrl.text.split(':');
+        final startHour = int.parse(startParts[0]);
+        final startMin = int.parse(startParts[1]);
+        final endHour = int.parse(endParts[0]);
+        final endMin = int.parse(endParts[1]);
+        
+        double diff = (endHour + endMin / 60.0) - (startHour + startMin / 60.0);
+        if (diff < 0) {
+          diff += 24.0;
+        }
+        
+        // Remove trailing .0 if it's a whole number
+        String formatted = diff.toStringAsFixed(1);
+        if (formatted.endsWith('.0')) {
+          formatted = formatted.substring(0, formatted.length - 2);
+        }
+        hoursCtrl.text = formatted;
+      }
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -80,15 +104,15 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                   ),
                   const SizedBox(width: 14),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Request Overtime', style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryLight)),
-                    Text('Submit a request to work extra hours', style: GoogleFonts.notoSansKhmer(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                    Text(AppLocalizations.of(context)!.requestOvertime, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text('Submit a request to work extra hours', style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[600])),
                   ]),
                 ],
               ),
               const SizedBox(height: 24),
 
               // Date
-              _label('Date'),
+              _label(AppLocalizations.of(context)!.date),
               const SizedBox(height: 8),
               TextField(
                 controller: dateCtrl,
@@ -114,7 +138,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _label('Start Time (Optional)'),
+                        _label(AppLocalizations.of(context)!.startTimeOptional),
                         const SizedBox(height: 8),
                         TextField(
                           controller: startCtrl,
@@ -123,6 +147,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                             final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
                             if (time != null) {
                               startCtrl.text = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+                              calculateHours();
                             }
                           },
                           decoration: _inputDeco(icon: LucideIcons.clock3),
@@ -135,7 +160,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _label('End Time (Optional)'),
+                        _label(AppLocalizations.of(context)!.endTimeOptional),
                         const SizedBox(height: 8),
                         TextField(
                           controller: endCtrl,
@@ -144,6 +169,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                             final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
                             if (time != null) {
                               endCtrl.text = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+                              calculateHours();
                             }
                           },
                           decoration: _inputDeco(icon: LucideIcons.clock8),
@@ -156,7 +182,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
               const SizedBox(height: 20),
 
               // Hours
-              _label('Total Hours'),
+              _label(AppLocalizations.of(context)!.totalHours),
               const SizedBox(height: 8),
               TextField(
                 controller: hoursCtrl,
@@ -166,7 +192,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
               const SizedBox(height: 20),
 
               // Reason
-              _label('Reason'),
+              _label(AppLocalizations.of(context)!.reason),
               const SizedBox(height: 8),
               TextField(
                 controller: reasonCtrl,
@@ -207,7 +233,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                       }
                     }
                   },
-                  child: Text('Submit Request', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 15)),
+                  child: Text(AppLocalizations.of(context)!.submitRequest, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 15)),
                 ),
               ),
             ],
@@ -234,12 +260,13 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('Overtime Requests', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.overtimeRequests, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87)),
         backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimaryLight,
+        iconTheme: const IconThemeData(color: Colors.black87),
         elevation: 0,
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -250,7 +277,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                     children: [
                       Icon(LucideIcons.clock, size: 64, color: Colors.grey.shade300),
                       const SizedBox(height: 16),
-                      Text('No overtime requests yet', style: GoogleFonts.notoSansKhmer(fontSize: 16, color: Colors.grey.shade500)),
+                      Text(AppLocalizations.of(context)!.noOvertimeRequests, style: GoogleFonts.notoSansKhmer(fontSize: 16, color: Colors.grey.shade500)),
                     ],
                   ),
                 )
@@ -280,7 +307,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(item['date'].toString())), style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, fontSize: 15)),
+                              Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(item['date'].toString())), style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87)),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
@@ -289,7 +316,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                                   children: [
                                     Icon(statusIcon, size: 12, color: statusColor),
                                     const SizedBox(width: 4),
-                                    Text(item['status'].toString().toUpperCase(), style: GoogleFonts.notoSansKhmer(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                                    Text(item['status'].toString().toUpperCase(), style: GoogleFonts.notoSansKhmer(fontSize: 12, fontWeight: FontWeight.bold, color: statusColor)),
                                   ],
                                 ),
                               ),
@@ -298,17 +325,17 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              Icon(LucideIcons.hourglass, size: 14, color: AppTheme.textSecondaryLight),
+                              Icon(LucideIcons.hourglass, size: 14, color: Colors.grey[600]),
                               const SizedBox(width: 6),
-                              Text('${item['hours']} Hours', style: GoogleFonts.notoSansKhmer(fontSize: 13, color: AppTheme.textPrimaryLight, fontWeight: FontWeight.w600)),
+                              Text('${item['hours']} Hours', style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
                               if (item['start_time'] != null && item['end_time'] != null) ...[
                                 const SizedBox(width: 12),
-                                Text('(${item['start_time']} - ${item['end_time']})', style: GoogleFonts.notoSansKhmer(fontSize: 12, color: AppTheme.textSecondaryLight)),
+                                Text('(${item['start_time']} - ${item['end_time']})', style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.grey[600])),
                               ]
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(item['reason'] ?? '', style: GoogleFonts.notoSansKhmer(fontSize: 13, color: AppTheme.textSecondaryLight)),
+                          Text(item['reason'] ?? '', style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600])),
                         ],
                       ),
                     );
@@ -318,7 +345,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
         onPressed: _showRequestDialog,
         backgroundColor: AppTheme.primary,
         icon: const Icon(LucideIcons.plus, color: Colors.white),
-        label: Text('Request Overtime', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, color: Colors.white)),
+        label: Text(AppLocalizations.of(context)!.requestOvertime, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, color: Colors.white)),
       ),
     );
   }

@@ -228,7 +228,7 @@ class AttendanceController extends Controller
         $attendance = Attendance::findOrFail($id);
         
         $date = Carbon::parse($attendance->date)->format('Y-m-d');
-        $clockOutDateTime = Carbon::createFromFormat('Y-m-d H:i', $date . ' ' . $request->clock_out_time);
+        $clockOutDateTime = Carbon::createFromFormat('Y-m-d H:i', $date . ' ' . $request->clock_out_time, 'Asia/Phnom_Penh')->setTimezone('UTC');
 
         $attendance->update([
             'clock_out' => $clockOutDateTime,

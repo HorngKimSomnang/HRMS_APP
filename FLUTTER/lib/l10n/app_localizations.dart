@@ -469,6 +469,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'MEDIUM'**
   String get medium;
+
+  /// No description provided for @attendanceHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance History'**
+  String get attendanceHistory;
+
+  /// No description provided for @overtimeRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Overtime Requests'**
+  String get overtimeRequests;
+
+  /// No description provided for @requestOvertime.
+  ///
+  /// In en, this message translates to:
+  /// **'Request Overtime'**
+  String get requestOvertime;
+
+  /// No description provided for @noOvertimeRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'No overtime requests yet'**
+  String get noOvertimeRequests;
+
+  /// No description provided for @startTimeOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Time'**
+  String get startTimeOptional;
+
+  /// No description provided for @endTimeOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'End Time'**
+  String get endTimeOptional;
+
+  /// No description provided for @totalHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Hours'**
+  String get totalHours;
+
+  /// No description provided for @date.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get date;
 }
 
 class _AppLocalizationsDelegate

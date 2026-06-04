@@ -61,5 +61,13 @@
     "enterReasonForLeave": "Enter reason for leave...",
     "submitRequest": "Submit Request",
     "myTasks": "My Tasks",
-    "medium": "MEDIUM"
+    "medium": "MEDIUM",
+    "attendanceHistory": "Attendance History",
+    "overtimeRequests": "Overtime Requests",
+    "requestOvertime": "Request Overtime",
+    "noOvertimeRequests": "No overtime requests yet",
+    "startTimeOptional": "Start Time",
+    "endTimeOptional": "End Time",
+    "totalHours": "Total Hours",
+    "date": "Date"
 }

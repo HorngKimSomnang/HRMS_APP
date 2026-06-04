@@ -39,7 +39,7 @@ export default function Reports() {
 
     // Fetch employees for dropdown
     useEffect(() => {
-        api.get('/employees').then(res => {
+        api.get('/employees?status=active&all=true').then(res => {
             const data = res.data.data;
             setEmployees(Array.isArray(data) ? data : (data?.data || []));
         }).catch(err => console.error(err));

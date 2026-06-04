@@ -79,6 +79,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('employees', \App\Http\Controllers\Api\EmployeeController::class);
         
         // Reports
+        Route::get('/employees/{id}/attendance', [\App\Http\Controllers\Api\EmployeeController::class, 'attendance']);
+        Route::delete('/employees/{id}/documents/{name}', [\App\Http\Controllers\Api\EmployeeController::class, 'deleteDocument']);
         Route::get('/reports/attendance', [\App\Http\Controllers\Api\ReportController::class, 'attendanceReport']);
         Route::get('/reports/leaves', [\App\Http\Controllers\Api\ReportController::class, 'leavesReport']);
         Route::get('/reports/employees', [\App\Http\Controllers\Api\ReportController::class, 'employeesReport']);

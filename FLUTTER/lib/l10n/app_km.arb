@@ -61,5 +61,13 @@
     "enterReasonForLeave": "បញ្ចូលមូលហេតុនៃការសុំច្បាប់...",
     "submitRequest": "បញ្ជូនសំណើ",
     "myTasks": "កិច្ចការរបស់ខ្ញុំ",
-    "medium": "មធ្យម"
+    "medium": "មធ្យម",
+    "attendanceHistory": "ប្រវត្តិវត្តមាន",
+    "overtimeRequests": "សំណើថែមម៉ោង",
+    "requestOvertime": "ស្នើសុំថែមម៉ោង",
+    "noOvertimeRequests": "មិនទាន់មានសំណើថែមម៉ោងនៅឡើយទេ",
+    "startTimeOptional": "ម៉ោងចាប់ផ្តើម",
+    "endTimeOptional": "ម៉ោងបញ្ចប់",
+    "totalHours": "ចំនួនម៉ោងសរុប",
+    "date": "កាលបរិច្ឆេទ"
 }

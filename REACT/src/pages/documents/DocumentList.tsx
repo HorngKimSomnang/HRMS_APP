@@ -56,6 +56,25 @@ export default function DocumentList() {
         }
     };
 
+    const getCategory = (doc: Document) => {
+        const nameLower = doc.name.toLowerCase();
+        const workKeywords = ['contract', 'agreement', 'policy', 'handbook', 'nda', 'company', 'work', 'employment', 'business', 'notice', 'announcement', 'task'];
+        if (workKeywords.some(keyword => nameLower.includes(keyword))) return 'work';
+        
+        const personalKeywords = [
+            'national id', 'degree', 'certificate', 'cv', 'resume', 'passport', 
+            'id card', 'birth certificate', 'family book', 'diploma', 'transcript', 
+            'personal', 'academic', 'qualification', 'educational', 'license', 'engineering', 'study'
+        ];
+        const nameParts = doc.employee?.name ? doc.employee.name.toLowerCase().split(' ') : [];
+        const matchesEmployeeName = nameParts.some(part => part && nameLower.includes(part));
+        
+        if (personalKeywords.some(keyword => nameLower.includes(keyword)) || matchesEmployeeName) return 'personal';
+        return 'work'; // default to work docs
+    };
+
+    const workDocs = documents.filter(d => getCategory(d) === 'work');
+
     if (loading) return <div>Loading documents...</div>;
 
     return (
@@ -81,8 +100,8 @@ export default function DocumentList() {
 
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
-                    <p className="text-muted-foreground">Manage and view employee documents.</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Work Documents</h1>
+                    <p className="text-muted-foreground">Manage company-wide and work-related documents.</p>
                 </div>
                 {isAdmin && (
                     <Button onClick={() => setIsUploadOpen(true)}>
@@ -104,14 +123,14 @@ export default function DocumentList() {
                             </tr>
                         </thead>
                         <tbody className="[&_tr:last-child]:border-0">
-                            {documents.length === 0 ? (
+                            {workDocs.length === 0 ? (
                                 <tr>
                                     <td colSpan={isAdmin ? 5 : 4} className="h-24 text-center">
                                         No documents found.
                                     </td>
                                 </tr>
                             ) : (
-                                documents.map((doc) => (
+                                workDocs.map((doc) => (
                                     <tr key={doc.id} className="border-b transition-colors hover:bg-muted/50">
                                         <td className="p-4 align-middle font-medium">
                                             <div className="flex items-center gap-2">

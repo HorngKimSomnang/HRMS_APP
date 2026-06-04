@@ -45,8 +45,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _loading = true);
 
     try {
-      final employeeId = widget.user['employee']['id'];
-      
       // We assume the backend UpdateEmployeeRequest accepts these fields
       // and handles the update logic.
       // Note: Backend expects _method: PUT if using FormData, 

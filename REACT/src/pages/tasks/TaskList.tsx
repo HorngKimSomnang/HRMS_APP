@@ -9,7 +9,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, CheckCircle2, Clock, AlertCircle, Calendar, Paperclip, FileCheck, X, AlertTriangle, Download, Eye, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, Clock, AlertCircle, Calendar, Paperclip, FileCheck, X, AlertTriangle, Download, Eye, Trash2, Edit } from "lucide-react";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { getStorageUrl, getDownloadUrl } from "@/core/config";
@@ -26,6 +26,7 @@ export default function TaskList() {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
+    const [editTaskId, setEditTaskId] = useState<number | null>(null);
 
     const [newTask, setNewTask] = useState({
         title: "",
@@ -54,7 +55,7 @@ export default function TaskList() {
 
     const fetchEmployees = useCallback(async () => {
         try {
-            const res = await api.get('/employees');
+            const res = await api.get('/employees?status=active&all=true');
             const data = res.data.data;
             setEmployees(Array.isArray(data) ? data : (data?.data || []));
         } catch (error) {
@@ -81,12 +82,14 @@ export default function TaskList() {
         setSelectedFile(null);
         setFormError(null);
         setFieldErrors({});
+        setEditTaskId(null);
     };
 
     const validateForm = (): boolean => {
         const errors: Record<string, string> = {};
         if (!newTask.title.trim()) errors.title = "Title is required.";
         if (newTask.assigned_to.length === 0) errors.assigned_to = "Please select at least one employee.";
+        if (editTaskId && newTask.assigned_to.length > 1) errors.assigned_to = "Can only assign to a single employee when editing.";
         if (!newTask.due_date) errors.due_date = "Due date is required.";
         setFieldErrors(errors);
         return Object.keys(errors).length === 0;
@@ -103,22 +106,34 @@ export default function TaskList() {
             const formData = new FormData();
             formData.append('title', newTask.title);
             formData.append('description', newTask.description);
-            newTask.assigned_to.forEach(empId => formData.append('assigned_to[]', empId));
+            if (editTaskId) {
+                formData.append('assigned_to', newTask.assigned_to[0]);
+                formData.append('_method', 'PUT');
+            } else {
+                newTask.assigned_to.forEach(empId => formData.append('assigned_to[]', empId));
+            }
             formData.append('priority', newTask.priority);
             formData.append('due_date', newTask.due_date);
             if (selectedFile) {
                 formData.append('attachment', selectedFile);
             }
 
-            const res = await api.post('/tasks', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-
-            const createdTasks = res.data.data;
-            if (Array.isArray(createdTasks)) {
-                setTasks([...createdTasks, ...tasks]);
+            if (editTaskId) {
+                const res = await api.post(`/tasks/${editTaskId}`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                const updatedTask = res.data.data;
+                setTasks(tasks.map(t => t.id === editTaskId ? updatedTask : t));
             } else {
-                setTasks([createdTasks, ...tasks]);
+                const res = await api.post('/tasks', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                const createdTasks = res.data.data;
+                if (Array.isArray(createdTasks)) {
+                    setTasks([...createdTasks, ...tasks]);
+                } else {
+                    setTasks([createdTasks, ...tasks]);
+                }
             }
             setIsCreateOpen(false);
             resetForm();
@@ -234,9 +249,24 @@ export default function TaskList() {
                                                 <Eye className="h-4 w-4" />
                                             </Button>
                                             {isAdmin && (
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setTaskToDelete(task.id)} title="Delete Task">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                <>
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-500 hover:text-orange-700 hover:bg-orange-50" onClick={() => {
+                                                        setNewTask({
+                                                            title: task.title,
+                                                            description: task.description || "",
+                                                            assigned_to: task.employee ? [task.employee.id.toString()] : [],
+                                                            priority: task.priority,
+                                                            due_date: task.due_date
+                                                        });
+                                                        setEditTaskId(task.id);
+                                                        setIsCreateOpen(true);
+                                                    }} title="Edit Task">
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setTaskToDelete(task.id)} title="Delete Task">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </>
                                             )}
                                         </div>
                                     </TableCell>
@@ -375,11 +405,11 @@ export default function TaskList() {
                 </DialogContent>
             </Dialog>
 
-            {/* Create Task Dialog */}
+            {/* Create / Edit Task Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsCreateOpen(open); }}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Create New Task</DialogTitle>
+                        <DialogTitle>{editTaskId ? "Edit Task" : "Create New Task"}</DialogTitle>
                     </DialogHeader>
 
                     {/* Global error banner */}
@@ -449,13 +479,18 @@ export default function TaskList() {
                                                         checked={isChecked}
                                                         onChange={(event) => {
                                                             const strId = e.id.toString();
-                                                            let newAssigned = [...newTask.assigned_to];
-                                                            if (event.target.checked) {
-                                                                newAssigned.push(strId);
+                                                            if (editTaskId) {
+                                                                if (event.target.checked) setNewTask({ ...newTask, assigned_to: [strId] });
+                                                                else setNewTask({ ...newTask, assigned_to: [] });
                                                             } else {
-                                                                newAssigned = newAssigned.filter(id => id !== strId);
+                                                                let newAssigned = [...newTask.assigned_to];
+                                                                if (event.target.checked) {
+                                                                    newAssigned.push(strId);
+                                                                } else {
+                                                                    newAssigned = newAssigned.filter(id => id !== strId);
+                                                                }
+                                                                setNewTask({ ...newTask, assigned_to: newAssigned });
                                                             }
-                                                            setNewTask({ ...newTask, assigned_to: newAssigned });
                                                             setFieldErrors(p => ({ ...p, assigned_to: '' }));
                                                         }}
                                                     />
@@ -535,7 +570,7 @@ export default function TaskList() {
                             Cancel
                         </Button>
                         <Button onClick={handleCreate} disabled={isSubmitting}>
-                            {isSubmitting ? "Creating..." : "Create Task"}
+                            {isSubmitting ? (editTaskId ? "Saving..." : "Creating...") : (editTaskId ? "Save Changes" : "Create Task")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

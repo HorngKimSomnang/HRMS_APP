@@ -42,7 +42,7 @@ export default function LeaveList() {
             const [resLeaves, resBalances, resEmployees] = await Promise.all([
                 api.get('/leaves'),
                 api.get('/leaves/balances'),
-                api.get('/employees')
+                api.get('/employees?status=active&all=true')
             ]);
             // Backend returns direct array for index()
             setLeaves(Array.isArray(resLeaves.data) ? resLeaves.data : (resLeaves.data.data || []));

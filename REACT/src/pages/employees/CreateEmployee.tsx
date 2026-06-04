@@ -54,7 +54,9 @@ export default function CreateEmployee() {
     */
 
     const [profilePicture, setProfilePicture] = useState<File | null>(null);
-    const [documents, setDocuments] = useState<File[]>([]);
+    const [docNationalId, setDocNationalId] = useState<File | null>(null);
+    const [docDegree, setDocDegree] = useState<File | null>(null);
+    const [docCv, setDocCv] = useState<File | null>(null);
 
     // ... useEffect ...
 
@@ -68,10 +70,15 @@ export default function CreateEmployee() {
         }
     };
 
-    const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setDocuments(Array.from(e.target.files));
-        }
+    // Specific document handlers
+    const handleNationalIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) setDocNationalId(e.target.files[0]);
+    };
+    const handleDegreeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) setDocDegree(e.target.files[0]);
+    };
+    const handleCvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) setDocCv(e.target.files[0]);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -88,9 +95,9 @@ export default function CreateEmployee() {
             if (profilePicture) {
                 data.append('profile_picture', profilePicture);
             }
-            documents.forEach((file) => {
-                data.append('documents[]', file);
-            });
+            if (docNationalId) data.append('doc_national_id', docNationalId);
+            if (docDegree) data.append('doc_degree', docDegree);
+            if (docCv) data.append('doc_cv', docCv);
 
             const response = await api.post('/employees', data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -194,9 +201,22 @@ export default function CreateEmployee() {
                     </div>
                 </div>
 
-                <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Attachments (CV, ID, Certificates) / ឯកសារភ្ជាប់</label>
-                    <Input type="file" multiple onChange={handleDocumentChange} />
+                <div className="space-y-4 border p-4 rounded-lg bg-slate-50/50">
+                    <h3 className="font-semibold text-slate-800">Attached Documents</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">National ID / អត្តសញ្ញាណប័ណ្ណ</label>
+                            <Input type="file" onChange={handleNationalIdChange} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Degree / សញ្ញាប័ត្រ</label>
+                            <Input type="file" onChange={handleDegreeChange} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">CV / ប្រវត្តិរូបសង្ខេប</label>
+                            <Input type="file" onChange={handleCvChange} />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-1.5">

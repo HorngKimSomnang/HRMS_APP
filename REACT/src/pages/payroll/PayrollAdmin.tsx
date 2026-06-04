@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { Wallet, CreditCard, CheckCircle, XCircle, AlertCircle, RefreshCw, Building2, Eye, EyeOff, Plus, FileText, X, ShieldCheck, Clock, Printer } from "lucide-react";
+import { Wallet, CheckCircle, XCircle, AlertCircle, RefreshCw, Plus, FileText, X, ShieldCheck, Clock, Printer } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from 'sonner';
@@ -31,13 +31,11 @@ function Field({ label, value, onChange, type="number", placeholder="0" }: any) 
 export default function PayrollAdmin() {
     const { user } = useAuth();
     const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin') ?? false;
-    const [requests, setRequests]   = useState<any[]>([]);
     const [payslips, setPayslips]   = useState<any[]>([]);
     const [employees, setEmployees] = useState<any[]>([]);
+    const [overtimes, setOvertimes] = useState<any[]>([]);
     const [loading, setLoading]     = useState(true);
-    const [activeTab, setActiveTab] = useState<"requests"|"payslips">("payslips");
     const [updatingId, setUpdatingId]   = useState<number|null>(null);
-    const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set());
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -65,8 +63,16 @@ export default function PayrollAdmin() {
 
     const fetchData = () => {
         setLoading(true);
-        Promise.all([api.get("/payroll-requests"), api.get("/payslips"), api.get("/employees")])
-            .then(([r1, r2, r3]) => { setRequests(r1.data.data||r1.data||[]); setPayslips(r2.data.data||r2.data||[]); setEmployees(r3.data.data||r3.data||[]); })
+        Promise.all([
+            api.get("/payslips"), 
+            api.get("/employees?status=active&all=true"),
+            api.get("/overtimes")
+        ])
+            .then(([r2, r3, r4]) => { 
+                setPayslips(r2.data.data||r2.data||[]); 
+                setEmployees(r3.data.data||r3.data||[]); 
+                setOvertimes(r4.data.data||r4.data||[]);
+            })
             .finally(()=>setLoading(false));
     };
 
@@ -83,27 +89,25 @@ export default function PayrollAdmin() {
     useEffect(() => {
         if (!form.employee_id || !form.month || !form.year) return;
         
-        const autoOt = requests
+        const autoOtHours = overtimes
             .filter((r: any) => 
-                r.type === 'overtime' && 
                 r.status === 'approved' && 
                 r.employee_id?.toString() === form.employee_id &&
                 r.date?.startsWith(`${form.year}-${form.month}`)
             )
-            .reduce((sum: number, r: any) => sum + parseFloat(r.value || "0"), 0);
+            .reduce((sum: number, r: any) => sum + parseFloat(r.hours || "0"), 0);
+            
+        const basicSalary = parseFloat(form.basic_salary || "0");
+        const autoOtAmount = autoOtHours * (basicSalary / 160) * 1.5;
             
         setForm((prev: any) => {
-            const newOt = autoOt > 0 ? autoOt.toFixed(2) : "0";
+            const newOt = autoOtAmount > 0 ? autoOtAmount.toFixed(2) : "0";
             if (prev.overtime_amount === newOt) return prev;
             return { ...prev, overtime_amount: newOt };
         });
-    }, [form.employee_id, form.month, form.year, requests]);
+    }, [form.employee_id, form.month, form.year, form.basic_salary, overtimes]);
 
-    const updateReqStatus = async (id:number, status:"approved"|"rejected") => {
-        setUpdatingId(id);
-        try { await api.patch(`/payroll-requests/${id}`,{status}); setRequests(p=>p.map(r=>r.id===id?{...r,status}:r)); }
-        catch { toast.error("Failed"); } finally { setUpdatingId(null); }
-    };
+
 
     const updatePayslipStatus = async (id:number, status:string) => {
         setUpdatingId(id);
@@ -353,8 +357,6 @@ export default function PayrollAdmin() {
         finally { setSaving(false); }
     };
 
-    const toggleReveal = (id:number) => setRevealedIds(p=>{ const n=new Set(p); n.has(id)?n.delete(id):n.add(id); return n; });
-    const maskAccount = (a:string) => !a?"—": a.length>4?"•".repeat(a.length-4)+a.slice(-4):a;
 
     return (
         <div className="space-y-6">
@@ -379,12 +381,10 @@ export default function PayrollAdmin() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4">
                 {[
-                    { label:"Pending Requests", value:requests.filter(r=>r.status==="pending").length,  color:"text-amber-600",   bg:"bg-amber-50 border-amber-200",   icon:AlertCircle },
-                    { label:"Approved Requests", value:requests.filter(r=>r.status==="approved").length, color:"text-emerald-600", bg:"bg-emerald-50 border-emerald-200", icon:CheckCircle },
-                    { label:"Drafts (Pending Auth)", value:payslips.filter((p:any)=>p.status==="draft").length, color:"text-gray-600", bg:"bg-gray-50 border-gray-200", icon:Clock },
-                    { label:"Authorized Payslips", value:payslips.filter((p:any)=>p.status==="approved"||p.status==="paid").length, color:"text-blue-600", bg:"bg-blue-50 border-blue-200", icon:ShieldCheck },
+                    { label:"Drafts (Pending Auth)", value:payslips.filter((p:any)=>p.status==="draft").length, color:"text-amber-600", bg:"bg-amber-50 border-amber-200", icon:Clock },
+                    { label:"Authorized Payslips", value:payslips.filter((p:any)=>p.status==="approved"||p.status==="paid").length, color:"text-emerald-600", bg:"bg-emerald-50 border-emerald-200", icon:ShieldCheck },
                 ].map(s=>(
                     <div key={s.label} className={`rounded-xl border ${s.bg} p-5 flex items-center gap-4`}>
                         <s.icon className={`h-7 w-7 ${s.color}`}/>
@@ -393,48 +393,9 @@ export default function PayrollAdmin() {
                 ))}
             </div>
 
-            {/* Tabs */}
-            <div className="border-b flex gap-1 mt-6">
-                {(["payslips","requests"] as const).map(tab=>(
-                    <button key={tab} onClick={()=>setActiveTab(tab)}
-                        className={`px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${activeTab===tab?"border-primary text-primary":"border-transparent text-muted-foreground hover:text-gray-700"}`}>
-                        {tab==="payslips"?`Payslips (${payslips.length})`:`Payment Requests (${requests.length})`}
-                    </button>
-                ))}
-            </div>
-
             {loading ? <div className="text-center py-20 text-muted-foreground">Loading...</div>
-            : activeTab==="requests" ? (
-                <div className="bg-white rounded-xl border shadow-sm overflow-x-auto">
-                    {requests.length===0 ? (
-                        <div className="py-20 text-center"><CreditCard className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3"/><p className="text-muted-foreground">No payment requests yet.</p></div>
-                    ):(
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 uppercase text-xs font-medium border-b">
-                                <tr><th className="px-6 py-4">Employee</th><th className="px-6 py-4">Bank</th><th className="px-6 py-4">Account</th><th className="px-6 py-4">Note</th><th className="px-6 py-4">Date</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {requests.map((req:any)=>{
-                                    const s=STATUS_CFG[req.status]??STATUS_CFG.pending;
-                                    const acc=req.bank_account??"";
-                                    return (
-                                        <tr key={req.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4"><div className="flex items-center gap-2"><div className="h-8 w-8 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center">{(req.employee?.user?.name??"?")[0].toUpperCase()}</div><div><p className="font-semibold text-gray-900">{req.employee?.user?.name??"—"}</p><p className="text-xs text-muted-foreground">{req.employee?.employee_code??""}</p></div></div></td>
-                                            <td className="px-6 py-4"><div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-muted-foreground"/>{req.bank_name||"—"}</div></td>
-                                            <td className="px-6 py-4"><div className="flex items-center gap-2"><span className="font-mono font-bold tracking-widest text-sm">{revealedIds.has(req.id)?acc:maskAccount(acc)}</span>{acc&&<button onClick={()=>toggleReveal(req.id)} className="text-muted-foreground hover:text-primary">{revealedIds.has(req.id)?<EyeOff className="h-3.5 w-3.5"/>:<Eye className="h-3.5 w-3.5"/>}</button>}</div></td>
-                                            <td className="px-6 py-4 text-gray-500 max-w-[160px] truncate">{req.reason||"—"}</td>
-                                            <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{req.date ? new Date(req.date).toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'}) : "—"}</td>
-                                            <td className="px-6 py-4"><span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.bg} ${s.color} ${s.border}`}><s.icon className="h-3 w-3"/>{s.label}</span></td>
-                                            <td className="px-6 py-4 text-right">{req.status==="pending"?(<div className="flex justify-end gap-2"><button disabled={updatingId===req.id} onClick={()=>updateReqStatus(req.id,"approved")} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">Approve</button><button disabled={updatingId===req.id} onClick={()=>updateReqStatus(req.id,"rejected")} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50">Reject</button></div>):<span className="text-xs text-muted-foreground italic">Done</span>}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-            ):(
-                <div className="bg-white rounded-xl border shadow-sm flex flex-col">
+            : (
+                <div className="bg-white rounded-xl border shadow-sm flex flex-col mt-6">
                     {payslips.length > 0 && (
                         <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
                             <h2 className="text-sm font-semibold text-gray-700">All Payslips</h2>

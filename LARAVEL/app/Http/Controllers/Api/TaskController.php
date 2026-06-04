@@ -87,9 +87,8 @@ class TaskController extends Controller
         $task = Task::findOrFail($id);
         $user = Auth::user();
         
-        // Employee optimization: "Check" interaction
-        if ($user->employee) {
-            // Allow simplified status toggle or specific status set
+        // Employee submitting task (no title sent)
+        if ($user->hasRole('Employee') && !$request->has('title')) {
             if ($request->has('status')) {
                 $request->validate(['status' => 'required|in:pending,in_progress,completed']);
                 $task->status = $request->status;
@@ -119,7 +118,7 @@ class TaskController extends Controller
         }
 
         // Admin updates everything
-        $task->update($request->except(['attachment', 'submission']));
+        $task->update($request->except(['attachment', 'submission', '_method']));
         
         if ($request->hasFile('attachment')) {
             if ($task->attachment_path) Storage::disk('public')->delete($task->attachment_path);
@@ -127,6 +126,7 @@ class TaskController extends Controller
             $task->save();
         }
         
+        $task->load(['employee', 'creator']);
         return $this->successResponse($task, 'Task updated successfully');
     }
 

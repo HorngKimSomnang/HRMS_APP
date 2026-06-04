@@ -193,4 +193,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get medium => 'MEDIUM';
+
+  @override
+  String get attendanceHistory => 'Attendance History';
+
+  @override
+  String get overtimeRequests => 'Overtime Requests';
+
+  @override
+  String get requestOvertime => 'Request Overtime';
+
+  @override
+  String get noOvertimeRequests => 'No overtime requests yet';
+
+  @override
+  String get startTimeOptional => 'Start Time';
+
+  @override
+  String get endTimeOptional => 'End Time';
+
+  @override
+  String get totalHours => 'Total Hours';
+
+  @override
+  String get date => 'Date';
 }
