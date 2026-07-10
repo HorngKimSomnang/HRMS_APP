@@ -22,15 +22,10 @@ const ACTION_CFG: Record<string, { label: string; color: string; icon: any }> = 
     // Leave
     LEAVE_STATUS_CHANGED:        { label: "Leave Decision",     color: "bg-blue-50 text-blue-700 border-blue-200",          icon: FileCheck },
     // Overtime
-    OVERTIME_APPROVED_AND_QUEUED:{ label: "OT Approved",        color: "bg-green-50 text-green-700 border-green-200",       icon: Banknote },
+    OVERTIME_APPROVED:           { label: "OT Approved",        color: "bg-green-50 text-green-700 border-green-200",       icon: Banknote },
     // Payslip
     PAYSLIP_GENERATED:           { label: "Payslip Generated",  color: "bg-violet-50 text-violet-700 border-violet-200",   icon: FileCheck },
     PAYSLIP_STATUS_CHANGED:      { label: "Payslip Auth",       color: "bg-indigo-50 text-indigo-700 border-indigo-200",   icon: CheckCircle2 },
-    // Payroll requests
-    PAYROLL_REQUEST_APPROVED:    { label: "Payroll Approved",   color: "bg-lime-50 text-lime-700 border-lime-200",          icon: CheckCircle2 },
-    PAYROLL_REQUEST_REJECTED:    { label: "Payroll Rejected",   color: "bg-orange-50 text-orange-700 border-orange-200",   icon: AlertTriangle },
-    PAYROLL_REQUEST_FINAL_APPROVED: { label: "Final Auth",      color: "bg-purple-50 text-purple-700 border-purple-200",   icon: ShieldCheck },
-    PAYROLL_REQUEST_FINAL_REJECTED: { label: "Final Rejected",  color: "bg-red-50 text-red-700 border-red-200",            icon: AlertTriangle },
     // Settings
     SYSTEM_SETTINGS_UPDATED:     { label: "Settings Changed",   color: "bg-amber-50 text-amber-700 border-amber-200",      icon: Settings2 },
 };
@@ -243,7 +238,7 @@ export default function AuditLogs() {
             </div>
 
             {/* ── Filters ── */}
-            <div className="flex flex-wrap gap-3 items-center bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+            <div className="flex flex-wrap gap-3 items-center bg-gradient-to-br from-slate-100/60 via-white to-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
@@ -273,13 +268,11 @@ export default function AuditLogs() {
                     </optgroup>
                     <optgroup label="HR Decisions">
                         <option value="LEAVE_STATUS_CHANGED">Leave Decision</option>
-                        <option value="OVERTIME_APPROVED_AND_QUEUED">OT Approved</option>
+                        <option value="OVERTIME_APPROVED">OT Approved</option>
                     </optgroup>
                     <optgroup label="Payroll">
                         <option value="PAYSLIP_GENERATED">Payslip Generated</option>
                         <option value="PAYSLIP_STATUS_CHANGED">Payslip Authorized</option>
-                        <option value="PAYROLL_REQUEST_APPROVED">Payroll Approved</option>
-                        <option value="PAYROLL_REQUEST_FINAL_APPROVED">Final Auth</option>
                     </optgroup>
                     <optgroup label="System">
                         <option value="SYSTEM_SETTINGS_UPDATED">Settings Changed</option>
@@ -321,7 +314,7 @@ export default function AuditLogs() {
             </div>
 
             {/* ── Table ── */}
-            <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
+            <div className="bg-gradient-to-br from-slate-100/50 via-white to-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
                 {loading ? (
                     <div className="flex items-center justify-center py-24 text-muted-foreground gap-3">
                         <RefreshCw className="h-5 w-5 animate-spin" /> Loading audit trail…

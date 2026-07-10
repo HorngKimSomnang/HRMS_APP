@@ -7,12 +7,33 @@ import api from "@/services/api";
 import { toast } from 'sonner';
 
 export default function Profile() {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const [employee, setEmployee] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
+    // Account Update (name + email)
+    const [account, setAccount] = useState({ name: "", email: "" });
+    const [savingAccount, setSavingAccount] = useState(false);
+
     // Password Update
     const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
+
+    useEffect(() => {
+        if (user) setAccount({ name: user.name ?? "", email: user.email ?? "" });
+    }, [user]);
+
+    const handleAccountUpdate = async () => {
+        setSavingAccount(true);
+        try {
+            const res = await api.put('/profile/update', { name: account.name, email: account.email });
+            if (res.data.user) updateUser(res.data.user);
+            toast.success("Profile updated successfully");
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Failed to update profile");
+        } finally {
+            setSavingAccount(false);
+        }
+    };
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -71,7 +92,7 @@ export default function Profile() {
             <div className="grid gap-6 md:grid-cols-2">
                 {/* Personal Info Card */}
                 <div className="space-y-6">
-                    <div className="p-6 bg-card rounded-lg border shadow-sm">
+                    <div className="p-6 bg-gradient-to-br from-blue-50/50 via-card to-card rounded-lg border border-blue-100 shadow-sm">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold border-2 border-primary">
                                 {user?.name?.[0]?.toUpperCase()}
@@ -129,9 +150,33 @@ export default function Profile() {
                     </div>
                 </div>
 
-                {/* Security Settings */}
+                {/* Account + Security Settings */}
                 <div className="space-y-6">
-                    <div className="p-6 bg-card rounded-lg border shadow-sm">
+                    <div className="p-6 bg-gradient-to-br from-blue-50/50 via-card to-card rounded-lg border border-blue-100 shadow-sm">
+                        <h3 className="text-lg font-semibold mb-4">Account</h3>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Display Name</label>
+                                <Input
+                                    value={account.name}
+                                    onChange={(e) => setAccount({ ...account, name: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Email</label>
+                                <Input
+                                    type="email"
+                                    value={account.email}
+                                    onChange={(e) => setAccount({ ...account, email: e.target.value })}
+                                />
+                            </div>
+                            <Button onClick={handleAccountUpdate} disabled={savingAccount || !account.name || !account.email}>
+                                {savingAccount ? "Saving..." : "Save Changes"}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-gradient-to-br from-slate-100/70 via-card to-card rounded-lg border border-slate-200 shadow-sm">
                         <h3 className="text-lg font-semibold mb-4">Security</h3>
                         <div className="space-y-4">
                             <div className="space-y-2">

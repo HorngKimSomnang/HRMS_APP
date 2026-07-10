@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../core/error_utils.dart';
 import 'api_service.dart';
 
 class LeaveService {
@@ -26,7 +27,7 @@ class LeaveService {
     try {
       await _apiService.client.post('/leaves', data: data);
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Failed to submit request');
+      throw Exception(serverMessage(e, 'Failed to submit request'));
     }
   }
 }

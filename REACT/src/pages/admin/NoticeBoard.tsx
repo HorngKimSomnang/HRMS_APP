@@ -39,7 +39,7 @@ export default function NoticeBoard() {
         try {
             const res = await api.get('/announcements');
             setNotices(res.data.data);
-        } catch (error) {
+        } catch {
             toast.error('Failed to fetch notices');
         } finally {
             setLoading(false);
@@ -75,7 +75,7 @@ export default function NoticeBoard() {
             toast.success('Notice deleted');
             fetchNotices();
             setDeleteId(null);
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete notice');
         }
     };
@@ -85,7 +85,7 @@ export default function NoticeBoard() {
             await api.put(`/announcements/${id}`, { is_published: true });
             toast.success('Notice approved and published!');
             fetchNotices();
-        } catch (error) {
+        } catch {
             toast.error('Failed to approve notice');
         }
     };
@@ -113,7 +113,7 @@ export default function NoticeBoard() {
                 <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" /> Publish Notice</Button>
             </div>
 
-            <div className="bg-card text-card-foreground rounded-xl border shadow-sm flex flex-col">
+            <div className="bg-gradient-to-br from-amber-50/50 via-card to-card text-card-foreground rounded-xl border border-amber-100 shadow-sm flex flex-col">
                 <div className="p-6 pb-2">
                     <h3 className="text-lg font-semibold leading-none tracking-tight">All Announcements</h3>
                 </div>

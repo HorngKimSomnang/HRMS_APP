@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/error_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +9,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../l10n/app_localizations.dart';
 import '../services/leave_service.dart';
 import '../providers/leave_provider.dart';
+import '../widgets/date_selector.dart';
 
 class LeaveScreen extends StatefulWidget {
   const LeaveScreen({super.key});
@@ -51,20 +54,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
   }
 
   Future<void> _selectDate(bool isStart, LeaveProvider provider) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFF2563EB)),
-          ),
-          child: child!,
-        );
-      },
-    );
+    final picked = await showAppDatePicker(context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2030));
     if (picked != null) {
       if (isStart) {
         provider.setDates(picked, provider.endDate);
@@ -80,11 +70,15 @@ class _LeaveScreenState extends State<LeaveScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select dates')));
       return;
     }
+    if (provider.selectedType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a leave type')));
+      return;
+    }
 
     setState(() => _submitting = true);
     try {
       await _leaveService.submitLeaveRequest({
-        'leave_type_id': provider.selectedType['id'],
+        'leave_type_id': provider.selectedType!['id'],
         'start_date': DateFormat('yyyy-MM-dd').format(provider.startDate!),
         'end_date': DateFormat('yyyy-MM-dd').format(provider.endDate!),
         'reason': provider.reasonController.text,
@@ -98,7 +92,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
       
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -187,10 +181,10 @@ class _LeaveScreenState extends State<LeaveScreen> {
                       children: [
                         Text(AppLocalizations.of(context)!.startDate, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                         const SizedBox(height: 8),
-                        _DateSelector(
-                          label: 'From',
-                          date: provider.startDate, 
-                          onTap: () => _selectDate(true, provider)
+                        DateSelector(
+                          date: provider.startDate,
+                          onTap: () => _selectDate(true, provider),
+                          placeholder: AppLocalizations.of(context)!.selectDate,
                         ),
                       ],
                     ),
@@ -202,10 +196,10 @@ class _LeaveScreenState extends State<LeaveScreen> {
                       children: [
                         Text(AppLocalizations.of(context)!.endDate, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                         const SizedBox(height: 8),
-                        _DateSelector(
-                          label: 'To',
-                          date: provider.endDate, 
-                          onTap: () => _selectDate(false, provider)
+                        DateSelector(
+                          date: provider.endDate,
+                          onTap: () => _selectDate(false, provider),
+                          placeholder: AppLocalizations.of(context)!.selectDate,
                         ),
                       ],
                     ),
@@ -266,48 +260,6 @@ class _LeaveScreenState extends State<LeaveScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DateSelector extends StatelessWidget {
-  final String label;
-  final DateTime? date;
-  final VoidCallback onTap;
-
-  const _DateSelector({required this.label, required this.date, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-          border: Border.all(color: Colors.grey.shade100),
-        ),
-        child: Row(
-          children: [
-            const Icon(LucideIcons.calendar, size: 22, color: Color(0xFF2563EB)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                date == null ? AppLocalizations.of(context)!.selectDate : DateFormat('dd MMM yyyy').format(date!),
-                style: GoogleFonts.notoSansKhmer(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: date == null ? Colors.grey[400] : Colors.black87
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -1,0 +1,5 @@
+
+# Database backups: keep scripts, ignore dumps/copies/logs
+/backups/*.dump
+/backups/storage_files/
+/backups/backup_log.txt

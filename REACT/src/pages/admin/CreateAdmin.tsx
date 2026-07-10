@@ -23,7 +23,11 @@ export default function CreateAdmin() {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/users', formData);
+            const submitData = { ...formData };
+            if (!submitData.email.includes('@')) {
+                submitData.email = `${submitData.email}@gmail.com`;
+            }
+            await api.post('/users', submitData);
             navigate('/admins');
         } catch (error: any) {
             console.error('Failed to create user', error);
@@ -35,7 +39,7 @@ export default function CreateAdmin() {
 
     return (
         <div className="max-w-3xl mx-auto py-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+            <div className="bg-gradient-to-br from-violet-50/40 via-white to-white rounded-2xl shadow-sm border border-violet-100 p-6 sm:p-8">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold tracking-tight text-slate-900">Add Administrator</h2>
                     <p className="text-sm text-slate-500 mt-1">Create a new system access account and assign roles.</p>
@@ -49,7 +53,12 @@ export default function CreateAdmin() {
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
-                    <Input name="email" type="email" required onChange={handleChange} />
+                    <div className="flex rounded-md">
+                        <Input name="email" type="text" required onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
+                        <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
+                            @gmail.com
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-2">

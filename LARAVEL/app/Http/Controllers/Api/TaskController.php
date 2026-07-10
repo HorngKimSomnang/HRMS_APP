@@ -12,8 +12,9 @@ class TaskController extends Controller
 {
     public function index()
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
-        
+
         // If employee, only show assigned tasks
         if ($user->hasRole('Employee')) {
             $employee = $user->employee;
@@ -82,27 +83,35 @@ class TaskController extends Controller
         return $this->successResponse($tasks, 'Tasks assigned successfully', 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int|string $id)
     {
         $task = Task::findOrFail($id);
+        /** @var \App\Models\User $user */
         $user = Auth::user();
-        
-        // Employee submitting task (no title sent)
-        if ($user->hasRole('Employee') && !$request->has('title')) {
+
+        // Employee submitting their own task — branch on ROLE, never on which fields
+        // were sent (a request that merely includes a "title" key must not be able to
+        // fall through into the unrestricted admin-update path below).
+        if ($user->hasRole('Employee')) {
+            $employee = $user->employee;
+            if (!$employee || (int) $task->assigned_to !== (int) $employee->id) {
+                return $this->errorResponse('You are not authorized to update this task.', 403);
+            }
+
             if ($request->has('status')) {
                 $request->validate(['status' => 'required|in:pending,in_progress,completed']);
                 $task->status = $request->status;
             }
-            
+
             if ($request->hasFile('submission')) {
                 if ($task->submission_path) Storage::disk('public')->delete($task->submission_path);
                 $task->submission_path = $request->file('submission')->store('tasks/submissions', 'public');
             }
-            
+
             if ($request->has('submission_note')) {
                 $task->submission_note = $request->submission_note;
             }
-            
+
             $task->save();
 
             // Notify admins when task is completed
@@ -117,21 +126,39 @@ class TaskController extends Controller
             return $this->successResponse($task, 'Task updated successfully');
         }
 
-        // Admin updates everything
-        $task->update($request->except(['attachment', 'submission', '_method']));
-        
+        if (!$user->hasRole(['Super Admin', 'Admin'])) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+
+        // Admin updates — explicitly whitelist safe fields to prevent forging assigned_by etc.
+        $request->validate([
+            'title'       => 'sometimes|required|string',
+            'description' => 'nullable|string',
+            'priority'    => 'sometimes|required|in:low,medium,high',
+            'due_date'    => 'sometimes|required|date',
+            'status'      => 'sometimes|required|in:pending,in_progress,completed',
+            'assigned_to' => 'sometimes|exists:employees,id',
+        ]);
+        $task->update($request->only(['title', 'description', 'priority', 'due_date', 'status', 'assigned_to']));
+
         if ($request->hasFile('attachment')) {
             if ($task->attachment_path) Storage::disk('public')->delete($task->attachment_path);
             $task->attachment_path = $request->file('attachment')->store('tasks/attachments', 'public');
             $task->save();
         }
-        
+
         $task->load(['employee', 'creator']);
         return $this->successResponse($task, 'Task updated successfully');
     }
 
-    public function destroy($id)
+    public function destroy(int|string $id)
     {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if (!$user->hasRole(['Super Admin', 'Admin'])) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+
         $task = Task::findOrFail($id);
         $task->delete();
         return $this->successResponse(null, 'Task deleted successfully');

@@ -24,6 +24,10 @@ import Shifts from '@/pages/settings/Shifts';
 import PayrollAdmin from '@/pages/payroll/PayrollAdmin';
 import OvertimeList from '@/pages/overtime/OvertimeList';
 import AuditLogs from '@/pages/audit/AuditLogs';
+import Lifecycle from '@/pages/lifecycle/Lifecycle';
+import Assets from '@/pages/assets/Assets';
+import EntityList from '@/pages/entities/EntityList';
+import EntityRecords from '@/pages/entities/EntityRecords';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 
@@ -40,7 +44,7 @@ function SuperAdminRoute() {
 
   if (loading) return <div>Loading...</div>;
 
-  const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin');
+  const isSuperAdmin = user?.roles?.some((r: any) => r?.name === 'Super Admin');
 
   return isSuperAdmin ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
@@ -50,7 +54,7 @@ function AdminRoute() {
 
   if (loading) return <div>Loading...</div>;
 
-  const isAdminOrSuper = user?.roles?.some((r: any) => r.name === 'Super Admin' || r.name === 'Admin');
+  const isAdminOrSuper = user?.roles?.some((r: any) => r?.name === 'Super Admin' || r?.name === 'Admin');
 
   return isAdminOrSuper ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
@@ -94,6 +98,10 @@ function App() {
               <Route path="/notices" element={<NoticeBoard />} />
               <Route path="/payroll" element={<PayrollAdmin />} />
               <Route path="/overtime" element={<OvertimeList />} />
+              <Route path="/lifecycle" element={<Lifecycle />} />
+              <Route path="/assets" element={<Assets />} />
+              <Route path="/entities" element={<EntityList />} />
+              <Route path="/entities/:slug" element={<EntityRecords />} />
             </Route>
 
             {/* Super Admin Only Access */}
@@ -101,7 +109,7 @@ function App() {
               <Route path="/admins" element={<AdminList />} />
               <Route path="/admins/create" element={<CreateAdmin />} />
               <Route path="/admins/edit/:id" element={<EditAdmin />} />
-              
+
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/shifts" element={<Shifts />} />
               <Route path="/audit-logs" element={<AuditLogs />} />

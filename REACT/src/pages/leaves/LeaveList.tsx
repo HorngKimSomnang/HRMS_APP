@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import {
     Table,
@@ -23,7 +24,11 @@ export default function LeaveList() {
     const [leaves, setLeaves] = useState<any[]>([]);
     const [balances, setBalances] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+    const [searchParams] = useSearchParams();
+    const statusParam = searchParams.get('status');
+    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(
+        statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected' ? statusParam : 'all'
+    );
     const [employees, setEmployees] = useState<any[]>([]);
     const [isAssignOpen, setIsAssignOpen] = useState(false);
     const [assignForm, setAssignForm] = useState({
@@ -127,7 +132,14 @@ export default function LeaveList() {
                         <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></div> Pending
                     </div>
                 );
-            default: return <span className="text-gray-600 bg-gray-100 px-3 py-1 rounded-full text-xs">{status}</span>;
+            case 'expired':
+                return (
+                    <div className="inline-flex items-center gap-1.5 text-slate-600 bg-slate-100 border border-slate-200/60 px-3 py-1 rounded-full text-xs font-semibold shadow-sm transition-all hover:bg-slate-200">
+                        Expired
+                    </div>
+                );
+            default: 
+                return <span className="text-gray-600 bg-gray-100 px-3 py-1 rounded-full text-xs font-semibold capitalize">{status}</span>;
         }
     };
 
@@ -177,7 +189,7 @@ export default function LeaveList() {
                     <h2 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Your Leave Balances</h2>
                     <div className="flex overflow-x-auto pb-2 gap-3 hide-scrollbar snap-x">
                         {balances.map(b => (
-                            <div key={b.leave_type} className="flex-none w-48 bg-card border rounded-xl p-3 shadow-sm snap-start">
+                            <div key={b.leave_type} className="flex-none w-48 bg-gradient-to-br from-orange-50/60 via-card to-card border border-orange-100 rounded-xl p-3 shadow-sm snap-start">
                                 <div className="flex justify-between items-start mb-2">
                                     <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider truncate w-2/3">{b.leave_type}</h3>
                                     {b.days_remaining === 0 && <span className="text-[9px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-sm">LIMIT</span>}
@@ -222,7 +234,7 @@ export default function LeaveList() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
-                className="rounded-2xl border bg-card/70 backdrop-blur-xl shadow-lg dark:shadow-none overflow-hidden"
+                className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/30 via-card/70 to-card/70 backdrop-blur-xl shadow-lg dark:shadow-none overflow-hidden"
             >
                 <Table>
                     <TableHeader className="bg-muted/50">
@@ -248,7 +260,9 @@ export default function LeaveList() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filteredLeaves.map((leave) => (
+                            filteredLeaves.map((leave) => {
+                                const isPast = new Date(leave.end_date).setHours(23, 59, 59, 999) < new Date().getTime();
+                                return (
                                 <TableRow key={leave.id} className="hover:bg-muted/50 transition-colors">
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-3">
@@ -256,7 +270,7 @@ export default function LeaveList() {
                                                 {(leave.user?.name?.[0] || leave.employee?.first_name?.[0] || "U").toUpperCase()}
                                             </div>
                                             <div>
-                                                <div>{leave.user?.name || `${leave.employee?.first_name} ${leave.employee?.last_name}`}</div>
+                                                <div>{leave.user?.name || `${leave.employee?.last_name} ${leave.employee?.first_name}`}</div>
                                                 <div className="text-xs text-muted-foreground">{leave.employee?.employee_code}</div>
                                             </div>
                                         </div>
@@ -290,7 +304,7 @@ export default function LeaveList() {
                                     <TableCell className="text-right">
                                         <AnimatePresence>
                                             {/* NORMAL: Approve/Reject for pending leaves (Admin + Super Admin) */}
-                                            {leave.status === 'pending' && (
+                                            {leave.status === 'pending' && !isPast && (
                                                 <motion.div
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
@@ -307,7 +321,7 @@ export default function LeaveList() {
                                             )}
 
                                             {/* GOD MODE: Super Admin override on already-processed leaves */}
-                                            {leave.status !== 'pending' && isSuperAdmin && (
+                                            {leave.status !== 'pending' && isSuperAdmin && !isPast && (
                                                 <motion.div
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
@@ -332,7 +346,7 @@ export default function LeaveList() {
                                             )}
 
                                             {/* Admin: Revoke already-processed leaves */}
-                                            {leave.status !== 'pending' && (isSuperAdmin || user?.roles?.some((r: any) => r.name === 'Admin')) && (
+                                            {leave.status !== 'pending' && !isPast && (isSuperAdmin || user?.roles?.some((r: any) => r.name === 'Admin')) && (
                                                 <Button 
                                                     size="icon" 
                                                     variant="ghost" 
@@ -343,10 +357,16 @@ export default function LeaveList() {
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             )}
+                                            
+                                            {isPast && (
+                                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right pr-2">
+                                                    Archived
+                                                </div>
+                                            )}
                                         </AnimatePresence>
                                     </TableCell>
                                 </TableRow>
-                            ))
+                            )})
                         )}
                     </TableBody>
                 </Table>
@@ -367,7 +387,7 @@ export default function LeaveList() {
                             >
                                 <option value="">Select Employee...</option>
                                 {employees.map(emp => (
-                                    <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>
+                                    <option key={emp.id} value={emp.id}>{emp.last_name} {emp.first_name}</option>
                                 ))}
                             </select>
                         </div>

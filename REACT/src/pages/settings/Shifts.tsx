@@ -36,7 +36,7 @@ export default function Shifts() {
         try {
             const res = await api.get('/shifts');
             setShifts(res.data.data);
-        } catch (error) {
+        } catch {
             toast.error('Failed to fetch shifts');
         } finally {
             setLoading(false);
@@ -58,7 +58,7 @@ export default function Shifts() {
             }
             setIsDialogOpen(false);
             fetchShifts();
-        } catch (error) {
+        } catch {
             toast.error('Failed to save shift');
         }
     };
@@ -70,7 +70,7 @@ export default function Shifts() {
             toast.success('Shift deleted');
             fetchShifts();
             setDeleteId(null);
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete shift');
         }
     };
@@ -100,7 +100,7 @@ export default function Shifts() {
                 <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" /> Add Shift</Button>
             </div>
 
-            <div className="bg-card text-card-foreground rounded-xl border shadow-sm flex flex-col">
+            <div className="bg-gradient-to-br from-amber-50/50 via-card to-card text-card-foreground rounded-xl border border-amber-100 shadow-sm flex flex-col">
                 <div className="p-6 pb-2">
                     <h3 className="text-lg font-semibold leading-none tracking-tight">Configured Shifts</h3>
                 </div>

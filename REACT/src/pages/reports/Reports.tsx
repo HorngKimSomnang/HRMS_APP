@@ -59,7 +59,7 @@ export default function Reports() {
                     typeParams.employee_id = selectedEmployeeId;
                 }
                 const res = await api.get(endpoint, { params: typeParams });
-                newMap[type] = res.data.data || res.data;
+                newMap[type] = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
             }));
             
             setReportDataMap(newMap);
@@ -96,7 +96,7 @@ export default function Reports() {
                 headers: ["Date", "Employee", "Status", "Clock In", "Clock Out", "Hours"],
                 mapRow: (row: any) => [
                     new Date(row.date).toLocaleDateString(),
-                    row.employee?.user?.name || `${row.employee?.first_name} ${row.employee?.last_name}`,
+                    row.employee?.user?.name || `${row.employee?.last_name} ${row.employee?.first_name}`,
                     row.status,
                     row.clock_in ? new Date(row.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
                     row.clock_out ? new Date(row.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
@@ -110,7 +110,7 @@ export default function Reports() {
                 mapRow: (row: any) => [
                     new Date(row.start_date).toLocaleDateString(),
                     new Date(row.end_date).toLocaleDateString(),
-                    row.employee?.user?.name || `${row.employee?.first_name} ${row.employee?.last_name}`,
+                    row.employee?.user?.name || `${row.employee?.last_name} ${row.employee?.first_name}`,
                     row.leave_type || '-',
                     row.days_count || '-',
                     row.status
@@ -122,7 +122,7 @@ export default function Reports() {
                 headers: ["Period", "Employee", "Basic Salary", "Overtime", "Commissions", "Net Salary", "Status"],
                 mapRow: (row: any) => [
                     `${row.month} ${row.year}`,
-                    row.employee?.user?.name || `${row.employee?.first_name} ${row.employee?.last_name}`,
+                    row.employee?.user?.name || `${row.employee?.last_name} ${row.employee?.first_name}`,
                     `$${row.basic_salary}`,
                     `$${row.overtime_amount}`,
                     `$${row.commission}`,
@@ -136,7 +136,7 @@ export default function Reports() {
                 headers: ["Date", "Employee", "Start Time", "End Time", "Hours", "Status"],
                 mapRow: (row: any) => [
                     new Date(row.date).toLocaleDateString(),
-                    row.employee?.user?.name || `${row.employee?.first_name} ${row.employee?.last_name}`,
+                    row.employee?.user?.name || `${row.employee?.last_name} ${row.employee?.first_name}`,
                     row.start_time,
                     row.end_time,
                     row.hours,
@@ -149,7 +149,7 @@ export default function Reports() {
                 headers: ["Joined", "Name", "Code", "Dept", "Title", "Status"],
                 mapRow: (row: any) => [
                     row.joining_date ? new Date(row.joining_date).toLocaleDateString() : '-',
-                    row.user?.name || `${row.first_name} ${row.last_name}`,
+                    row.user?.name || `${row.last_name} ${row.first_name}`,
                     row.employee_code,
                     row.department || '-',
                     row.job_title || '-',
@@ -206,7 +206,7 @@ export default function Reports() {
             ];
 
             // ── Sheet name (max 31 chars, Excel limit) ──────────────────────
-            const sheetName = cfg.title.replace(/[\\\/*?\[\]]/g, '').slice(0, 31);
+            const sheetName = cfg.title.replace(/[\\/*?[\]]/g, '').slice(0, 31);
             XLSX.utils.book_append_sheet(workbook, ws, sheetName);
         });
 
@@ -216,56 +216,95 @@ export default function Reports() {
 
     const exportToPDF = () => {
         if (Object.keys(reportDataMap).length === 0) return;
-        
+
         const generateWithDoc = (doc: jsPDF, logoImg?: HTMLImageElement) => {
             const pageW = doc.internal.pageSize.getWidth();
             const pageH = doc.internal.pageSize.getHeight();
             const margin = 14;
             let currentY = 20;
-            
+
+            // ── Color palette ─────────────────────────────────────────────────
+            const navyDark: [number, number, number]  = [15, 23, 60];
+            const navyMid:  [number, number, number]  = [30, 58, 138];
+            const accentBlue: [number, number, number] = [59, 130, 246];
+            const slateLight: [number, number, number] = [241, 245, 249];
+            const slateBorder: [number, number, number] = [203, 213, 225];
+            const textDark: [number, number, number]  = [15, 23, 42];
+            const textMid:  [number, number, number]  = [71, 85, 105];
+            const textLight: [number, number, number] = [148, 163, 184];
+            const white: [number, number, number]     = [255, 255, 255];
+            const rowAlt: [number, number, number]    = [248, 250, 252];
+
+            // ── Section accent colors ─────────────────────────────────────────
+            const sectionColors: Record<string, [number, number, number]> = {
+                'Attendance Report':  [34, 197, 94],
+                'Leaves Report':      [251, 146, 60],
+                'Payroll Report':     [99, 102, 241],
+                'Overtime Report':    [236, 72, 153],
+                'Employee Report':    [20, 184, 166],
+            };
+
             const drawPageHeader = (isFirstPage: boolean) => {
                 if (isFirstPage) {
+                    // ── Full-width hero banner ────────────────────────────────
+                    doc.setFillColor(...navyDark);
+                    doc.rect(0, 0, pageW, 54, 'F');
+
+                    // Subtle accent stripe
+                    doc.setFillColor(...navyMid);
+                    doc.rect(0, 44, pageW, 10, 'F');
+
+                    // Logo
                     if (logoImg) {
-                        // Align logo to the top right
-                        doc.addImage(logoImg, 'PNG', pageW - margin - 24, 12, 24, 24);
+                        doc.addImage(logoImg, 'PNG', pageW - margin - 26, 6, 26, 26);
                     }
 
-                    // Company name
-                    doc.setFontSize(9);
-                    doc.setTextColor(120);
+                    // Company tag
                     doc.setFont('helvetica', 'bold');
-                    doc.text('HCI — HUMAN CAPITAL INTELLIGENCE', margin, 18);
+                    doc.setFontSize(7);
+                    doc.setTextColor(accentBlue[0], accentBlue[1], accentBlue[2]);
+                    doc.text('HCI — HUMAN CAPITAL INTELLIGENCE', margin, 13);
 
-                    // Big report title
-                    doc.setFontSize(22);
-                    doc.setTextColor(40, 40, 40);
-                    doc.text('Official HR Report', margin, 28);
+                    // Main title
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(20);
+                    doc.setTextColor(...white);
+                    doc.text('Official HR Report', margin, 26);
 
-                    // Meta info
-                    doc.setFontSize(9);
-                    doc.setTextColor(100);
+                    // Divider line inside banner
+                    doc.setDrawColor(accentBlue[0], accentBlue[1], accentBlue[2]);
+                    doc.setLineWidth(0.6);
+                    doc.line(margin, 31, margin + 50, 31);
+
+                    // Meta row inside banner
                     doc.setFont('helvetica', 'normal');
-                    const period = `Report Period: ${dateRange.start || '—'}  to  ${dateRange.end || '—'}`;
+                    doc.setFontSize(7.5);
+                    doc.setTextColor(...textLight);
+                    const period = `Period: ${dateRange.start || '—'} — ${dateRange.end || '—'}`;
                     const genDate = `Generated: ${new Date().toLocaleString()}`;
-                    doc.text(period, margin, 36);
-                    doc.text(genDate, margin, 41);
+                    doc.text(period, margin, 39);
+                    doc.text(genDate, margin, 46);
 
-                    // Clean elegant separator line
-                    doc.setDrawColor(220);
-                    doc.setLineWidth(0.5);
-                    doc.line(margin, 48, pageW - margin, 48);
+                    // "CONFIDENTIAL" watermark badge in top-left
+                    doc.setFillColor(accentBlue[0], accentBlue[1], accentBlue[2]);
+                    doc.roundedRect(margin, 1, 28, 6, 1, 1, 'F');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(5.5);
+                    doc.setTextColor(...white);
+                    doc.text('CONFIDENTIAL', margin + 2, 5.4);
 
-                    currentY = 56;
+                    currentY = 64;
                 } else {
-                    // Subsequent pages: compact header
-                    doc.setFontSize(8);
-                    doc.setTextColor(150);
-                    doc.text('Official HR Report — HCI', margin, 10);
-                    doc.text(`Page ${doc.getNumberOfPages()}`, pageW - margin, 10, { align: 'right' });
-                    doc.setDrawColor(230);
-                    doc.setLineWidth(0.5);
-                    doc.line(margin, 14, pageW - margin, 14);
-                    currentY = 22;
+                    // Compact header for subsequent pages
+                    doc.setFillColor(...navyDark);
+                    doc.rect(0, 0, pageW, 12, 'F');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(7);
+                    doc.setTextColor(...textLight);
+                    doc.text('HCI — Official HR Report', margin, 8);
+                    doc.setTextColor(...accentBlue);
+                    doc.text(`Page ${doc.getNumberOfPages()}`, pageW - margin, 8, { align: 'right' });
+                    currentY = 20;
                 }
             };
 
@@ -274,13 +313,19 @@ export default function Reports() {
                 const totalPages = doc.getNumberOfPages();
                 for (let i = 1; i <= totalPages; i++) {
                     doc.setPage(i);
-                    doc.setDrawColor(230);
-                    doc.setLineWidth(0.5);
-                    doc.line(margin, pageH - 14, pageW - margin, pageH - 14);
-                    doc.setFontSize(8);
-                    doc.setTextColor(150);
-                    doc.text('Confidential — For Internal Use Only', margin, pageH - 9);
-                    doc.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 9, { align: 'right' });
+
+                    // Footer bar
+                    doc.setFillColor(...slateLight);
+                    doc.rect(0, pageH - 14, pageW, 14, 'F');
+
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(7);
+                    doc.setTextColor(...textMid);
+                    doc.text('Confidential — For Internal Use Only', margin, pageH - 5.5);
+
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(...navyMid);
+                    doc.text(`${i} / ${totalPages}`, pageW - margin, pageH - 5.5, { align: 'right' });
                 }
             };
 
@@ -294,27 +339,37 @@ export default function Reports() {
                 const cfg = getReportConfig(type);
 
                 // Add spacing between sections
-                if (idx > 0) currentY += 8;
+                if (idx > 0) currentY += 10;
 
                 // Page break if not enough space
-                if (currentY > pageH - 50) {
+                if (currentY > pageH - 60) {
                     doc.addPage();
                     drawPageHeader(false);
                 }
 
-                // Section title (Modern, minimal)
-                doc.setFontSize(12);
-                doc.setTextColor(50, 50, 50);
+                // Accent color for this section
+                const accent = sectionColors[cfg.title] || navyMid;
+
+                // ── Section header band ──────────────────────────────────────
+                doc.setFillColor(...accent);
+                doc.rect(margin, currentY - 1, 3, 10, 'F');
+
+                doc.setFontSize(11);
+                doc.setTextColor(textDark[0], textDark[1], textDark[2]);
                 doc.setFont('helvetica', 'bold');
-                doc.text(cfg.title, margin, currentY + 2);
+                doc.text(cfg.title, margin + 6, currentY + 6);
 
-                // Row count indicator
-                doc.setFontSize(8);
-                doc.setTextColor(150);
-                doc.setFont('helvetica', 'normal');
-                doc.text(`${data.length} record${data.length !== 1 ? 's' : ''}`, pageW - margin, currentY + 2, { align: 'right' });
+                // Record count pill
+                const countLabel = `${data.length} record${data.length !== 1 ? 's' : ''}`;
+                const pillW = doc.getTextWidth(countLabel) + 6;
+                doc.setFillColor(...slateLight);
+                doc.roundedRect(pageW - margin - pillW, currentY + 1, pillW, 7, 2, 2, 'F');
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(textMid[0], textMid[1], textMid[2]);
+                doc.text(countLabel, pageW - margin - pillW / 2, currentY + 6, { align: 'center' });
 
-                currentY += 6;
+                currentY += 14;
 
                 autoTable(doc, {
                     startY: currentY,
@@ -322,31 +377,35 @@ export default function Reports() {
                     body: data.map(cfg.mapRow),
                     theme: 'plain',
                     headStyles: {
-                        fillColor: [248, 250, 252],
-                        textColor: [71, 85, 105],
+                        fillColor: navyDark,
+                        textColor: white,
                         fontStyle: 'bold',
                         fontSize: 8,
-                        cellPadding: 4,
-                        lineWidth: { bottom: 0.5 },
-                        lineColor: [203, 213, 225],
+                        cellPadding: { top: 5, bottom: 5, left: 5, right: 5 },
                     },
                     bodyStyles: {
                         fontSize: 8,
-                        textColor: [51, 65, 85],
-                        cellPadding: 4,
+                        textColor: textDark,
+                        cellPadding: { top: 4, bottom: 4, left: 5, right: 5 },
                     },
                     alternateRowStyles: {
-                        fillColor: [252, 253, 254],
+                        fillColor: rowAlt,
                     },
                     styles: {
-                        lineWidth: { bottom: 0.1 },
-                        lineColor: [226, 232, 240],
+                        lineWidth: { bottom: 0.2 },
+                        lineColor: slateBorder,
                         overflow: 'linebreak',
                     },
                     margin: { left: margin, right: margin, bottom: 20 },
+                    didDrawCell: (hookData: any) => {
+                        if (hookData.section === 'head' && hookData.column.index === 0) {
+                            doc.setFillColor(...accent);
+                            doc.rect(hookData.cell.x, hookData.cell.y, 2.5, hookData.cell.height, 'F');
+                        }
+                    },
                 });
 
-                currentY = (doc as any).lastAutoTable.finalY + 12;
+                currentY = (doc as any).lastAutoTable.finalY + 8;
             });
 
             // ── Footers on all pages ──────────────────────────────────────────
@@ -426,7 +485,7 @@ export default function Reports() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-end gap-4 bg-card p-4 rounded-lg border shadow-sm mb-6">
+            <div className="flex flex-wrap items-end gap-4 bg-gradient-to-br from-teal-50/50 via-card to-card p-4 rounded-lg border border-teal-100 shadow-sm mb-6">
                 <div className="grid gap-2">
                     <label className="text-sm font-medium">Start Date</label>
                     <Input
@@ -453,7 +512,7 @@ export default function Reports() {
                         >
                             <option value="">All Employees</option>
                             {employees.map(e => (
-                                <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>
+                                <option key={e.id} value={e.id}>{e.last_name} {e.first_name}</option>
                             ))}
                         </select>
                     </div>
@@ -468,9 +527,16 @@ export default function Reports() {
                 {reportTypes.map(type => {
                     const data = reportDataMap[type];
                     const cfg = getReportConfig(type);
-                    
+                    const tint = {
+                        attendance: 'border-green-100 from-green-50/40',
+                        leaves: 'border-orange-100 from-orange-50/40',
+                        overtime: 'border-cyan-100 from-cyan-50/40',
+                        payroll: 'border-violet-100 from-violet-50/40',
+                        employees: 'border-blue-100 from-blue-50/40',
+                    }[type] ?? 'border-border from-transparent';
+
                     return (
-                        <div key={type} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                        <div key={type} className={`rounded-lg border bg-gradient-to-br via-card to-card shadow-sm overflow-hidden ${tint}`}>
                             <div className="bg-muted/30 px-4 py-3 border-b">
                                 <h3 className="font-semibold text-lg">{cfg.title}</h3>
                             </div>
@@ -516,7 +582,7 @@ export default function Reports() {
                     );
                 })}
                 {reportTypes.length === 0 && (
-                    <div className="text-center p-12 bg-card rounded-lg border text-muted-foreground shadow-sm">
+                    <div className="text-center p-12 bg-gradient-to-br from-teal-50/40 via-card to-card rounded-lg border border-teal-100 text-muted-foreground shadow-sm">
                         Select at least one report type above to view data.
                     </div>
                 )}

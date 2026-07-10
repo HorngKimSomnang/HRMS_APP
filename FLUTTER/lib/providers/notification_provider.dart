@@ -62,7 +62,8 @@ class NotificationProvider with ChangeNotifier {
         }
         _lastSeenId = latestId;
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('NotificationProvider: fetch error: $e');
       if (!isPolling) {
         _notifications = [];
         _unreadCount = 0;
@@ -90,7 +91,9 @@ class NotificationProvider with ChangeNotifier {
         if (n is Map) n['read_at'] = DateTime.now().toIso8601String();
       }
       notifyListeners();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('NotificationProvider: markAllAsRead error: $e');
+    }
   }
 
   /// Delete a specific notification and update local state.

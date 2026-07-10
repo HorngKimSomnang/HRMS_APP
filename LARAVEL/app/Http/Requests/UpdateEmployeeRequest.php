@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\PasswordPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateEmployeeRequest extends FormRequest
@@ -44,6 +45,9 @@ class UpdateEmployeeRequest extends FormRequest
             'dob' => 'nullable|date',
             'profile_picture' => 'nullable|image|max:10240',
             'shift_id' => 'nullable|integer|min:1',
+            // Admin resetting an employee's password — was previously read straight off
+            // the request in the controller with zero validation of any kind.
+            'password' => ['nullable', 'string', PasswordPolicy::rule()],
         ];
     }
 }

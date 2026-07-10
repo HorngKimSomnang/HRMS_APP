@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+
+import '../core/error_utils.dart';
 import 'package:intl/intl.dart'; 
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +18,9 @@ import 'package:dio/dio.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool openChangePassword;
+
+  const ProfileScreen({super.key, this.openChangePassword = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -29,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
   bool _loading = true;
   bool _showMoreDetails = false;
+  bool _autoOpenedPasswordDialog = false;
 
   @override
   void initState() {
@@ -45,6 +51,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _user = response.data;
           _loading = false;
         });
+        if (widget.openChangePassword && !_autoOpenedPasswordDialog) {
+          _autoOpenedPasswordDialog = true;
+          _showChangePasswordDialog();
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _loading = false);
@@ -83,7 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
        }
      } catch (e) {
        if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
        }
      }
   }
@@ -176,10 +186,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     } on DioException catch (e) {
                       setState(() { 
                         isLoading = false; 
-                        errorMsg = e.response?.data['message'] ?? e.toString(); 
+                        errorMsg = friendlyError(context, e); 
                       });
                     } catch (e) {
-                      setState(() { isLoading = false; errorMsg = e.toString(); });
+                      setState(() { isLoading = false; errorMsg = friendlyError(context, e); });
                     }
                   },
                   child: isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator()) : const Text('Save'),
@@ -194,13 +204,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    
-    final employee = _user?['employee'];
+    final displayUser = _loading ? {
+      'name': 'Loading Name',
+      'email': 'loading@example.com',
+      'needs_password_change': false,
+      'employee': {
+        'employee_code': 'EMP000',
+        'joining_date': null,
+        'department': 'Department',
+        'job_title': 'Job Title',
+        'phone': null,
+        'profile_picture_url': null,
+        'documents': {'name_kh': 'N/A', 'emergency_contact': 'N/A'},
+      },
+    } : _user;
 
-    return Scaffold(
+    final employee = displayUser?['employee'] as Map<String, dynamic>?;
+
+    return Skeletonizer(
+      enabled: _loading,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       body: SingleChildScrollView(
         child: Column(
@@ -277,7 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              _user?['name'] ?? 'User',
+                              displayUser?['name'] ?? 'User',
                               style: GoogleFonts.notoSansKhmer(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -286,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             Text(
-                              employee?['phone'] ?? _user?['email'] ?? '',
+                              employee?['phone'] ?? displayUser?['email'] ?? '',
                               style: GoogleFonts.notoSansKhmer(
                                 fontSize: 14,
                                 color: Colors.white.withValues(alpha:0.9),
@@ -302,7 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         right: 20,
                         child: IconButton(
                           icon: const Icon(LucideIcons.pencil, color: Colors.white),
-                          onPressed: () async {
+                          onPressed: _loading ? null : () async {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => EditProfileScreen(user: _user!)),
@@ -331,8 +354,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                        const SizedBox(width: 16),
                        Expanded(child: _InfoCard(
                          label: 'Joined', 
-                         value: employee?['joining_date'] != null 
-                            ? DateFormat('d MMM y').format(DateTime.parse(employee['joining_date'])) 
+                         value: employee?['joining_date'] != null
+                            ? DateFormat('d MMM y').format(DateTime.parse(employee!['joining_date']))
                             : '-',
                          icon: LucideIcons.calendar,
                          color: Colors.orange,
@@ -367,7 +390,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const Divider(height: 32, color: Color(0xFFF1F5F9)),
                     _DetailRow(AppLocalizations.of(context)!.jobTitle, employee?['job_title'] ?? 'N/A'),
                     const Divider(height: 32, color: Color(0xFFF1F5F9)),
-                    _DetailRow('Email', _user?['email'] ?? 'N/A'),
+                    _DetailRow('Email', displayUser?['email'] ?? 'N/A'),
                     
                     if (_showMoreDetails) ...[
                       const Divider(height: 32, color: Color(0xFFF1F5F9)),
@@ -401,7 +424,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             const SizedBox(height: 24),
 
-            // 4. Settings
+            // 4. My Activity — content you view/submit yourself, kept apart from app Settings below
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(AppLocalizations.of(context)!.myActivity, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+                   const SizedBox(height: 16),
+                   Container(
+                     decoration: BoxDecoration(
+                       color: Colors.white,
+                       borderRadius: BorderRadius.circular(24),
+                       boxShadow: [ BoxShadow(color: const Color(0xFF94A3B8).withValues(alpha:0.05), blurRadius: 10, offset: const Offset(0, 5)) ],
+                     ),
+                     child: Column(
+                       children: [
+                         _SettingTile(
+                           icon: LucideIcons.fileSignature,
+                           color: const Color(0xFF8B5CF6),
+                           title: AppLocalizations.of(context)!.myContract,
+                           onTap: () => context.push('/my-contract'),
+                         ),
+                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                         _SettingTile(
+                           icon: LucideIcons.clipboardList,
+                           color: const Color(0xFF14B8A6),
+                           title: AppLocalizations.of(context)!.myForms,
+                           subtitle: AppLocalizations.of(context)!.submitReportsAndForms,
+                           onTap: () => context.push('/my-forms'),
+                         ),
+                       ],
+                     ),
+                   ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // 5. Settings — app-level preferences and account actions
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -456,6 +518,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 40),
           ],
         ),
+      ),
       ),
     );
   }
@@ -527,14 +590,16 @@ class _SettingTile extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
   final bool hideArrow;
 
   const _SettingTile({
-    required this.icon, 
-    required this.color, 
-    required this.title, 
+    required this.icon,
+    required this.color,
+    required this.title,
     required this.onTap,
+    this.subtitle,
     this.hideArrow = false,
   });
 
@@ -556,7 +621,17 @@ class _SettingTile extends StatelessWidget {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(title, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black87)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black87)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!, style: GoogleFonts.notoSansKhmer(fontSize: 12, color: Colors.grey[500])),
+                  ],
+                ],
+              ),
             ),
             if (!hideArrow) Icon(LucideIcons.chevronRight, color: Colors.grey[300], size: 20),
           ],

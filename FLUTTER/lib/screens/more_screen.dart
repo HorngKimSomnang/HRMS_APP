@@ -104,9 +104,10 @@ class MoreScreen extends StatelessWidget {
                     const SizedBox(height: 10),
                     _MenuSection(items: [
                       _MenuItem(icon: LucideIcons.user, label: 'My Profile', subtitle: 'View & edit your info', color: const Color(0xFF3B82F6), onTap: () => context.push('/profile')),
-                      _MenuItem(icon: LucideIcons.wallet, label: 'Payroll & Finances', subtitle: 'Requests & payslips', color: const Color(0xFF6366F1), onTap: () => context.push('/payroll')),
+                      _MenuItem(icon: LucideIcons.fileSignature, label: 'My Contract', subtitle: 'Contract type & dates', color: const Color(0xFF8B5CF6), onTap: () => context.push('/my-contract')),
                       _MenuItem(icon: LucideIcons.mapPin, label: 'Attendance', subtitle: 'Clock in & out', color: const Color(0xFF10B981), onTap: () => context.push('/attendance')),
                       _MenuItem(icon: LucideIcons.fileText, label: 'Documents', subtitle: 'HR documents', color: const Color(0xFFF59E0B), onTap: () => context.push('/documents')),
+                      _MenuItem(icon: LucideIcons.clipboardList, label: 'My Forms', subtitle: 'Submit reports & forms', color: const Color(0xFF14B8A6), onTap: () => context.push('/my-forms')),
                     ]),
 
                     const SizedBox(height: 20),

@@ -71,25 +71,15 @@ class OvertimeController extends Controller
                 'approved_by' => $user->id,
             ]);
 
-            // Queue for Payroll (Calculate OT Pay)
+            // Calculate OT pay for the audit trail
             if ($request->status === 'approved' && $oldStatus !== 'approved') {
                 $employee = $overtime->employee;
                 $basicSalary = $employee->basic_salary ?: 0;
                 // Assuming 160 hours/month standard, 1.5 multiplier for OT
-                $hourlyRate = $basicSalary > 0 ? ($basicSalary / 160) : 10; 
+                $hourlyRate = $basicSalary > 0 ? ($basicSalary / 160) : 10;
                 $otPay = $hourlyRate * 1.5 * $overtime->hours;
 
-                \App\Models\PayrollRequest::create([
-                    'employee_id' => $employee->id,
-                    'type' => 'overtime',
-                    'date' => $overtime->date,
-                    'value' => round($otPay, 2),
-                    'reason' => 'Auto-queued Overtime: ' . $overtime->hours . ' hrs on ' . $overtime->date . ' (' . $overtime->reason . ')',
-                    'status' => 'approved', // Automatically approved
-                ]);
-
-                // Also update audit trail for the approval and queue
-                AuditLogger::log($request, 'OVERTIME_APPROVED_AND_QUEUED', $overtime, [
+                AuditLogger::log($request, 'OVERTIME_APPROVED', $overtime, [
                     'employee'       => $employee->user?->name,
                     'date'           => $overtime->date,
                     'hours'          => $overtime->hours,

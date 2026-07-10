@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/error_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -36,7 +38,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
         if (!mounted) return;
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load holidays: $e')),
+          SnackBar(content: Text(friendlyError(context, e))),
         );
       }
     }
@@ -218,7 +220,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
                         border: Border.all(color: isPublic ? Colors.blue.shade100 : Colors.purple.shade100),
                       ),
                       child: Text(
-                        holiday['type'].toString().toUpperCase(),
+                        (holiday['type']?.toString() ?? 'event').toUpperCase(),
                         style: GoogleFonts.notoSansKhmer(
                           fontSize: 10, 
                           fontWeight: FontWeight.bold, 

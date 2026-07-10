@@ -123,7 +123,7 @@ export default function OvertimeList() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
-                className="rounded-2xl border bg-card/70 backdrop-blur-xl shadow-lg dark:shadow-none overflow-hidden"
+                className="rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50/30 via-card/70 to-card/70 backdrop-blur-xl shadow-lg dark:shadow-none overflow-hidden"
             >
                 <Table>
                     <TableHeader className="bg-muted/50">

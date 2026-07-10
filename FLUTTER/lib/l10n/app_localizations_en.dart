@@ -117,6 +117,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retryConnection => 'Retry Connection';
 
   @override
+  String get checkYourInternet =>
+      'Please check your internet connection and try again.';
+
+  @override
+  String get somethingWentWrong => 'Something went wrong. Please try again.';
+
+  @override
+  String get changeGeneratedPassword =>
+      'Please change your auto-generated password immediately for security.';
+
+  @override
   String get profile => 'Profile';
 
   @override
@@ -217,4 +228,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get date => 'Date';
+
+  @override
+  String get myActivity => 'My Activity';
+
+  @override
+  String get myContract => 'My Contract';
+
+  @override
+  String get myForms => 'My Forms';
+
+  @override
+  String get submitReportsAndForms => 'Submit reports & forms';
 }

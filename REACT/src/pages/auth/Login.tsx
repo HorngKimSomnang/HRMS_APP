@@ -35,6 +35,12 @@ export default function Login() {
             const { access_token, user } = response.data;
 
             if (access_token && user) {
+                const hasAdminAccess = user.roles?.some((r: any) => ['Admin', 'Super Admin'].includes(r.name));
+                if (!hasAdminAccess) {
+                    setError("Access denied. Employees must use the mobile app.");
+                    return;
+                }
+
                 login(access_token, user);
                 // Force a small delay to allow state to settle if needed, though not usually required
                 setTimeout(() => navigate('/dashboard'), 100);
@@ -50,14 +56,19 @@ export default function Login() {
     };
 
     return (
-        <div className="w-full min-h-screen flex items-center justify-center bg-background">
+        <div className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50/60 to-slate-100">
+            {/* Soft decorative glow — purely visual, no layout impact */}
+            <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-blue-300/30 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-32 -right-24 h-[28rem] w-[28rem] rounded-full bg-indigo-300/30 blur-3xl" />
+            <div className="pointer-events-none absolute top-1/3 right-1/4 h-72 w-72 rounded-full bg-sky-200/20 blur-3xl" />
+
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 w-full"
+                className="relative flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 w-full"
             >
-                <div className="mx-auto w-full max-w-sm space-y-8">
+                <div className="mx-auto w-full max-w-lg space-y-8 bg-white/85 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/60 p-12 sm:p-14">
                     <div className="flex flex-col items-center text-center">
                         <div className="w-full flex justify-end mb-2">
                              <button onClick={toggleLanguage} className="bg-secondary/50 px-2 py-1 rounded text-sm hover:bg-secondary">

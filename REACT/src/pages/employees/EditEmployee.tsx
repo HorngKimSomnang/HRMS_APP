@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -31,7 +31,8 @@ export default function EditEmployee() {
         job_title: '',
         salary: '',
         employee_code: '',
-        joining_date: ''
+        joining_date: '',
+        role: ''
     });
 
     const [profilePicture, setProfilePicture] = useState<File | null>(null);
@@ -39,12 +40,7 @@ export default function EditEmployee() {
     const [docDegree, setDocDegree] = useState<File | null>(null);
     const [docCv, setDocCv] = useState<File | null>(null);
 
-    useEffect(() => {
-        fetchEmployee();
-        fetchShifts();
-    }, [id]);
-
-    const fetchEmployee = async () => {
+    const fetchEmployee = useCallback(async () => {
         try {
             const response = await api.get(`/employees/${id}`);
             const emp = response.data.data;
@@ -54,7 +50,7 @@ export default function EditEmployee() {
             setFormData({
                 first_name: emp.first_name,
                 last_name: emp.last_name,
-                email: emp.email,
+                email: emp.email ? emp.email.replace('@gmail.com', '') : '',
                 phone: emp.phone || '',
                 gender: emp.gender,
                 dob: emp.dob ? emp.dob.split('T')[0].split(' ')[0] : '',
@@ -67,23 +63,29 @@ export default function EditEmployee() {
                 job_title: emp.job_title,
                 salary: emp.salary || '',
                 employee_code: emp.employee_code,
-                joining_date: emp.joining_date ? emp.joining_date.split('T')[0].split(' ')[0] : ''
+                joining_date: emp.joining_date ? emp.joining_date.split('T')[0].split(' ')[0] : '',
+                role: emp.role || 'Employee'
             });
         } catch (error) {
             console.error('Failed to fetch employee', error);
         } finally {
             setFetching(false);
         }
-    };
+    }, [id, user?.id]);
 
-    const fetchShifts = async () => {
+    const fetchShifts = useCallback(async () => {
         try {
             const res = await api.get('/shifts');
             setShifts(res.data.data);
         } catch (error) {
             console.error("Failed to fetch shifts", error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchEmployee();
+        fetchShifts();
+    }, [fetchEmployee, fetchShifts]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -116,7 +118,11 @@ export default function EditEmployee() {
             data.append('_method', 'PUT');
             Object.entries(formData).forEach(([key, value]) => {
                 if (value !== null && value !== undefined && value !== '') {
-                    data.append(key, value.toString());
+                    let finalValue = value.toString();
+                    if (key === 'email' && !finalValue.includes('@')) {
+                        finalValue = `${finalValue}@gmail.com`;
+                    }
+                    data.append(key, finalValue);
                 }
             });
 
@@ -143,7 +149,7 @@ export default function EditEmployee() {
 
     return (
         <div className="max-w-5xl mx-auto py-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+            <div className="bg-gradient-to-br from-blue-50/40 via-white to-white rounded-2xl shadow-sm border border-blue-100 p-6 sm:p-8">
                 <h2 className="text-2xl font-bold tracking-tight mb-6 text-slate-900 border-b pb-4">Edit Employee</h2>
                 <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -179,7 +185,12 @@ export default function EditEmployee() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Email / អ៊ីមែល</label>
-                        <Input name="email" type="email" value={formData.email} required onChange={handleChange} />
+                        <div className="flex rounded-md">
+                            <Input name="email" type="text" value={formData.email} required onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
+                            <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
+                                @gmail.com
+                            </div>
+                        </div>
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
@@ -294,6 +305,24 @@ export default function EditEmployee() {
                         </select>
                     </div>
                 </div>
+
+                {user?.roles?.some((r: any) => r.name === 'Super Admin') && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">System Role / តួនាទីក្នុងប្រព័ន្ធ</label>
+                            <select
+                                name="role"
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                onChange={handleChange}
+                                value={formData.role}
+                            >
+                                <option value="Employee">Employee</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Super Admin">Super Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex justify-end gap-4 pt-6 border-t mt-8">
                     <Button type="button" variant="outline" onClick={() => navigate('/employees')} className="px-6">Cancel</Button>

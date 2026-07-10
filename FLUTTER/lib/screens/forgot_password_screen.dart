@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../core/error_utils.dart';
 import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
@@ -50,12 +51,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       final response = await _apiService.client.post('/forgot-password', data: {
         'email': _emailController.text,
       });
-      _showSuccess(response.data['message'] ?? 'OTP Sent!');
+      _showSuccess(response.data is Map ? (response.data['message'] ?? 'OTP Sent!') : 'OTP Sent!');
       setState(() {
         _step = 2;
       });
     } on DioException catch (e) {
-      _showError(e.response?.data['message'] ?? 'Failed to send reset link');
+      _showError(serverMessage(e, 'Failed to send reset link'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -79,10 +80,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         'password': _passwordController.text,
         'password_confirmation': _confirmPasswordController.text,
       });
-      _showSuccess(response.data['message'] ?? 'Password reset successfully');
+      _showSuccess(response.data is Map ? (response.data['message'] ?? 'Password reset successfully') : 'Password reset successfully');
       setState(() => _step = 3);
     } on DioException catch (e) {
-      _showError(e.response?.data['message'] ?? 'Failed to reset password');
+      _showError(serverMessage(e, 'Failed to reset password'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

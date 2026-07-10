@@ -82,7 +82,7 @@ export default function AdminList() {
                 </Link>
             </div>
 
-            <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <div className="rounded-lg border border-violet-100 bg-gradient-to-br from-violet-50/50 via-card to-card shadow-sm overflow-hidden">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>

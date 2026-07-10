@@ -117,6 +117,17 @@ class AppLocalizationsKm extends AppLocalizations {
   String get retryConnection => 'ព្យាយាមភ្ជាប់ម្ដងទៀត';
 
   @override
+  String get checkYourInternet =>
+      'សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិតរបស់អ្នក ហើយព្យាយាមម្ដងទៀត។';
+
+  @override
+  String get somethingWentWrong => 'មានបញ្ហាកើតឡើង សូមព្យាយាមម្ដងទៀត។';
+
+  @override
+  String get changeGeneratedPassword =>
+      'សូមប្ដូរពាក្យសម្ងាត់ដែលបានបង្កើតដោយស្វ័យប្រវត្តិជាបន្ទាន់ ដើម្បីសុវត្ថិភាពគណនីរបស់អ្នក។';
+
+  @override
   String get profile => 'ប្រវត្តិរូប';
 
   @override
@@ -217,4 +228,16 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get date => 'កាលបរិច្ឆេទ';
+
+  @override
+  String get myActivity => 'សកម្មភាពរបស់ខ្ញុំ';
+
+  @override
+  String get myContract => 'កិច្ចសន្យារបស់ខ្ញុំ';
+
+  @override
+  String get myForms => 'សំណុំបែបបទរបស់ខ្ញុំ';
+
+  @override
+  String get submitReportsAndForms => 'ដាក់ស្នើរបាយការណ៍ និងសំណុំបែបបទ';
 }

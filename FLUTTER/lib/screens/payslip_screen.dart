@@ -99,7 +99,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                     itemBuilder: (context, index) {
                       final slip = _payslips[index];
                       final monthIdx = int.tryParse(slip['month']?.toString() ?? '1') ?? 1;
-                      final monthName = months[monthIdx];
+                      final monthName = (monthIdx >= 1 && monthIdx <= 12) ? months[monthIdx] : '?';
                       return GestureDetector(
                         onTap: () => _showPayslipDetail(slip),
                         child: Container(
@@ -198,10 +198,10 @@ class _PayslipDetailDialogState extends State<_PayslipDetailDialog> {
   Widget build(BuildContext context) {
     final months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     final monthIdx = int.tryParse(widget.slip['month']?.toString() ?? '1') ?? 1;
-    final monthName = months[monthIdx];
+    final monthName = (monthIdx >= 1 && monthIdx <= 12) ? months[monthIdx] : '?';
     final totalEarnings = _earn('basic_salary') + _earn('overtime_amount') +
         _earn('commission') + _earn('attendance_bonus') + _earn('allowances');
-    final totalDeductions = _earn('advance_deduction') + _earn('deductions');
+    final totalDeductions = _earn('advance_deduction') + _earn('unpaid_leave_deduction') + _earn('deductions');
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -301,6 +301,7 @@ class _PayslipDetailDialogState extends State<_PayslipDetailDialog> {
                       _section('➖ Deductions', const Color(0xFFEF4444), [
                         if (_earn('tax') > 0) _row(context, 'Tax', _earn('tax'), isEarning: false),
                         if (_earn('advance_deduction') > 0) _row(context, 'Advance Deduction', _earn('advance_deduction'), isEarning: false),
+                        if (_earn('unpaid_leave_deduction') > 0) _row(context, 'Unpaid Leave', _earn('unpaid_leave_deduction'), isEarning: false),
                         if (_earn('deductions') > 0) _row(context, 'Other Deductions', _earn('deductions'), isEarning: false),
                         
                         if (totalDeductions == 0 && _earn('tax') == 0)

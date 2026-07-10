@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -32,7 +31,7 @@ class EmployeeWelcomeMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Welcome to HRMS - Your Account Details',
+            subject: 'Welcome to ' . config('app.name') . ' - Your Account Details',
         );
     }
 
@@ -41,8 +40,26 @@ class EmployeeWelcomeMail extends Mailable
      */
     public function content(): Content
     {
+        // Try multiple path strategies to find the logo
+        $logoBase64 = null;
+        $paths = [
+            public_path('logo_small.png'),
+            base_path('public/logo_small.png'),
+            dirname(__DIR__, 2) . '/public/logo_small.png',
+        ];
+
+        foreach ($paths as $path) {
+            if (file_exists($path)) {
+                $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+                break;
+            }
+        }
+
         return new Content(
             markdown: 'emails.employee_welcome',
+            with: [
+                'logoBase64' => $logoBase64,
+            ],
         );
     }
 

@@ -39,6 +39,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return LucideIcons.clipboardList;
       case 'document_uploaded':
         return LucideIcons.fileArchive;
+      case 'custom_entity_record_submitted':
+        return LucideIcons.clipboardCheck;
       default:
         return LucideIcons.bell;
     }
@@ -60,6 +62,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return const Color(0xFFEF4444); // red
       case 'document_uploaded':
         return const Color(0xFF06B6D4); // cyan
+      case 'custom_entity_record_submitted':
+        return const Color(0xFF14B8A6); // teal
       default:
         return const Color(0xFF6B7280); // gray
     }
@@ -344,6 +348,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return 'New Task Assigned';
       case 'document_uploaded':
         return 'Document Received';
+      case 'custom_entity_record_submitted':
+        return 'Form Submission';
       default:
         return 'Notification';
     }

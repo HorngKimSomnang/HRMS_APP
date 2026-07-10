@@ -16,7 +16,9 @@ import 'screens/task_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/document_screen.dart';
 import 'screens/notification_screen.dart';
-import 'screens/payroll_screen.dart';
+import 'screens/my_contract_screen.dart';
+import 'screens/my_forms_screen.dart';
+import 'screens/entity_form_screen.dart';
 import 'providers/notification_provider.dart';
 import 'screens/main_layout.dart';
 import 'core/constants.dart';
@@ -67,7 +69,9 @@ final _router = GoRouter(
         ),
         GoRoute(
           path: '/profile',
-          builder: (context, state) => const ProfileScreen(),
+          builder: (context, state) => ProfileScreen(
+            openChangePassword: state.uri.queryParameters['openPassword'] == 'true',
+          ),
         ),
         GoRoute(
           path: '/documents',
@@ -78,8 +82,16 @@ final _router = GoRouter(
           builder: (context, state) => const NotificationScreen(),
         ),
         GoRoute(
-          path: '/payroll',
-          builder: (context, state) => const PayrollScreen(),
+          path: '/my-contract',
+          builder: (context, state) => const MyContractScreen(),
+        ),
+        GoRoute(
+          path: '/my-forms',
+          builder: (context, state) => const MyFormsScreen(),
+        ),
+        GoRoute(
+          path: '/my-forms/:slug',
+          builder: (context, state) => EntityFormScreen(slug: state.pathParameters['slug']!),
         ),
       ],
     ),

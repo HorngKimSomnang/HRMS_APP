@@ -37,7 +37,7 @@ class ShiftController extends Controller
         return response()->json(['data' => $shift, 'message' => 'Shift created successfully.']);
     }
 
-    public function show($id)
+    public function show(int|string $id)
     {
         $shift = HrCatalog::findShiftById((int) $id);
         if (!$shift) {
@@ -47,7 +47,7 @@ class ShiftController extends Controller
         return response()->json(['data' => $shift]);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int|string $id)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -78,7 +78,7 @@ class ShiftController extends Controller
         return response()->json(['data' => $updated, 'message' => 'Shift updated successfully.']);
     }
 
-    public function destroy($id)
+    public function destroy(int|string $id)
     {
         $shifts = array_values(array_filter(
             HrCatalog::getShifts(),

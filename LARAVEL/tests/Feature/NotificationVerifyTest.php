@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 use App\Models\User;
@@ -12,7 +12,7 @@ use Database\Seeders\RolePermissionSeeder;
 
 class NotificationVerifyTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {
@@ -34,9 +34,9 @@ class NotificationVerifyTest extends TestCase
         // Employee requests leave
         $this->actingAs($employeeUser, 'sanctum')
              ->postJson('/api/leaves', [
-                 'leave_type' => 'Sick',
-                 'start_date' => '2025-01-01',
-                 'end_date' => '2025-01-02',
+                 'leave_type' => 'Sick Leave',
+                 'start_date' => '2027-01-01',
+                 'end_date' => '2027-01-02',
                  'reason' => 'Fever'
              ]);
 

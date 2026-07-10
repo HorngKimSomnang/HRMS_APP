@@ -47,8 +47,8 @@ export default function HolidayList() {
             setHolidays(raw.map((a: any) => ({
                 id: a.id,
                 name: a.title,
-                start_date: a.start_date ?? a.created_at,
-                end_date: a.end_date ?? a.start_date ?? a.created_at,
+                start_date: a.start_date || '',
+                end_date: a.end_date || a.start_date || '',
                 type: a.type === 'Holiday' ? 'public' : 'company',
                 description: a.content,
             })));
@@ -146,7 +146,7 @@ export default function HolidayList() {
                 </div>
             )}
 
-            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            <div className="rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50/50 via-card to-card shadow-sm overflow-hidden">
                 <div className="p-6 border-b bg-muted/30">
                     <h3 className="font-semibold text-lg">All Holidays</h3>
                     <p className="text-sm text-muted-foreground">List of all registered holidays and events for this year.</p>

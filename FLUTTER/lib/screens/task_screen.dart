@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/error_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,7 +46,7 @@ class _TaskScreenState extends State<TaskScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = e.toString();
+          _error = friendlyError(context, e);
         });
       }
     }
@@ -147,7 +149,7 @@ class _TaskScreenState extends State<TaskScreen> {
       _fetchTasks();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update status: $e')),
+          SnackBar(content: Text(friendlyError(context, e))),
         );
       }
     }
@@ -160,7 +162,7 @@ class _TaskScreenState extends State<TaskScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open file: $e')),
+          SnackBar(content: Text(friendlyError(context, e))),
         );
       }
     }
@@ -353,7 +355,7 @@ class _TaskScreenState extends State<TaskScreen> {
                               _fetchTasks();
                             } catch (e) {
                               _fetchTasks();
-                              if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
+                              if (mounted) messenger.showSnackBar(SnackBar(content: Text(friendlyError(this.context, e))));
                             }
                         } else if (!isCompleted) {
                             final messenger = ScaffoldMessenger.of(context);
@@ -363,7 +365,7 @@ class _TaskScreenState extends State<TaskScreen> {
                               _fetchTasks();
                             } catch (e) {
                               _fetchTasks();
-                              if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
+                              if (mounted) messenger.showSnackBar(SnackBar(content: Text(friendlyError(this.context, e))));
                             }
                         }
                     }
@@ -423,15 +425,15 @@ class _TaskScreenState extends State<TaskScreen> {
                     children: [
                       const Icon(Icons.error_outline, size: 48, color: Colors.red),
                       const SizedBox(height: 16),
-                      Text('Error loading tasks', style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(AppLocalizations.of(context)!.somethingWentWrong, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
                       Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Text(_error!, textAlign: TextAlign.center, style: GoogleFonts.notoSansKhmer(color: Colors.red)),
+                        child: Text(_error!, textAlign: TextAlign.center, style: GoogleFonts.notoSansKhmer(color: Colors.grey)),
                       ),
                       ElevatedButton.icon(
                         onPressed: _fetchTasks,
                         icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
+                        label: Text(AppLocalizations.of(context)!.retryConnection),
                       )
                     ],
                   ),

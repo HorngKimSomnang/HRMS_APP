@@ -24,6 +24,7 @@ return new class extends Migration
             $table->string('submission_path')->nullable()->comment('File added by employee upon completion');
             $table->text('submission_note')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

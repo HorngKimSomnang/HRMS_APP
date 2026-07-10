@@ -24,6 +24,7 @@ return new class extends Migration
             $table->decimal('allowances', 10, 2)->default(0)->comment('Transport, meal, etc.');
             // Deductions
             $table->decimal('advance_deduction', 10, 2)->default(0);
+            $table->decimal('unpaid_leave_deduction', 10, 2)->default(0)->comment('Pay withheld for approved unpaid-leave days this period');
             $table->decimal('deductions', 10, 2)->default(0)->comment('Tax, insurance, etc.');
             // Total
             $table->decimal('net_salary', 10, 2)->default(0);
@@ -32,10 +33,16 @@ return new class extends Migration
             $table->string('pdf_path')->nullable();
             
             // Digital Signature
+            // Batch-generated payslips come from a printed roster the employee physically signs,
+            // so they require a scanned proof before authorization. Individually-generated ones
+            // (one-off bonuses/corrections) are created directly by an admin and skip that step.
+            $table->boolean('requires_signature')->default(true);
             $table->boolean('is_signed')->default(false)->comment('Whether the employee acknowledged/signed it');
             $table->timestamp('signed_at')->nullable();
+            $table->string('signed_document_path')->nullable()->comment('Scanned copy of the physically-signed paper, kept as proof');
             
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

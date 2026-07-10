@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Employee;
@@ -10,7 +10,7 @@ use Database\Seeders\RolePermissionSeeder;
 
 class DashboardTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {
@@ -32,7 +32,7 @@ class DashboardTest extends TestCase
                          ->getJson('/api/dashboard');
 
         $response->assertStatus(200)
-                 ->assertJsonPath('role', 'admin')
+                 ->assertJsonPath('role', 'superadmin')
                  ->assertJsonPath('stats.total_employees', 2);
     }
 

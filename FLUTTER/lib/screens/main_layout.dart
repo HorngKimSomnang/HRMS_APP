@@ -64,7 +64,6 @@ class MainLayout extends StatelessWidget {
     if (location.startsWith('/tasks')) return 1;
     if (location.startsWith('/leaves')) return 2;
     if (location.startsWith('/more')) return 3;
-    if (location.startsWith('/payroll')) return 3;
     if (location.startsWith('/profile')) return 3;
     return 0;
   }

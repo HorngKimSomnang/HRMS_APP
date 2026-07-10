@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Bell } from 'lucide-react';
@@ -15,8 +15,9 @@ export default function DashboardLayout() {
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const notificationRef = useRef<HTMLDivElement>(null);
     const knownNotificationIds = useRef<Set<string>>(new Set());
+    const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         try {
             const res = await api.get('/notifications');
             const incomingData = res.data.data?.notifications || [];
@@ -47,18 +48,19 @@ export default function DashboardLayout() {
             // Show Toast Alert if there's a new notification
             if (hasNew) {
                 setToastMessage(latestMessage);
-                setTimeout(() => setToastMessage(null), 5000); // hide after 5s
+                if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+                toastTimerRef.current = setTimeout(() => setToastMessage(null), 5000);
             }
 
         } catch (error) {
             console.error("Failed to fetch notifications", error);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        fetchNotifications();
-        
-        // Poll for new notifications every 15 seconds
+        // Initial fetch (deferred to a macrotask so state updates stay async),
+        // then poll for new notifications every 15 seconds
+        const initialFetchId = setTimeout(fetchNotifications, 0);
         const intervalId = setInterval(fetchNotifications, 15000);
 
         // Close dropdown on click outside
@@ -70,10 +72,12 @@ export default function DashboardLayout() {
         document.addEventListener("mousedown", handleClickOutside);
         
         return () => {
-            clearInterval(intervalId); // Cleanup interval
+            clearTimeout(initialFetchId);
+            clearInterval(intervalId);
             document.removeEventListener("mousedown", handleClickOutside);
+            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         };
-    }, []);
+    }, [fetchNotifications]);
 
     const markAsRead = async () => {
         try {
@@ -95,10 +99,10 @@ export default function DashboardLayout() {
     // unreadCount is now managed via state from the API
 
     return (
-        <div className="flex min-h-screen w-full bg-slate-100/30">
+        <div className="flex min-h-screen w-full bg-blue-50/60">
             <Sidebar />
-            <div className="flex flex-col flex-1 overflow-hidden relative">
-                <header className="flex h-14 items-center gap-4 border-b bg-white/70 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0">
+            <div className="flex flex-col flex-1 overflow-hidden relative print:overflow-visible">
+                <header className="flex h-14 items-center gap-4 border-b border-blue-100 bg-gradient-to-r from-blue-50/80 to-white/80 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0 print:hidden">
                     <div className="flex-1">
                         {/* Breadcrumbs or Search */}
                     </div>
@@ -181,7 +185,7 @@ export default function DashboardLayout() {
                         </div>
                     </div>
                 </header>
-                <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-slate-100/50">
+                <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-gradient-to-br from-blue-50/70 via-slate-50 to-blue-50/40">
                     <Outlet />
                 </main>
 

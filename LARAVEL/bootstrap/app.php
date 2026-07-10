@@ -17,6 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
+
+        // Baseline rate limiting for every /api route (60 req/min per user or IP —
+        // see the 'api' limiter defined in AppServiceProvider). Stricter per-route
+        // limiters (login/otp) are applied directly in routes/api.php.
+        $middleware->throttleApi();
+
+        $middleware->api(append: [
+            \App\Http\Middleware\SecurityHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

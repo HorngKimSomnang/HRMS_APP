@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Support\PasswordPolicy;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OtpMail;
@@ -43,10 +44,12 @@ class ForgotPasswordController extends Controller
             $deliveryMethod = 'email';
         } catch (\Exception $e) {
             Log::error("Failed to send OTP email to {$request->email}: " . $e->getMessage());
-            // Fallback for dev environment without Mail setup
+            // Fallback for dev environment without Mail setup: log the OTP to the
+            // server log file (never the HTTP response — an API response is
+            // readable by anyone who can hit this endpoint, a log file isn't).
+            Log::info("OTP for {$request->email} (mail delivery failed): {$otp}");
             $deliveryMethod = 'log';
         }
-
 
         // Mask the email for the response (e.g., s***@gmail.com)
         $maskedEmail = $this->maskEmail($request->email);
@@ -55,7 +58,6 @@ class ForgotPasswordController extends Controller
             'message' => "OTP sent to {$maskedEmail}",
             'masked_email' => $maskedEmail,
             'delivery_method' => $deliveryMethod,
-            'dev_otp' => config('app.debug') ? $otp : null, // Only expose in debug mode
         ]);
     }
 
@@ -67,7 +69,7 @@ class ForgotPasswordController extends Controller
         $request->validate([
             'email' => 'required|email|exists:users,email',
             'otp' => 'required|string|size:6',
-            'password' => 'required|string|min:6|confirmed',
+            'password' => ['required', 'string', 'confirmed', PasswordPolicy::rule()],
         ]);
 
         $resetRecord = DB::table('password_reset_tokens')->where('email', $request->email)->first();

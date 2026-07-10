@@ -314,6 +314,24 @@ abstract class AppLocalizations {
   /// **'Retry Connection'**
   String get retryConnection;
 
+  /// No description provided for @checkYourInternet.
+  ///
+  /// In en, this message translates to:
+  /// **'Please check your internet connection and try again.'**
+  String get checkYourInternet;
+
+  /// No description provided for @somethingWentWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get somethingWentWrong;
+
+  /// No description provided for @changeGeneratedPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Please change your auto-generated password immediately for security.'**
+  String get changeGeneratedPassword;
+
   /// No description provided for @profile.
   ///
   /// In en, this message translates to:
@@ -517,6 +535,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Date'**
   String get date;
+
+  /// No description provided for @myActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'My Activity'**
+  String get myActivity;
+
+  /// No description provided for @myContract.
+  ///
+  /// In en, this message translates to:
+  /// **'My Contract'**
+  String get myContract;
+
+  /// No description provided for @myForms.
+  ///
+  /// In en, this message translates to:
+  /// **'My Forms'**
+  String get myForms;
+
+  /// No description provided for @submitReportsAndForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit reports & forms'**
+  String get submitReportsAndForms;
 }
 
 class _AppLocalizationsDelegate

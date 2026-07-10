@@ -24,7 +24,7 @@ export default function EditAdmin() {
                 const data = response.data.data;
                 setFormData({
                     name: data.name,
-                    email: data.email,
+                    email: data.email ? data.email.replace('@gmail.com', '') : '',
                     password: '', // Don't populate password
                     role: data.roles?.[0]?.name || 'Admin',
                 });
@@ -46,7 +46,11 @@ export default function EditAdmin() {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.put(`/users/${id}`, formData);
+            const submitData = { ...formData };
+            if (!submitData.email.includes('@')) {
+                submitData.email = `${submitData.email}@gmail.com`;
+            }
+            await api.put(`/users/${id}`, submitData);
             navigate('/admins');
         } catch (error: any) {
             console.error('Failed to update user', error);
@@ -60,7 +64,7 @@ export default function EditAdmin() {
 
     return (
         <div className="max-w-3xl mx-auto py-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+            <div className="bg-gradient-to-br from-violet-50/40 via-white to-white rounded-2xl shadow-sm border border-violet-100 p-6 sm:p-8">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold tracking-tight text-slate-900">Edit Administrator</h2>
                     <p className="text-sm text-slate-500 mt-1">Update system access credentials and roles.</p>
@@ -74,7 +78,12 @@ export default function EditAdmin() {
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
-                    <Input name="email" type="email" value={formData.email} required onChange={handleChange} />
+                    <div className="flex rounded-md">
+                        <Input name="email" type="text" value={formData.email} required onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
+                        <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
+                            @gmail.com
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-2">

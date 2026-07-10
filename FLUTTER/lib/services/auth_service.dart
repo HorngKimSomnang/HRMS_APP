@@ -13,18 +13,19 @@ class AuthService {
         'password': password,
       });
 
-      final token = response.data['access_token'];
-      if (token != null) {
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw Exception('Unexpected response from server');
+      }
+      final token = data['access_token'];
+      if (token is String) {
         await _storage.write(key: 'auth_token', value: token);
       }
-      
-      return response.data;
-    } on DioException catch (e) {
-      if (e.response != null) {
-        throw Exception(e.response!.data['message'] ?? 'Login failed');
-      } else {
-        throw Exception('Network error: ${e.message} \n ${e.error}');
-      }
+
+      return data;
+    } on DioException {
+      // Let the UI turn this into a friendly, localized message.
+      rethrow;
     }
   }
 

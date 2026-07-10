@@ -18,9 +18,9 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import api from "@/services/api";
-import { Trash2, Plus, Building2, Calendar, Lock, Moon, Sun, Upload, MapPin } from "lucide-react";
+import { Trash2, Plus, Building2, Calendar, Lock, Moon, Sun, Upload, MapPin, Search } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { MapContainer, TileLayer, Marker, Circle, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -46,6 +46,16 @@ function LocationMarker({ position, setPosition }: { position: [number, number],
     });
 
     return position[0] !== 0 ? <Marker position={position} /> : null;
+}
+
+function RecenterMap({ lat, lng }: { lat: string | number, lng: string | number }) {
+    const map = useMap();
+    useEffect(() => {
+        if (lat && lng) {
+            map.flyTo([Number(lat), Number(lng)], map.getZoom());
+        }
+    }, [lat, lng, map]);
+    return null;
 }
 
 export default function Settings() {
@@ -87,6 +97,29 @@ export default function Settings() {
     // Geofencing Settings
     const [geofence, setGeofence] = useState({ lat: "", lng: "", radius: "" });
     const [savingGeofence, setSavingGeofence] = useState(false);
+    
+    // Map Search
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isSearching, setIsSearching] = useState(false);
+
+    const handleSearchLocation = async () => {
+        if (!searchQuery) return;
+        setIsSearching(true);
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+                const { lat, lon } = data[0];
+                setGeofence({ ...geofence, lat, lng: lon });
+            } else {
+                toast.error("Location not found");
+            }
+        } catch {
+            toast.error("Failed to search location");
+        } finally {
+            setIsSearching(false);
+        }
+    };
 
     // Organization Profile
     const [orgProfile, setOrgProfile] = useState({ name: "", currency: "" });
@@ -132,6 +165,21 @@ export default function Settings() {
     };
 
     const handleSaveGeofence = async () => {
+        const lat = parseFloat(geofence.lat);
+        const lng = parseFloat(geofence.lng);
+        const radius = parseFloat(geofence.radius);
+        if (isNaN(lat) || lat < -90 || lat > 90) {
+            toast.error("Latitude must be a number between -90 and 90.");
+            return;
+        }
+        if (isNaN(lng) || lng < -180 || lng > 180) {
+            toast.error("Longitude must be a number between -180 and 180.");
+            return;
+        }
+        if (isNaN(radius) || radius <= 0) {
+            toast.error("Allowed radius must be a positive number.");
+            return;
+        }
         setSavingGeofence(true);
         try {
             await api.post('/settings', {
@@ -288,7 +336,7 @@ export default function Settings() {
             <div className="p-1">
                 {activeTab === "general" && (
                     <div className="max-w-3xl space-y-6">
-                        <div className="bg-card p-6 rounded-xl border shadow-sm">
+                        <div className="bg-gradient-to-br from-blue-50/50 via-card to-card p-6 rounded-xl border border-blue-100 shadow-sm">
                             <h3 className="text-lg font-semibold mb-4">Organization Profile</h3>
                             <div className="grid gap-4 max-w-xl">
                                 <div className="grid gap-2">
@@ -307,7 +355,7 @@ export default function Settings() {
                             </div>
                         </div>
 
-                        <div className="bg-card p-6 rounded-xl border shadow-sm">
+                        <div className="bg-gradient-to-br from-indigo-50/50 via-card to-card p-6 rounded-xl border border-indigo-100 shadow-sm">
                             <h3 className="text-lg font-semibold mb-4">Company Branding</h3>
                             <div className="grid gap-4">
                                 <div className="grid gap-2">
@@ -342,11 +390,24 @@ export default function Settings() {
 
                 {activeTab === "attendance" && (
                     <div className="max-w-4xl space-y-6">
-                        <div className="bg-card p-6 rounded-xl border shadow-sm">
+                        <div className="bg-gradient-to-br from-sky-50/50 via-card to-card p-6 rounded-xl border border-sky-100 shadow-sm">
                             <h3 className="text-lg font-semibold mb-4 text-primary">Attendance Geofencing (GPS)</h3>
                             <div className="grid gap-6">
                                 <p className="text-sm text-muted-foreground">Set the central office location and the allowed radius in meters. Employees must be within this circle to clock in or out.</p>
                                 
+                                <div className="flex gap-2">
+                                    <Input 
+                                        placeholder="Search for a location or address (e.g. Phnom Penh)..." 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation()}
+                                    />
+                                    <Button onClick={handleSearchLocation} disabled={isSearching} className="gap-2">
+                                        <Search className="h-4 w-4" />
+                                        {isSearching ? "Searching..." : "Search"}
+                                    </Button>
+                                </div>
+
                                 <div className="border rounded-lg overflow-hidden relative z-0 h-[500px]">
                                     <MapContainer 
                                         center={geofence.lat && geofence.lng ? [parseFloat(geofence.lat), parseFloat(geofence.lng)] : [11.5564, 104.9282]} 
@@ -376,6 +437,7 @@ export default function Settings() {
                                                 setPosition={(pos) => setGeofence({...geofence, lat: pos[0].toFixed(6), lng: pos[1].toFixed(6)})} 
                                             />
                                         )}
+                                        <RecenterMap lat={geofence.lat} lng={geofence.lng} />
                                     </MapContainer>
                                     <div className="absolute top-2 right-2 z-[1000] bg-white px-2 py-1 rounded text-xs font-semibold shadow border flex items-center gap-1">
                                         <MapPin className="h-3 w-3 text-primary" /> Click map to set location
@@ -408,7 +470,7 @@ export default function Settings() {
 
                 {activeTab === "appearance" && (
                     <div className="max-w-xl space-y-4">
-                        <div className="bg-card p-6 rounded-lg border shadow-sm">
+                        <div className="bg-gradient-to-br from-violet-50/50 via-card to-card p-6 rounded-lg border border-violet-100 shadow-sm">
                             <h3 className="text-lg font-medium mb-4">Theme Preferences</h3>
                             <div className="flex items-center justify-between">
                                 <div className="space-y-0.5">
@@ -471,7 +533,7 @@ export default function Settings() {
                             </Dialog>
                         </div>
 
-                        <div className="rounded-md border bg-card shadow-sm">
+                        <div className="rounded-md border border-orange-100 bg-gradient-to-br from-orange-50/40 via-card to-card shadow-sm">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -510,7 +572,7 @@ export default function Settings() {
                 )}
                 {activeTab === 'security' && (
                     <div className="max-w-md space-y-6">
-                        <div className="bg-card p-6 rounded-lg border shadow-sm">
+                        <div className="bg-gradient-to-br from-slate-100/70 via-card to-card p-6 rounded-lg border border-slate-200 shadow-sm">
                             <h3 className="text-lg font-medium mb-4">Change Password</h3>
                             <div className="space-y-4">
                                 <div className="space-y-2">

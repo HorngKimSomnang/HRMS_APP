@@ -27,15 +27,7 @@ class Employee extends Model
         'address',
         'profile_picture',
         'status',
-        // Salary Fields
         'basic_salary',
-        'hra',
-        'transport_allowance',
-        'other_allowances',
-        'pf',
-        'tax',
-        'other_deductions',
-        'net_salary',
         'shift_id',
         'documents',
     ];
@@ -51,6 +43,11 @@ class Employee extends Model
     public function getNameAttribute()
     {
         return "{$this->first_name} {$this->last_name}";
+    }
+
+    public function contracts()
+    {
+        return $this->hasMany(Contract::class);
     }
 
     public function getProfilePictureUrlAttribute()
@@ -82,6 +79,11 @@ class Employee extends Model
     public function tasks()
     {
         return $this->hasMany(Task::class, 'assigned_to');
+    }
+
+    public function payslips()
+    {
+        return $this->hasMany(Payslip::class);
     }
 
     public function getShiftAttribute()

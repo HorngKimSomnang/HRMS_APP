@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Leave;
 use App\Models\Payslip;
 use App\Services\AuditLogger;
+use App\Support\HrCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -35,14 +37,15 @@ class PayslipController extends Controller
         $request->validate([
             'employee_id'      => 'nullable|exists:employees,id',
             'user_id'          => 'nullable|exists:users,id',
-            'month'            => 'required|string',
-            'year'             => 'required|string',
+            'month'            => ['required', 'string', 'regex:/^(0[1-9]|1[0-2])$/'],
+            'year'             => ['required', 'string', 'regex:/^\d{4}$/'],
             'basic_salary'     => 'required|numeric|min:0',
             'overtime_amount'  => 'nullable|numeric|min:0',
             'commission'       => 'nullable|numeric|min:0',
             'attendance_bonus' => 'nullable|numeric|min:0',
             'allowances'       => 'nullable|numeric|min:0',
             'advance_deduction'=> 'nullable|numeric|min:0',
+            'unpaid_leave_deduction' => 'nullable|numeric|min:0',
             'deductions'       => 'nullable|numeric|min:0',
             'notes'            => 'nullable|string',
         ]);
@@ -55,32 +58,47 @@ class PayslipController extends Controller
             return response()->json(['message' => 'Valid employee_id or user_id is required.'], 422);
         }
 
-        $basic    = $request->basic_salary;
-        $ot       = $request->overtime_amount   ?? 0;
-        $comm     = $request->commission        ?? 0;
-        $att      = $request->attendance_bonus  ?? 0;
-        $allow    = $request->allowances        ?? 0;
-        $adv      = $request->advance_deduction ?? 0;
-        $ded      = $request->deductions        ?? 0;
+        $formattedMonth = str_pad($request->month, 2, '0', STR_PAD_LEFT);
+        $existing = Payslip::where('employee_id', $employeeId)
+                           ->where('month', $formattedMonth)
+                           ->where('year', $request->year)
+                           ->exists();
+        
+        if ($existing) {
+            return response()->json(['message' => 'A payslip for this employee already exists for the selected month and year.'], 422);
+        }
 
-        $net_salary = $basic + $ot + $comm + $att + $allow - $adv - $ded;
+        $basic    = (float) $request->basic_salary;
+        $ot       = (float) ($request->overtime_amount   ?? 0);
+        $comm     = (float) ($request->commission        ?? 0);
+        $att      = (float) ($request->attendance_bonus  ?? 0);
+        $allow    = (float) ($request->allowances        ?? 0);
+        $adv      = (float) ($request->advance_deduction ?? 0);
+        $unpaidLeave = (float) ($request->unpaid_leave_deduction ?? 0);
+        $ded      = (float) ($request->deductions        ?? 0);
+
+        $net_salary = $basic + $ot + $comm + $att + $allow - $adv - $unpaidLeave - $ded;
 
         $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
 
         $payslip = Payslip::create([
-            'employee_id'      => $employeeId,
-            'month'            => $request->month,
-            'year'             => $request->year,
-            'basic_salary'     => $basic,
-            'overtime_amount'  => $ot,
-            'commission'       => $comm,
-            'attendance_bonus' => $att,
-            'allowances'       => $allow,
-            'advance_deduction'=> $adv,
-            'deductions'       => $ded,
-            'net_salary'       => $net_salary,
-            'status'           => $isSuperAdmin ? ($request->status ?? 'approved') : 'draft',
-            'notes'            => $request->notes,
+            'employee_id'            => $employeeId,
+            'month'                  => $request->month,
+            'year'                   => $request->year,
+            'basic_salary'           => $basic,
+            'overtime_amount'        => $ot,
+            'commission'             => $comm,
+            'attendance_bonus'       => $att,
+            'allowances'             => $allow,
+            'advance_deduction'      => $adv,
+            'unpaid_leave_deduction' => $unpaidLeave,
+            'deductions'             => $ded,
+            'net_salary'             => $net_salary,
+            'status'                 => $isSuperAdmin ? ($request->status ?? 'approved') : 'draft',
+            'notes'                  => $request->notes,
+            // Individually-generated payslips (one-off bonuses/corrections) are created
+            // directly by an admin, not from a printed roster — no signed paper to scan.
+            'requires_signature'     => false,
         ]);
 
         AuditLogger::log($request, 'PAYSLIP_GENERATED', $payslip, [
@@ -100,7 +118,166 @@ class PayslipController extends Controller
         return response()->json(['message' => 'Payslip generated successfully.', 'data' => $payslip], 201);
     }
 
-    public function show($id)
+    public function batchStore(Request $request)
+    {
+        $user = Auth::user();
+        if (!$this->isAdmin($user)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'month' => ['required', 'string', 'regex:/^(0[1-9]|1[0-2])$/'],
+            'year'  => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        $month = $request->month;
+        $year = $request->year;
+
+        $employees = \App\Models\Employee::where('status', 'active')->get();
+        
+        $generatedCount = 0;
+        $skippedCount = 0;
+
+        // Leave types flagged is_paid=false (e.g. "Unpaid Leave") reduce pay;
+        // annual/sick/maternity/paternity etc. do not.
+        $unpaidLeaveTypeNames = collect(HrCatalog::getLeaveTypes())
+            ->reject(fn (array $type) => $type['is_paid'] ?? true)
+            ->map(fn (array $type) => strtolower($type['name']))
+            ->all();
+
+        foreach ($employees as $employee) {
+            // Check if payslip already exists
+            $exists = Payslip::where('employee_id', $employee->id)
+                ->where('month', $month)
+                ->where('year', $year)
+                ->exists();
+
+            if ($exists) {
+                $skippedCount++;
+                continue;
+            }
+
+            $basic = $employee->basic_salary ?? 0;
+            
+            // Calculate Overtime for this month and year
+            $totalHours = \App\Models\Overtime::where('employee_id', $employee->id)
+                ->where('status', 'approved')
+                ->whereMonth('date', $month)
+                ->whereYear('date', $year)
+                ->sum('hours');
+                
+            $hourlyRate = $basic > 0 ? ($basic / 160) : 0;
+            $overtimeAmount = round($totalHours * $hourlyRate * 1.5, 2);
+
+            // Deduct pay for approved unpaid-leave days taken this month.
+            // Daily rate assumes a 20-working-day month (same 160h/8h basis as the overtime rate above).
+            $unpaidLeaveDays = (int) Leave::where('employee_id', $employee->id)
+                ->where('status', 'approved')
+                ->whereMonth('start_date', $month)
+                ->whereYear('start_date', $year)
+                ->get()
+                ->filter(fn ($leave) => in_array(strtolower($leave->leave_type), $unpaidLeaveTypeNames))
+                ->sum('days_count');
+
+            $dailyRate = $basic > 0 ? $basic / 20 : 0;
+            $unpaidLeaveDeduction = round($dailyRate * $unpaidLeaveDays, 2);
+
+            $net_salary = max(0, $basic + $overtimeAmount - $unpaidLeaveDeduction);
+
+            $payslip = Payslip::create([
+                'employee_id'            => $employee->id,
+                'month'                  => $month,
+                'year'                   => $year,
+                'basic_salary'           => $basic,
+                'overtime_amount'        => $overtimeAmount,
+                'commission'             => 0,
+                'attendance_bonus'       => 0,
+                'allowances'             => 0,
+                'advance_deduction'      => 0,
+                'unpaid_leave_deduction' => $unpaidLeaveDeduction,
+                'deductions'             => 0,
+                'net_salary'             => $net_salary,
+                'status'                 => 'draft',
+                'notes'                  => 'Auto-generated via Batch Payroll',
+                'requires_signature'     => true,
+            ]);
+
+            AuditLogger::log($request, 'PAYSLIP_GENERATED', $payslip, [
+                'month'                  => $payslip->month . ' ' . $payslip->year,
+                'status'                 => $payslip->status,
+                'net_salary'             => $net_salary,
+                'unpaid_leave_deduction' => $unpaidLeaveDeduction,
+                'batch'                  => true,
+            ]);
+
+            $generatedCount++;
+        }
+
+        return response()->json([
+            'message' => "Batch payroll completed. Generated: $generatedCount, Skipped (already exists): $skippedCount."
+        ], 201);
+    }
+
+    public function authorizeAll(Request $request)
+    {
+        $user = Auth::user();
+        if (!$this->isAdmin($user)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $query = Payslip::with('employee')->where('status', 'draft');
+        
+        if ($request->filled('month')) {
+            $query->where('month', $request->month);
+        }
+        if ($request->filled('year')) {
+            $query->where('year', $request->year);
+        }
+
+        $payslips = $query->get();
+        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
+        $authorizedCount = 0;
+        $unsignedCount = 0;
+
+        foreach ($payslips as $payslip) {
+            // Admin cannot authorize their own payslip
+            if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
+                continue;
+            }
+
+            // Only authorize what the employee has actually verified/signed —
+            // bulk-approving unsigned drafts would skip the point of requiring a signature.
+            // Individually-generated payslips (requires_signature=false) skip this check.
+            if ($payslip->requires_signature && !$payslip->is_signed) {
+                $unsignedCount++;
+                continue;
+            }
+
+            $payslip->update(['status' => 'approved']);
+            $authorizedCount++;
+
+            AuditLogger::log($request, 'PAYSLIP_STATUS_CHANGED', $payslip, [
+                'status'      => 'approved',
+                'from_status' => 'draft',
+                'net_salary'  => $payslip->net_salary,
+                'month'       => $payslip->month . ' ' . $payslip->year,
+                'batch'       => true,
+            ]);
+        }
+
+        $message = "Successfully authorized $authorizedCount payslip" . ($authorizedCount === 1 ? '' : 's') . ".";
+        if ($unsignedCount > 0) {
+            $message .= " $unsignedCount still awaiting employee signature.";
+        }
+
+        return response()->json([
+            'message' => $message,
+            'authorized' => $authorizedCount,
+            'unsigned_skipped' => $unsignedCount,
+        ], 200);
+    }
+
+    public function show(int|string $id)
     {
         $payslip = Payslip::with(['employee.user'])->findOrFail($id);
         $user = Auth::user();
@@ -112,7 +289,7 @@ class PayslipController extends Controller
         return response()->json($payslip);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int|string $id)
     {
         $user = Auth::user();
         if (!$this->isAdmin($user)) {
@@ -120,18 +297,26 @@ class PayslipController extends Controller
         }
 
         $payslip = Payslip::findOrFail($id);
-        
+
         $request->validate([
             'status' => 'sometimes|in:draft,pending,approved,paid',
         ]);
         
         $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
 
+        $payslip->load('employee');
+        if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
+            return response()->json(['message' => 'Admins cannot modify or authorize their own payslips. Super Admin must do it.'], 403);
+        }
+
         if ($request->has('status') && $request->status !== $payslip->status) {
-            if (!$isSuperAdmin && in_array($request->status, ['approved', 'paid'])) {
-                return response()->json(['message' => 'Only Super Admin can authorize and publish payslips.'], 403);
+            // Authorizing means the employee's physically-signed paper has been scanned
+            // in as proof — without that, there's nothing for the boss to be approving.
+            // Individually-generated payslips (requires_signature=false) skip this check.
+            if ($request->status === 'approved' && $payslip->requires_signature && !$payslip->is_signed) {
+                return response()->json(['message' => 'Cannot authorize: the employee has not signed this payslip yet. Scan the signed paper first.'], 422);
             }
-            
+
             AuditLogger::log($request, 'PAYSLIP_STATUS_CHANGED', $payslip, [
                 'status'      => $request->status,
                 'from_status' => $payslip->status,
@@ -148,26 +333,28 @@ class PayslipController extends Controller
             }
         }
 
-        if ($request->hasAny(['basic_salary','overtime_amount','commission','attendance_bonus','allowances','advance_deduction','deductions'])) {
-            $basic = $request->input('basic_salary',      $payslip->basic_salary);
-            $ot    = $request->input('overtime_amount',   $payslip->overtime_amount);
-            $comm  = $request->input('commission',        $payslip->commission);
-            $att   = $request->input('attendance_bonus',  $payslip->attendance_bonus);
-            $allow = $request->input('allowances',        $payslip->allowances);
-            $adv   = $request->input('advance_deduction', $payslip->advance_deduction);
-            $ded   = $request->input('deductions',        $payslip->deductions);
+        if ($request->hasAny(['basic_salary','overtime_amount','commission','attendance_bonus','allowances','advance_deduction','unpaid_leave_deduction','deductions'])) {
+            $basic = (float) $request->input('basic_salary',            $payslip->basic_salary);
+            $ot    = (float) $request->input('overtime_amount',         $payslip->overtime_amount);
+            $comm  = (float) $request->input('commission',              $payslip->commission);
+            $att   = (float) $request->input('attendance_bonus',        $payslip->attendance_bonus);
+            $allow = (float) $request->input('allowances',              $payslip->allowances);
+            $adv   = (float) $request->input('advance_deduction',       $payslip->advance_deduction);
+            $unpaidLeave = (float) $request->input('unpaid_leave_deduction', $payslip->unpaid_leave_deduction);
+            $ded   = (float) $request->input('deductions',              $payslip->deductions);
 
-            $net_salary = $basic + $ot + $comm + $att + $allow - $adv - $ded;
+            $net_salary = $basic + $ot + $comm + $att + $allow - $adv - $unpaidLeave - $ded;
 
             $payslip->update([
-                'basic_salary'     => $basic,
-                'overtime_amount'  => $ot,
-                'commission'       => $comm,
-                'attendance_bonus' => $att,
-                'allowances'       => $allow,
-                'advance_deduction'=> $adv,
-                'deductions'       => $ded,
-                'net_salary'       => $net_salary,
+                'basic_salary'           => $basic,
+                'overtime_amount'        => $ot,
+                'commission'             => $comm,
+                'attendance_bonus'       => $att,
+                'allowances'             => $allow,
+                'advance_deduction'      => $adv,
+                'unpaid_leave_deduction' => $unpaidLeave,
+                'deductions'             => $ded,
+                'net_salary'             => $net_salary,
             ]);
         }
         if ($request->has('notes')) $payslip->update(['notes' => $request->notes]);
@@ -175,7 +362,7 @@ class PayslipController extends Controller
         return response()->json(['message' => 'Payslip updated successfully.', 'data' => $payslip]);
     }
 
-    public function destroy($id)
+    public function destroy(int|string $id)
     {
         $user = Auth::user();
         if (!$this->isAdmin($user)) {
@@ -183,14 +370,25 @@ class PayslipController extends Controller
         }
 
         $payslip = Payslip::findOrFail($id);
+        
+        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
+        $payslip->load('employee');
+        if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
+            return response()->json(['message' => 'Admins cannot delete their own payslips.'], 403);
+        }
+
+        AuditLogger::log(request(), 'PAYSLIP_DELETED', $payslip, [
+            'id' => $payslip->id,
+            'net_salary' => $payslip->net_salary
+        ]);
         $payslip->delete();
         
         return response()->json(['message' => 'Payslip deleted successfully.']);
     }
 
-    public function sign($id)
+    public function sign(Request $request, int|string $id)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$this->isAdmin($user)) {
             return response()->json(['message' => 'Only Admins can mark payslips as signed.'], 403);
         }
@@ -201,20 +399,193 @@ class PayslipController extends Controller
             return response()->json(['message' => 'Payslip is already marked as signed.'], 400);
         }
 
+        // Verification is proven by the scanned copy of the physically-signed paper,
+        // not a click — uploading it is what marks the payslip as signed.
+        $request->validate([
+            'signed_document' => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
+        ]);
+
+        $path = $request->file('signed_document')->store('payslip_signatures', 'public');
+
         $payslip->update([
             'is_signed' => true,
             'signed_at' => now(),
+            'signed_document_path' => $path,
         ]);
 
         return response()->json(['message' => 'Payslip marked as signed successfully.', 'data' => $payslip]);
     }
 
-    private function isAdmin($user): bool
+    /**
+     * One scan of the whole signed roster verifies several employees at once.
+     * The admin visually confirms each row against the scan and checks it off
+     * client-side — this endpoint just applies that confirmed list, it does not
+     * itself decide who signed.
+     */
+    public function signBatch(Request $request)
+    {
+        $user = Auth::user();
+        if (!$this->isAdmin($user)) {
+            return response()->json(['message' => 'Only Admins can mark payslips as signed.'], 403);
+        }
+
+        $request->validate([
+            'payslip_ids'      => 'required|array|min:1',
+            'payslip_ids.*'    => 'integer|exists:payslips,id',
+            'signed_document'  => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
+        ]);
+
+        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
+        $path = $request->file('signed_document')->store('payslip_signatures', 'public');
+
+        $verifiedCount = 0;
+        $skippedCount = 0;
+
+        /** @var \Illuminate\Support\Collection<int, \App\Models\Payslip> $batchPayslips */
+        $batchPayslips = Payslip::with('employee')->whereIn('id', $request->payslip_ids)->get();
+
+        foreach ($batchPayslips as $payslip) {
+            if ($payslip->is_signed) {
+                $skippedCount++;
+                continue;
+            }
+            if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
+                $skippedCount++;
+                continue;
+            }
+
+            $payslip->update([
+                'is_signed' => true,
+                'signed_at' => now(),
+                'signed_document_path' => $path,
+            ]);
+            $verifiedCount++;
+
+            AuditLogger::log($request, 'PAYSLIP_STATUS_CHANGED', $payslip, [
+                'action'  => 'signed_via_roster_scan',
+                'month'   => $payslip->month . ' ' . $payslip->year,
+            ]);
+        }
+
+        $message = "Verified $verifiedCount payslip" . ($verifiedCount === 1 ? '' : 's') . " from the scan.";
+        if ($skippedCount > 0) {
+            $message .= " $skippedCount skipped (already signed or self-payslip).";
+        }
+
+        return response()->json([
+            'message' => $message,
+            'verified' => $verifiedCount,
+            'skipped' => $skippedCount,
+        ]);
+    }
+
+    /**
+     * Best-effort auto-suggestion for which rows on a scanned roster look signed.
+     * This is pixel-density ink detection, not handwriting recognition — it can be
+     * thrown off by skew, shadows, or smudges. The frontend pre-checks these
+     * suggestions but still requires the admin to review/confirm before signBatch()
+     * actually commits anything, so a bad guess here never silently authorizes pay.
+     */
+    public function detectSignatures(Request $request)
+    {
+        $user = Auth::user();
+        if (!$this->isAdmin($user)) {
+            return response()->json(['message' => 'Only Admins can do this.'], 403);
+        }
+
+        $request->validate([
+            'payslip_ids'      => 'required|array|min:1',
+            'payslip_ids.*'    => 'integer',
+            'signed_document'  => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
+        ]);
+
+        $ids  = array_values($request->payslip_ids);
+        $file = $request->file('signed_document');
+
+        // Ink detection only works on raster images — a PDF upload just skips
+        // straight to manual review (no suggestions, not an error).
+        if (!in_array($file->getMimeType(), ['image/jpeg', 'image/png'])) {
+            return response()->json(['suggestions' => array_fill_keys($ids, false)]);
+        }
+
+        $image = @imagecreatefromstring(file_get_contents($file->getRealPath()));
+        if (!$image) {
+            return response()->json(['suggestions' => array_fill_keys($ids, false)]);
+        }
+
+        $width  = imagesx($image);
+        $height = imagesy($image);
+
+        // Fixed fractions derived from the actual roster PDF's known geometry
+        // (A4 landscape 297x210mm, table startY=48mm, header row ~14mm,
+        // minCellHeight=20mm, signature column spans x=169mm to x=283mm).
+        // Rows do NOT stretch to fill the image — a short roster (few employees)
+        // leaves real blank space below the table before the footer signature
+        // lines, and treating that blank space as part of the last row's band
+        // is exactly what caused false positives on unsigned rosters.
+        $tableTopFraction    = 48 / 210;
+        $headerRowFraction   = 14 / 210;
+        $bodyRowFraction     = 20 / 210;
+        $sigColStartFraction = 204 / 297; // signature col starts after No(10)+Name(40)+Position(28)+Basic(22)+Allow(22)+Deduct(22)+Net(24)+Date(22) = 190mm + 14mm margin
+        $sigColEndFraction   = 283 / 297; // stop at the table's right border — beyond it are
+                                          // page margins where scan shadows read as "ink".
+
+        $sigColStart = (int) ($width * $sigColStartFraction);
+        $sigColEnd   = (int) ($width * $sigColEndFraction);
+
+        // Pass 1: measure the dark-pixel ratio of every row's signature band.
+        $ratios = [];
+        foreach ($ids as $i => $id) {
+            $rowTop = $height * ($tableTopFraction + $headerRowFraction + $i * $bodyRowFraction);
+            $rowBottom = min((float) $height, $rowTop + $height * $bodyRowFraction);
+
+            // Inset the sampled band so the row's own top/bottom grid border
+            // (a thin line, but still "dark" pixels) isn't mistaken for ink.
+            $inset  = ($rowBottom - $rowTop) * 0.2;
+            $yStart = (int) ($rowTop + $inset);
+            $yEnd   = (int) ($rowBottom - $inset);
+
+            $darkPixels = 0;
+            $sampled    = 0;
+            for ($y = $yStart; $y < $yEnd; $y += 2) {
+                for ($x = $sigColStart; $x < $sigColEnd; $x += 2) {
+                    $rgb = imagecolorat($image, $x, $y);
+                    $r = ($rgb >> 16) & 0xFF;
+                    $g = ($rgb >> 8) & 0xFF;
+                    $b = $rgb & 0xFF;
+                    if (($r + $g + $b) / 3 < 180) $darkPixels++;
+                    $sampled++;
+                }
+            }
+
+            $ratios[$id] = $sampled > 0 ? $darkPixels / $sampled : 0;
+        }
+
+        // Pass 2: decide. A row is "signed" when it's clearly inkier than the page's
+        // cleanest row (relative check handles light pens and grey scans), or when it
+        // passes the absolute threshold outright (handles rosters where everyone signed).
+        //
+        // The relative check has a hard floor of 0.018 regardless of how clean the
+        // "cleanest" row measures. Without that floor, a fully blank roster (every row's
+        // ratio near 0) collapses the relative term to ~0.002-0.004 — well within what a
+        // real-world photo's shadows, uneven lighting, or JPEG compression noise produce
+        // even where nobody has signed, causing false positives on genuinely blank pages.
+        $minRatio = count($ratios) > 0 ? min($ratios) : 0;
+        $suggestions = [];
+        foreach ($ratios as $id => $ratio) {
+            $suggestions[$id] = $ratio > 0.02
+                || $ratio > max(0.018, $minRatio * 4 + 0.006);
+        }
+
+        return response()->json(['suggestions' => $suggestions, 'ratios' => $ratios]);
+    }
+
+    private function isAdmin(\App\Models\User $user): bool
     {
         return $user->roles->pluck('name')->intersect(['Admin', 'Super Admin'])->isNotEmpty();
     }
 
-    private function belongsToUser(Payslip $payslip, $user): bool
+    private function belongsToUser(Payslip $payslip, \App\Models\User $user): bool
     {
         return $user->employee && (int) $payslip->employee_id === (int) $user->employee->id;
     }

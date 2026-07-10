@@ -22,11 +22,12 @@ class DocumentController extends Controller
         }
 
         $documents = [];
-        $employees = Employee::all();
-
-        foreach ($employees as $employee) {
-            $documents = array_merge($documents, $this->formatEmployeeDocuments($employee, true));
-        }
+        Employee::select(['id', 'first_name', 'last_name', 'profile_picture', 'documents'])
+            ->chunkById(100, function ($employees) use (&$documents) {
+                foreach ($employees as $employee) {
+                    $documents = array_merge($documents, $this->formatEmployeeDocuments($employee, true));
+                }
+            });
 
         usort($documents, fn ($a, $b) => strcmp($b['created_at'], $a['created_at']));
 
@@ -185,27 +186,30 @@ class DocumentController extends Controller
 
     private function locateDocument(int $id): ?array
     {
-        $employees = Employee::all();
+        $result = null;
 
-        foreach ($employees as $employee) {
-            $documentsField = $employee->documents ?? [];
-            $documents = $documentsField['attachments'] ?? [];
-            foreach ($documents as $index => $document) {
-                $docId = $document['id'] ?? null;
-                if ($docId === null) {
-                    $docId = crc32($document['path'] ?? $document['file_path'] ?? json_encode($document));
+        Employee::select(['id', 'first_name', 'last_name', 'profile_picture', 'documents'])
+            ->chunkById(100, function ($employees) use ($id, &$result) {
+                if ($result !== null) {
+                    return false; // stop chunking once found
                 }
-                
-                if ((int) $docId === $id) {
-                    return [
-                        'employee' => $employee,
-                        'index' => $index,
-                    ];
+                foreach ($employees as $employee) {
+                    $documentsField = $employee->documents ?? [];
+                    $documents = $documentsField['attachments'] ?? [];
+                    foreach ($documents as $index => $document) {
+                        $docId = $document['id'] ?? null;
+                        if ($docId === null) {
+                            $docId = crc32($document['path'] ?? $document['file_path'] ?? json_encode($document));
+                        }
+                        if ((int) $docId === $id) {
+                            $result = ['employee' => $employee, 'index' => $index];
+                            return false; // stop inner chunk
+                        }
+                    }
                 }
-            }
-        }
+            });
 
-        return null;
+        return $result;
     }
 
     private function nextDocumentId(): int

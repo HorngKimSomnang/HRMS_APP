@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/error_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -44,7 +46,7 @@ class DocumentViewerScreen extends StatelessWidget {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Could not open document: $e')),
+                    SnackBar(content: Text(friendlyError(context, e))),
                   );
                 }
               }
@@ -100,7 +102,7 @@ class DocumentViewerScreen extends StatelessWidget {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Could not open document: $e')),
+                          SnackBar(content: Text(friendlyError(context, e))),
                         );
                       }
                     }

@@ -54,7 +54,10 @@ class LeaveController extends Controller
             }
         }
         
-        $isAdminAction = $employeeId && ($user->hasRole('Admin') || $user->hasRole('Super Admin'));
+        // Admin assigning leave to ANOTHER employee — not their own record
+        $isAdminAction = $employeeId &&
+            ($user->hasRole('Admin') || $user->hasRole('Super Admin')) &&
+            ((int) $employeeId !== (int) ($user->employee?->id ?? 0));
 
         if (!$leaveType || (!$typeConfig && !$isAdminAction)) {
             return response()->json(['message' => 'A valid leave type is required.'], 422);
@@ -92,7 +95,7 @@ class LeaveController extends Controller
 
         // Notify Admins only if it's a pending request from employee
         if ($leave->status === 'pending') {
-            $admins = \App\Models\User::role('Admin')->get();
+            $admins = \App\Models\User::role(['Admin', 'Super Admin'])->get();
             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\LeaveRequested($leave));
         } else if ($isAdminAction) {
             // Notify the employee that an Admin has assigned them a day off / approved leave
@@ -131,13 +134,20 @@ class LeaveController extends Controller
     {
         $request->validate([
             'status' => 'required|in:approved,rejected',
-            'rejection_reason' => 'required_if:status,rejected'
+            'rejection_reason' => 'required_if:status,rejected|nullable|string|max:500',
         ]);
 
         $leave = Leave::findOrFail($id);
         $user = Auth::user();
         
         $isSuperAdmin = $user->hasRole('Super Admin');
+        
+        // Prevent modifying past leaves
+        if (\Carbon\Carbon::parse($leave->end_date)->endOfDay()->isPast()) {
+            return response()->json([
+                'message' => 'Cannot modify this leave because its date has already passed.'
+            ], 403);
+        }
         
         // God Mode & multi-tier status check
         if ($leave->status !== 'pending' && !$isSuperAdmin) {
@@ -187,8 +197,25 @@ class LeaveController extends Controller
             'id' => null,
             'name' => $leave->getAttribute('leave_type'),
         ];
+        
+        // Dynamically mark past pending leaves as expired
+        if ($payload['status'] === 'pending' && \Carbon\Carbon::parse($leave->end_date)->endOfDay()->isPast()) {
+            $payload['status'] = 'expired';
+        }
 
         return $payload;
+    }
+
+    public function show($id)
+    {
+        $leave = Leave::with(['employee.user'])->findOrFail($id);
+        $user = Auth::user();
+
+        if ($user->hasRole('Employee') && $leave->employee_id !== $user->employee?->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        return response()->json($this->transformLeave($leave));
     }
 
     public function balances(Request $request)

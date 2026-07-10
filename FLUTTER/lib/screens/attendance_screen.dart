@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/error_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/location_service.dart';
@@ -62,7 +64,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       _isSuccess = true;
 
     } catch (e) {
-      _statusMessage = e.toString().replaceAll("Exception: ", "");
+      if (!mounted) return;
+      _statusMessage = friendlyError(context, e);
       _isSuccess = false;
     } finally {
       if (mounted) setState(() => _loading = false);

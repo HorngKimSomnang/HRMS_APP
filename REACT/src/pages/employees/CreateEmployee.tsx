@@ -35,7 +35,7 @@ export default function CreateEmployee() {
             try {
                 const res = await api.get('/shifts');
                 setShifts(res.data.data || []);
-            } catch (err) {
+            } catch {
                 console.error("Failed to fetch shifts");
             }
         };
@@ -87,7 +87,12 @@ export default function CreateEmployee() {
         try {
             const data = new FormData();
             Object.keys(formData).forEach(key => {
-                const value = formData[key as keyof typeof formData];
+                let value = formData[key as keyof typeof formData];
+                if (key === 'email' && value) {
+                    if (!String(value).includes('@')) {
+                        value = `${value}@gmail.com`;
+                    }
+                }
                 if (value !== null && value !== '') {
                     data.append(key, String(value));
                 }
@@ -121,7 +126,7 @@ export default function CreateEmployee() {
 
     return (
         <div className="max-w-5xl mx-auto py-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+            <div className="bg-gradient-to-br from-blue-50/40 via-white to-white rounded-2xl shadow-sm border border-blue-100 p-6 sm:p-8">
                 <h2 className="text-2xl font-bold tracking-tight mb-6 text-slate-900 border-b pb-4">Add New Employee</h2>
                 <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -135,40 +140,45 @@ export default function CreateEmployee() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">First Name / នាមខ្លួន</label>
-                        <Input name="first_name" required onChange={handleChange} />
+                        <Input name="first_name" required value={formData.first_name} onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Last Name / នាមត្រកូល</label>
-                        <Input name="last_name" required onChange={handleChange} />
+                        <Input name="last_name" required value={formData.last_name} onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Name in Khmer / ឈ្មោះជាភាសាខ្មែរ</label>
-                        <Input name="name_kh" onChange={handleChange} placeholder="ឈ្មោះជាភាសាខ្មែរ" />
+                        <Input name="name_kh" value={formData.name_kh} onChange={handleChange} placeholder="ឈ្មោះជាភាសាខ្មែរ" />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Emergency Contact / ទំនាក់ទំនងបន្ទាន់</label>
-                        <Input name="emergency_contact" onChange={handleChange} placeholder="Guardian/Parents Number" />
+                        <Input name="emergency_contact" value={formData.emergency_contact} onChange={handleChange} placeholder="Guardian/Parents Number" />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Email / អ៊ីមែល</label>
-                        <Input name="email" type="email" required onChange={handleChange} />
+                        <div className="flex rounded-md">
+                            <Input name="email" type="text" required value={formData.email} onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
+                            <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
+                                @gmail.com
+                            </div>
+                        </div>
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
-                        <Input name="phone" onChange={handleChange} />
+                        <Input name="phone" value={formData.phone} onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Date of Birth / ថ្ងៃខែឆ្នាំកំណើត</label>
-                        <Input name="dob" type="date" onChange={handleChange} />
+                        <Input name="dob" type="date" value={formData.dob} onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Gender / ភេទ</label>
@@ -224,6 +234,7 @@ export default function CreateEmployee() {
                     <textarea
                         name="address"
                         className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={formData.address}
                         onChange={handleChange}
                     />
                 </div>
@@ -231,7 +242,7 @@ export default function CreateEmployee() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Salary (Monthly) / ប្រាក់ខែ</label>
-                        <Input name="salary" type="number" onChange={handleChange} />
+                        <Input name="salary" type="number" value={formData.salary} onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Assigned Shift / វេនការងារ</label>
@@ -252,18 +263,18 @@ export default function CreateEmployee() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Joining Date / ថ្ងៃចូលធ្វើការ</label>
-                        <Input name="joining_date" type="date" required onChange={handleChange} />
+                        <Input name="joining_date" type="date" required value={formData.joining_date} onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Job Title / មុខតំណែង</label>
-                        <Input name="job_title" required onChange={handleChange} placeholder="e.g. Software Engineer" />
+                        <Input name="job_title" required value={formData.job_title} onChange={handleChange} placeholder="e.g. Software Engineer" />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Department / ផ្នែក</label>
-                        <Input name="department" onChange={handleChange} placeholder="e.g. Engineering" />
+                        <Input name="department" value={formData.department} onChange={handleChange} placeholder="e.g. Engineering" />
                     </div>
                 </div>
 

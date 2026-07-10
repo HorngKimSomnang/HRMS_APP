@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, UserMinus, Plus, Search, Eye } from 'lucide-react';
+import { Pencil, UserMinus, Plus, Search, Eye, Trash2, KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/context/AuthContext';
@@ -38,25 +38,43 @@ export default function EmployeeList() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [offboardId, setOffboardId] = useState<number | null>(null);
+    const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+    const [resendEmployee, setResendEmployee] = useState<Employee | null>(null);
+    const [isResending, setIsResending] = useState(false);
 
     useEffect(() => {
         fetchEmployees();
     }, []);
 
     const confirmOffboard = async () => {
-        if (!offboardId) return;
+        if (!selectedEmployee) return;
 
         try {
-            await api.delete(`/employees/${offboardId}`);
+            await api.delete(`/employees/${selectedEmployee.id}`);
             // Fetch employees again to refresh the status
             fetchEmployees();
-            setOffboardId(null);
-            toast.success("Employee successfully offboarded");
+            toast.success(selectedEmployee.status === 'terminated' ? "Employee permanently deleted" : "Employee successfully offboarded");
+            setSelectedEmployee(null);
         } catch (error: any) {
-            console.error("Failed to offboard employee", error);
+            console.error("Failed to delete/offboard employee", error);
             const message = error.response?.data?.message || "Failed to offboard employee";
             toast(message);
+        }
+    };
+
+    const confirmResend = async () => {
+        if (!resendEmployee) return;
+        setIsResending(true);
+        try {
+            const res = await api.post(`/employees/${resendEmployee.id}/resend-credentials`);
+            toast.success(`SUCCESS: ${res.data.message}\n\nPassword: ${res.data.generated_password}`);
+            setResendEmployee(null);
+        } catch (error: any) {
+            console.error("Failed to resend credentials", error);
+            const message = error.response?.data?.message || "Failed to resend credentials";
+            toast.error(message);
+        } finally {
+            setIsResending(false);
         }
     };
 
@@ -101,7 +119,7 @@ export default function EmployeeList() {
                 </div>
             </div>
 
-            <div className="rounded-md border bg-card">
+            <div className="rounded-md border border-blue-100 bg-gradient-to-br from-blue-50/50 via-card to-card">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -139,7 +157,7 @@ export default function EmployeeList() {
                                                     <span className="text-sm font-medium text-gray-500">{employee.first_name[0]}{employee.last_name[0]}</span>
                                                 )}
                                             </div>
-                                            <div className="font-medium">{employee.first_name} {employee.last_name}</div>
+                                            <div className="font-medium">{employee.last_name} {employee.first_name}</div>
                                         </div>
                                     </TableCell>
                                     <TableCell className="font-medium">{employee.employee_code}</TableCell>
@@ -176,11 +194,23 @@ export default function EmployeeList() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => setOffboardId(employee.id)}
-                                                title={user?.id === employee.user_id ? "Cannot offboard own profile" : (employee.status === 'terminated' ? "Already Terminated" : "Offboard / Terminate")}
-                                                disabled={user?.id === employee.user_id || employee.status === 'terminated'}
+                                                onClick={() => setResendEmployee(employee)}
+                                                title="Resend Credentials"
                                             >
-                                                <UserMinus className={`h-4 w-4 ${employee.status === 'terminated' ? 'text-gray-300' : 'text-orange-500'}`} />
+                                                <KeyRound className="h-4 w-4 text-amber-500" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => setSelectedEmployee(employee)}
+                                                title={user?.id === employee.user_id ? "Cannot offboard own profile" : (employee.status === 'terminated' ? "Permanently Delete" : "Offboard / Terminate")}
+                                                disabled={user?.id === employee.user_id}
+                                            >
+                                                {employee.status === 'terminated' ? (
+                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                ) : (
+                                                    <UserMinus className="h-4 w-4 text-orange-500" />
+                                                )}
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -191,23 +221,52 @@ export default function EmployeeList() {
                 </Table>
             </div>
 
-            {/* Offboard Confirmation Modal */}
-            <Dialog open={!!offboardId} onOpenChange={(open) => !open && setOffboardId(null)}>
+            {/* Offboard / Delete Confirmation Modal */}
+            <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="text-orange-600 flex items-center gap-2">
-                            <UserMinus className="h-5 w-5" />
-                            Offboard Employee
+                        <DialogTitle className={selectedEmployee?.status === 'terminated' ? "text-red-600 flex items-center gap-2" : "text-orange-600 flex items-center gap-2"}>
+                            {selectedEmployee?.status === 'terminated' ? <Trash2 className="h-5 w-5" /> : <UserMinus className="h-5 w-5" />}
+                            {selectedEmployee?.status === 'terminated' ? "Permanently Delete Employee" : "Offboard Employee"}
                         </DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
                         <p className="text-sm text-muted-foreground">
-                            Are you sure you want to offboard/terminate this employee? This will revoke their system access immediately but keep their historical records intact.
+                            {selectedEmployee?.status === 'terminated' 
+                                ? "Are you sure you want to permanently delete this employee? All data, records, and files will be removed. This action cannot be undone." 
+                                : "Are you sure you want to offboard/terminate this employee? This will revoke their system access immediately but keep their historical records intact."}
                         </p>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setOffboardId(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={confirmOffboard} className="bg-orange-600 hover:bg-orange-700">Yes, Offboard</Button>
+                        <Button variant="outline" onClick={() => setSelectedEmployee(null)}>Cancel</Button>
+                        <Button variant="destructive" onClick={confirmOffboard} className={selectedEmployee?.status === 'terminated' ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"}>
+                            {selectedEmployee?.status === 'terminated' ? "Yes, Delete Permanently" : "Yes, Offboard"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Resend Credentials Modal */}
+            <Dialog open={!!resendEmployee} onOpenChange={(open) => !open && setResendEmployee(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-amber-600">
+                            <KeyRound className="h-5 w-5" />
+                            Resend Login Credentials
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-sm text-muted-foreground">
+                            Are you sure you want to generate a new password and resend the welcome email for <strong>{resendEmployee?.last_name} {resendEmployee?.first_name}</strong>?
+                            <br /><br />
+                            This will invalidate their old password.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setResendEmployee(null)} disabled={isResending}>Cancel</Button>
+                        <Button onClick={confirmResend} disabled={isResending} className="bg-amber-600 hover:bg-amber-700">
+                            {isResending ? "Resending..." : "Yes, Generate & Send"}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

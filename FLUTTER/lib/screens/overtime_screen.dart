@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/error_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -36,7 +38,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
         setState(() => _isLoading = false);
       }
     }
@@ -51,24 +53,26 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
 
     void calculateHours() {
       if (startCtrl.text.isNotEmpty && endCtrl.text.isNotEmpty) {
-        final startParts = startCtrl.text.split(':');
-        final endParts = endCtrl.text.split(':');
-        final startHour = int.parse(startParts[0]);
-        final startMin = int.parse(startParts[1]);
-        final endHour = int.parse(endParts[0]);
-        final endMin = int.parse(endParts[1]);
-        
-        double diff = (endHour + endMin / 60.0) - (startHour + startMin / 60.0);
-        if (diff < 0) {
-          diff += 24.0;
+        try {
+          final startParts = startCtrl.text.split(':');
+          final endParts = endCtrl.text.split(':');
+          if (startParts.length < 2 || endParts.length < 2) return;
+          final startHour = int.parse(startParts[0]);
+          final startMin = int.parse(startParts[1]);
+          final endHour = int.parse(endParts[0]);
+          final endMin = int.parse(endParts[1]);
+
+          double diff = (endHour + endMin / 60.0) - (startHour + startMin / 60.0);
+          if (diff < 0) diff += 24.0;
+
+          String formatted = diff.toStringAsFixed(1);
+          if (formatted.endsWith('.0')) {
+            formatted = formatted.substring(0, formatted.length - 2);
+          }
+          hoursCtrl.text = formatted;
+        } catch (_) {
+          hoursCtrl.text = '';
         }
-        
-        // Remove trailing .0 if it's a whole number
-        String formatted = diff.toStringAsFixed(1);
-        if (formatted.endsWith('.0')) {
-          formatted = formatted.substring(0, formatted.length - 2);
-        }
-        hoursCtrl.text = formatted;
       }
     }
 
@@ -228,7 +232,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                       _loadOvertimes();
                     } catch (e) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
                         setState(() => _isLoading = false);
                       }
                     }

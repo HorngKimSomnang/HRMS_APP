@@ -37,17 +37,17 @@ class ReportController extends Controller
 
         $records = $query->get();
 
-        // Summary stats
+        // Summary stats computed directly on the loaded collection (no soft-deleted records included)
         $totalPresent = $records->where('status', 'present')->count();
-        $totalLate = $records->where('status', 'late')->count();
-        $totalAbsent = $records->where('status', 'absent')->count();
+        $totalLate    = $records->where('status', 'late')->count();
+        $totalAbsent  = $records->where('status', 'absent')->count();
 
         return response()->json([
             'summary' => [
                 'total_records' => $records->count(),
                 'present' => $totalPresent,
-                'late' => $totalLate,
-                'absent' => $totalAbsent,
+                'late'    => $totalLate,
+                'absent'  => $totalAbsent,
             ],
             'data' => $records
         ]);
@@ -230,9 +230,10 @@ class ReportController extends Controller
 
     public function sendToSuperAdmin(Request $request)
     {
-        // Only Admins should be able to send reports upward
-        if (!Auth::user()->hasRole('Admin')) {
-            return response()->json(['message' => 'Unauthorized. Only Admin can dispatch reports to Super Admin.'], 403);
+        // Whoever can view/generate these reports can dispatch them upward too —
+        // Super Admin should never be MORE restricted than Admin on the same feature.
+        if (!Auth::user()->hasRole(['Admin', 'Super Admin'])) {
+            return response()->json(['message' => 'Unauthorized. Only Admin or Super Admin can dispatch reports to Super Admin.'], 403);
         }
 
         $request->validate([

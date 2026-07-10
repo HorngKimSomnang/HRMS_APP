@@ -110,7 +110,7 @@ export default function DocumentList() {
                 )}
             </div>
 
-            <div className="rounded-md border bg-white">
+            <div className="rounded-md border border-amber-100 bg-gradient-to-br from-amber-50/40 via-white to-white">
                 <div className="relative w-full overflow-auto">
                     <table className="w-full caption-bottom text-sm text-left">
                         <thead className="[&_tr]:border-b">

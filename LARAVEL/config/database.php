@@ -20,6 +20,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Destructive Command Protection
+    |--------------------------------------------------------------------------
+    |
+    | When false (default), destructive artisan commands (migrate:fresh,
+    | migrate:refresh, migrate:reset, db:wipe) are BLOCKED to protect data.
+    | To intentionally run one, set ALLOW_DESTRUCTIVE_DB=true in .env,
+    | run the command, then set it back to false.
+    |
+    */
+
+    'allow_destructive' => env('ALLOW_DESTRUCTIVE_DB', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

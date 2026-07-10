@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/error_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -37,7 +39,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load documents: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
       }
     }
   }
@@ -56,7 +58,12 @@ class _DocumentScreenState extends State<DocumentScreen> {
   }
 
   void _showDocumentDetails(BuildContext context, Map<String, dynamic> doc) {
-    final date = DateTime.parse(doc['created_at']);
+    DateTime date;
+    try {
+      date = DateTime.parse(doc['created_at'] ?? '');
+    } catch (_) {
+      date = DateTime.now();
+    }
     final formattedDate = DateFormat('MMMM d, yyyy - h:mm a').format(date);
     final String instructions = doc['type'] ?? 'No special instructions.';
     final String uploader = doc['employee']?['name'] ?? 'You';

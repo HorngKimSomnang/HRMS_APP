@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Payslip extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'employee_id',
@@ -19,13 +20,16 @@ class Payslip extends Model
         'attendance_bonus',
         'allowances',
         'advance_deduction',
+        'unpaid_leave_deduction',
         'deductions',
         'net_salary',
         'status',
         'notes',
         'pdf_path',
+        'requires_signature',
         'is_signed',
         'signed_at',
+        'signed_document_path',
     ];
 
     protected $casts = [
@@ -35,8 +39,10 @@ class Payslip extends Model
         'attendance_bonus' => 'decimal:2',
         'allowances' => 'decimal:2',
         'advance_deduction' => 'decimal:2',
+        'unpaid_leave_deduction' => 'decimal:2',
         'deductions' => 'decimal:2',
         'net_salary' => 'decimal:2',
+        'requires_signature' => 'boolean',
         'is_signed' => 'boolean',
         'signed_at' => 'datetime',
     ];

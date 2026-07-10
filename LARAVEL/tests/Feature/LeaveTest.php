@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Employee;
@@ -10,7 +10,7 @@ use Database\Seeders\RolePermissionSeeder;
 
 class LeaveTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {
@@ -26,8 +26,8 @@ class LeaveTest extends TestCase
         $response = $this->actingAs($user, 'sanctum')
                          ->postJson('/api/leaves', [
                              'leave_type' => 'Sick Leave',
-                             'start_date' => '2025-01-10',
-                             'end_date' => '2025-01-12',
+                             'start_date' => '2027-01-10',
+                             'end_date' => '2027-01-12',
                              'reason' => 'Sick'
                          ]);
 
@@ -46,8 +46,8 @@ class LeaveTest extends TestCase
         $leave = \App\Models\Leave::create([
             'employee_id' => $employee->id,
             'leave_type' => 'Sick Leave',
-            'start_date' => '2025-01-10',
-            'end_date' => '2025-01-12',
+            'start_date' => '2027-01-10',
+            'end_date' => '2027-01-12',
             'days_count' => 3,
             'reason' => 'Sick',
             'status' => 'pending'

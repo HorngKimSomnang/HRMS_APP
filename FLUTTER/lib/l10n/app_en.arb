@@ -36,6 +36,9 @@
     "welcomeBack": "Welcome Back",
     "unableToConnect": "Unable to connect to Server",
     "retryConnection": "Retry Connection",
+    "checkYourInternet": "Please check your internet connection and try again.",
+    "somethingWentWrong": "Something went wrong. Please try again.",
+    "changeGeneratedPassword": "Please change your auto-generated password immediately for security.",
     "profile": "Profile",
     "features": "Features",
     "payrollAndFinance": "Payroll & Finance",
@@ -69,5 +72,9 @@
     "startTimeOptional": "Start Time",
     "endTimeOptional": "End Time",
     "totalHours": "Total Hours",
-    "date": "Date"
+    "date": "Date",
+    "myActivity": "My Activity",
+    "myContract": "My Contract",
+    "myForms": "My Forms",
+    "submitReportsAndForms": "Submit reports & forms"
 }

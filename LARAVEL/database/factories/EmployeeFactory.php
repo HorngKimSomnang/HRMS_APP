@@ -18,7 +18,7 @@ class EmployeeFactory extends Factory
     {
         return [
             'user_id' => \App\Models\User::factory(),
-            'employee_code' => $this->faker->unique()->bothify('EMP###'),
+            'employee_code' => 'EMP' . strtoupper(substr(uniqid(), -5)) . rand(10, 99),
             'first_name' => $this->faker->firstName,
             'last_name' => $this->faker->lastName,
             'phone' => $this->faker->phoneNumber,

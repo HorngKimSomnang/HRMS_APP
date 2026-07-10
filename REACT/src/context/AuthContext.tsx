@@ -14,6 +14,7 @@ interface AuthContextType {
     token: string | null;
     login: (token: string, user: User) => void;
     logout: () => void;
+    updateUser: (user: User) => void;
     isAuthenticated: boolean;
     loading: boolean;
 }
@@ -31,7 +32,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (storedToken) {
                 try {
                     const response = await api.get('/user');
-                    setUser(response.data);
+                    const fetchedUser = response.data;
+                    
+                    const hasAdminAccess = fetchedUser.roles?.some((r: any) => ['Admin', 'Super Admin'].includes(r.name));
+                    if (!hasAdminAccess) {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        setToken(null);
+                        setUser(null);
+                    } else {
+                        setUser(fetchedUser);
+                    }
                 } catch (error) {
                     console.error("Failed to fetch user", error);
                     localStorage.removeItem('token');
@@ -59,8 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('user');
     };
 
+    const updateUser = (newUser: User) => {
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+    };
+
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, loading }}>
+        <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated: !!token, loading }}>
             {children}
         </AuthContext.Provider>
     );

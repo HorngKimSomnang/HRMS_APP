@@ -25,7 +25,8 @@ class DatabaseSeeder extends Seeder
 
         $user = User::factory()->create([
             'name' => 'Super Admin',
-            'email' => 'superadmin@henchen.com', // Updated for consistency
+            'email' => 'superadmin@gmail.com', // Updated to @gmail.com
+
             'password' => bcrypt('password'),
         ]);
 
@@ -34,7 +35,8 @@ class DatabaseSeeder extends Seeder
         // Also create the test user for reference (optional, but good for backup)
         $testUser = User::factory()->create([
              'name' => 'Admin User',
-             'email' => 'admin@henchen.com', // Updated to match user preference
+             'email' => 'admin@gmail.com', // Updated to @gmail.com
+
              'password' => bcrypt('password'),
         ]);
         $testUser->assignRole('Admin');

@@ -187,7 +187,7 @@ export default function TaskList() {
                 )}
             </div>
 
-            <div className="rounded-xl border bg-card shadow-sm overflow-hidden mt-6">
+            <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/50 via-card to-card shadow-sm overflow-hidden mt-6">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
@@ -214,9 +214,9 @@ export default function TaskList() {
                                         {task.employee ? (
                                             <div className="flex items-center gap-2">
                                                 <div className="h-7 w-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
-                                                    {task.employee.first_name[0]}{task.employee.last_name?.[0] || ''}
+                                                    {task.employee.last_name[0]}{task.employee.first_name?.[0] || ''}
                                                 </div>
-                                                <span className="text-sm font-medium">{task.employee.first_name} {task.employee.last_name}</span>
+                                                <span className="text-sm font-medium">{task.employee.last_name} {task.employee.first_name}</span>
                                             </div>
                                         ) : (
                                             <span className="text-muted-foreground italic text-sm">Unassigned</span>
@@ -320,7 +320,7 @@ export default function TaskList() {
                                     <span className="text-muted-foreground block text-xs mb-1">Assigned To</span>
                                     <div className="font-medium">
                                         {viewTask.employee
-                                            ? `${viewTask.employee.first_name} ${viewTask.employee.last_name}`
+                                            ? `${viewTask.employee.last_name} ${viewTask.employee.first_name}`
                                             : 'Unassigned'}
                                     </div>
                                 </div>
@@ -494,7 +494,7 @@ export default function TaskList() {
                                                             setFieldErrors(p => ({ ...p, assigned_to: '' }));
                                                         }}
                                                     />
-                                                    <span className="text-sm">{e.first_name} {e.last_name}</span>
+                                                    <span className="text-sm">{e.last_name} {e.first_name}</span>
                                                 </label>
                                             );
                                         })
