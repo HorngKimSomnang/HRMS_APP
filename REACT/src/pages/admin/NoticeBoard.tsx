@@ -38,7 +38,8 @@ export default function NoticeBoard() {
     const fetchNotices = async () => {
         try {
             const res = await api.get('/announcements');
-            setNotices(res.data.data);
+            // Holidays have their own dedicated page; keep them out of the general notice board.
+            setNotices(res.data.data.filter((n: Notice) => n.type !== 'Holiday'));
         } catch {
             toast.error('Failed to fetch notices');
         } finally {
@@ -204,7 +205,6 @@ export default function NoticeBoard() {
                                 <option value="General">General</option>
                                 <option value="Info">Info</option>
                                 <option value="Urgent">Urgent</option>
-                                <option value="Holiday">Holiday</option>
                             </select>
                         </div>
                         <div className="flex items-center gap-2 mt-2">

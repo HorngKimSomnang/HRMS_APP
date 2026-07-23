@@ -51,12 +51,32 @@ password DigitalOcean emailed you, and asked to change it on first login.)
 ---
 
 ## 2. Install the stack
+Check your **local** PHP and PostgreSQL versions first (`php -v`, `pg_dump --version`)
+and match them here — a version mismatch breaks `composer install` (Laravel's
+`composer.lock` pins to whatever PHP you developed against) and breaks restoring a
+custom-format `pg_dump` onto an older PostgreSQL (Step 5 needs matching major
+versions). As of writing, local dev uses **PHP 8.4** and **PostgreSQL 17**, both
+newer than Ubuntu 24.04's default repos (PHP 8.3, PostgreSQL 16), so we add the
+upstream repos for both.
+
 ```bash
 sudo apt update && sudo apt upgrade -y
+sudo apt install -y software-properties-common curl ca-certificates unzip git nginx
 
-# PHP 8.2 + extensions Laravel needs (incl. pgsql)
-sudo apt install -y php8.2 php8.2-fpm php8.2-cli php8.2-pgsql php8.2-mbstring \
-  php8.2-xml php8.2-curl php8.2-zip php8.2-bcmath php8.2-gd unzip git
+# PHP 8.4 via the Ondřej Surý PPA (Ubuntu 24.04 only ships 8.3 by default)
+sudo add-apt-repository -y ppa:ondrej/php
+sudo apt update
+sudo apt install -y php8.4 php8.4-fpm php8.4-cli php8.4-pgsql php8.4-mbstring \
+  php8.4-xml php8.4-curl php8.4-zip php8.4-bcmath php8.4-gd
+
+# PostgreSQL 17 via the official PGDG repo (Ubuntu 24.04 only ships 16 by default)
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail \
+  https://www.postgresql.org/media/keys/ACCC4CF8.asc
+echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+  | sudo tee /etc/apt/sources.list.d/pgdg.list
+sudo apt update
+sudo apt install -y postgresql-17 postgresql-client-17
 
 # Composer
 curl -sS https://getcomposer.org/installer | php
@@ -65,10 +85,11 @@ sudo mv composer.phar /usr/local/bin/composer
 # Node 20 (for building the React panel)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
-
-# PostgreSQL + Nginx
-sudo apt install -y postgresql nginx
 ```
+
+> If your local versions differ from PHP 8.4 / PostgreSQL 17 by the time you deploy,
+> substitute your actual versions in the commands above (and in Step 8's Nginx
+> `fastcgi_pass` socket path, and Step 5's restore step).
 
 ---
 
@@ -125,7 +146,9 @@ rm /tmp/hrms.dump
 ## 6. Deploy the Laravel API
 ```bash
 cd /var/www/hrms/LARAVEL
-composer install --no-dev --optimize-autoloader
+composer install --optimize-autoloader   # NOT --no-dev: config/scribe.php references a
+# dev-only package class (knuckles/scribe) that Laravel's config loader needs even
+# outside local dev, so dev dependencies stay installed here.
 
 cp .env.example .env
 # Edit .env — use LARAVEL/.env.production.example in this repo as your checklist:
