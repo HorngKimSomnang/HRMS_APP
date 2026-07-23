@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { Trash2, Plus, Calendar, PartyPopper } from "lucide-react";
+import { Trash2, Plus, Calendar, PartyPopper, Pencil } from "lucide-react";
 import { toast } from 'sonner';
 
 interface Holiday {
@@ -30,6 +30,7 @@ export default function HolidayList() {
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<number | null>(null);
 
     // Form State
     const [newName, setNewName] = useState('');
@@ -63,24 +64,54 @@ export default function HolidayList() {
         fetchHolidays();
     }, []);
 
-    const handleCreate = async () => {
+    const resetForm = () => {
+        setNewName('');
+        setNewStartDate('');
+        setNewEndDate('');
+        setNewType('public');
+        setEditingId(null);
+    };
+
+    const openCreate = () => {
+        resetForm();
+        setIsCreateOpen(true);
+    };
+
+    const openEdit = (holiday: Holiday) => {
+        setEditingId(holiday.id);
+        setNewName(holiday.name);
+        setNewStartDate(holiday.start_date?.slice(0, 10) || '');
+        setNewEndDate(holiday.end_date?.slice(0, 10) || '');
+        setNewType(holiday.type);
+        setIsCreateOpen(true);
+    };
+
+    const handleSave = async () => {
         try {
-            await api.post('/announcements', {
-                type: 'Holiday',
-                title: newName,
-                content: newName,
-                start_date: newStartDate,
-                end_date: newEndDate,
-                is_published: true,
-            });
-            setNewName('');
-            setNewStartDate('');
-            setNewEndDate('');
+            if (editingId) {
+                await api.put(`/announcements/${editingId}`, {
+                    title: newName,
+                    content: newName,
+                    start_date: newStartDate,
+                    end_date: newEndDate,
+                });
+                toast.success("Holiday updated successfully");
+            } else {
+                await api.post('/announcements', {
+                    type: 'Holiday',
+                    title: newName,
+                    content: newName,
+                    start_date: newStartDate,
+                    end_date: newEndDate,
+                    is_published: true,
+                });
+                toast.success("Holiday created successfully");
+            }
+            resetForm();
             setIsCreateOpen(false);
             fetchHolidays();
-            toast.success("Holiday created successfully");
         } catch (e: any) {
-            toast.error(e.response?.data?.message || "Failed to create holiday");
+            toast.error(e.response?.data?.message || "Failed to save holiday");
         }
     };
 
@@ -109,7 +140,7 @@ export default function HolidayList() {
                     <p className="text-muted-foreground mt-1">Manage public holidays and company events.</p>
                 </div>
                 {isAdminOrSuper && (
-                    <Button onClick={() => setIsCreateOpen(true)}>
+                    <Button onClick={openCreate}>
                         <Plus className="mr-2 h-4 w-4" /> Add Holiday
                     </Button>
                 )}
@@ -192,9 +223,14 @@ export default function HolidayList() {
                                     </TableCell>
                                     <TableCell className="text-right pr-6">
                                         {isAdminOrSuper && (
-                                            <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteId(holiday.id)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <>
+                                                <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-blue-600 hover:bg-blue-50" onClick={() => openEdit(holiday)}>
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteId(holiday.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </>
                                         )}
                                     </TableCell>
                                 </TableRow>
@@ -204,10 +240,10 @@ export default function HolidayList() {
                 </Table>
             </div>
 
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) resetForm(); }}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add New Holiday</DialogTitle>
+                        <DialogTitle>{editingId ? 'Edit Holiday' : 'Add New Holiday'}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
@@ -235,8 +271,8 @@ export default function HolidayList() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                        <Button onClick={handleCreate}>Save Holiday</Button>
+                        <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>Cancel</Button>
+                        <Button onClick={handleSave}>{editingId ? 'Update Holiday' : 'Save Holiday'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
