@@ -220,12 +220,12 @@ export default function Assets() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 capitalize">{t(`assets.cat_${a.category}`, a.category)}</td>
+                                            <td className="px-4 py-3 capitalize">{String(t(`assets.cat_${a.category}`, a.category))}</td>
                                             <td className="px-4 py-3">
-                                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize ${conditionBadge[a.condition] ?? ''}`}>{t(`assets.cond_${a.condition}`, a.condition)}</span>
+                                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize ${conditionBadge[a.condition] ?? ''}`}>{String(t(`assets.cond_${a.condition}`, a.condition))}</span>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize ${statusBadge[a.status] ?? ''}`}>{t(`assets.status_${a.status}`, a.status)}</span>
+                                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize ${statusBadge[a.status] ?? ''}`}>{String(t(`assets.status_${a.status}`, a.status))}</span>
                                             </td>
                                             <td className="px-4 py-3">
                                                 {a.current_assignment?.employee?.name

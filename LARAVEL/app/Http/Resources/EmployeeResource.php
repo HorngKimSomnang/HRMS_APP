@@ -22,7 +22,7 @@ class EmployeeResource extends JsonResource
             'last_name' => $this->last_name,
             'name' => $this->name, // Computed attribute
             'full_name' => $this->name,
-            'email' => $this->user->email,
+            'email' => $this->user?->email,
             'phone' => $this->phone,
             'address' => $this->address,
             'gender' => $this->gender,
@@ -40,7 +40,10 @@ class EmployeeResource extends JsonResource
             'joining_date' => $this->joining_date,
             'status' => $this->status,
              // Include role from User
-            'role' => $this->user->getRoleNames()->first(),
+            'role' => $this->user?->getRoleNames()->first(),
+            'archived_at' => $this->deleted_at?->toIso8601String(),
+            'restore_conflict' => (bool) ($this->restore_conflict ?? false),
+            'conflicting_employee_code' => $this->conflicting_employee_code ?? null,
             'shift_id' => $this->shift_id,
             'shift' => $this->shift,
             'documents' => $this->formatDocuments(),

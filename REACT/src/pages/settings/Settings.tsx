@@ -18,7 +18,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import api from "@/services/api";
-import { Trash2, Plus, Building2, Calendar, Lock, Moon, Sun, Upload, MapPin, Search } from "lucide-react";
+import { Trash2, Plus, Building2, Calendar, Lock, Moon, Sun, Upload, MapPin, Search, DatabaseBackup, ShieldCheck, Clock3, HardDrive, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -36,6 +36,31 @@ const DefaultIcon = L.icon({
     iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
+
+type BackupStatus = {
+    healthy: boolean;
+    latest: {
+        filename: string;
+        created_at: string;
+        size_bytes: number;
+        size_label: string;
+    } | null;
+    backup_count: number;
+    uploaded_files_included: boolean;
+    schedule: {
+        installed: boolean;
+        state?: string;
+        last_run_at?: string | null;
+        next_run_at?: string | null;
+        last_result?: number;
+    };
+    retention: string;
+    restore_protection: string;
+};
+
+const formatBackupDate = (value?: string | null) => value
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+    : "Not available";
 
 // Map click handler component
 function LocationMarker({ position, setPosition }: { position: [number, number], setPosition: (pos: [number, number]) => void }) {
@@ -83,6 +108,9 @@ export default function Settings() {
     const [activeTab, setActiveTab] = useState(isSuperAdmin ? "general" : "appearance"); // Default to appearance for demo
     const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
+    const [loadingBackupStatus, setLoadingBackupStatus] = useState(false);
+    const [creatingBackup, setCreatingBackup] = useState(false);
 
     // New Leave Type Form
     const [newType, setNewType] = useState({ name: "", days_allowed: "" });
@@ -124,6 +152,33 @@ export default function Settings() {
     // Organization Profile
     const [orgProfile, setOrgProfile] = useState({ name: "", currency: "" });
     const [savingProfile, setSavingProfile] = useState(false);
+
+    const fetchBackupStatus = async () => {
+        setLoadingBackupStatus(true);
+        try {
+            const response = await api.get('/backups/status');
+            setBackupStatus(response.data.data);
+        } catch (error) {
+            console.error("Could not fetch backup status", error);
+            toast.error("Could not check the backup status.");
+        } finally {
+            setLoadingBackupStatus(false);
+        }
+    };
+
+    const handleCreateBackup = async () => {
+        setCreatingBackup(true);
+        try {
+            const response = await api.post('/backups');
+            setBackupStatus(response.data.data);
+            toast.success(response.data.message || "Backup completed successfully.");
+        } catch (error: any) {
+            console.error("Could not create backup", error);
+            toast.error(error.response?.data?.message || "Backup failed. Please check the backup log.");
+        } finally {
+            setCreatingBackup(false);
+        }
+    };
 
     useEffect(() => {
         api.get('/settings').then(res => {
@@ -226,6 +281,9 @@ export default function Settings() {
         if (activeTab === "leaves") {
             fetchLeaveTypes();
         }
+        if (activeTab === "backups" && isSuperAdmin) {
+            fetchBackupStatus();
+        }
     }, [activeTab]);
 
     const toggleTheme = () => {
@@ -294,6 +352,16 @@ export default function Settings() {
                     >
                         <div className="flex items-center gap-2">
                             <Building2 className="h-4 w-4" /> General
+                        </div>
+                    </button>
+                )}
+                {isSuperAdmin && (
+                    <button
+                        onClick={() => setActiveTab("backups")}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "backups" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <DatabaseBackup className="h-4 w-4" /> Backup & Recovery
                         </div>
                     </button>
                 )}
@@ -382,6 +450,91 @@ export default function Settings() {
                                             <p className="text-xs text-muted-foreground">Supported formats: JPG, PNG, SVG (Max 2MB)</p>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === "backups" && isSuperAdmin && (
+                    <div className="max-w-5xl space-y-6">
+                        <div className={`rounded-xl border p-5 shadow-sm ${backupStatus?.healthy ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-card" : "border-amber-200 bg-gradient-to-r from-amber-50 to-card"}`}>
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-start gap-3">
+                                    <div className={`rounded-full p-2 ${backupStatus?.healthy ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                        {backupStatus?.healthy ? <ShieldCheck className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold">
+                                            {loadingBackupStatus ? "Checking data protection..." : backupStatus?.healthy ? "Your HRMS data is protected" : "Backup attention required"}
+                                        </h3>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            PostgreSQL records and uploaded employee files are protected together.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" onClick={fetchBackupStatus} disabled={loadingBackupStatus || creatingBackup}>
+                                        <RefreshCw className={`mr-2 h-4 w-4 ${loadingBackupStatus ? "animate-spin" : ""}`} />
+                                        Refresh
+                                    </Button>
+                                    <Button onClick={handleCreateBackup} disabled={creatingBackup || loadingBackupStatus}>
+                                        <DatabaseBackup className={`mr-2 h-4 w-4 ${creatingBackup ? "animate-pulse" : ""}`} />
+                                        {creatingBackup ? "Backing up..." : "Back up now"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <div className="rounded-xl border bg-card p-5 shadow-sm">
+                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                    <HardDrive className="h-4 w-4 text-blue-600" /> Latest recovery point
+                                </div>
+                                <p className="mt-3 text-base font-semibold">{formatBackupDate(backupStatus?.latest?.created_at)}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {backupStatus?.latest ? `${backupStatus.latest.size_label} · ${backupStatus.latest.filename}` : "No backup file found"}
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border bg-card p-5 shadow-sm">
+                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                    <Clock3 className="h-4 w-4 text-violet-600" /> Automatic schedule
+                                </div>
+                                <p className="mt-3 text-base font-semibold">
+                                    {backupStatus?.schedule.installed ? "Every day at 8:00 PM" : "Not installed"}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {backupStatus?.schedule.next_run_at
+                                        ? `Next run: ${formatBackupDate(backupStatus.schedule.next_run_at)}`
+                                        : backupStatus?.schedule.installed
+                                            ? "Managed by Windows Task Scheduler"
+                                            : "Automatic task is not installed"}
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border bg-card p-5 shadow-sm">
+                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Protected content
+                                </div>
+                                <p className="mt-3 text-base font-semibold">Database + uploaded files</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {backupStatus?.backup_count ?? 0} database recovery points currently available
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5">
+                            <div className="flex gap-3">
+                                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" />
+                                <div className="space-y-1">
+                                    <h4 className="font-semibold">Safe recovery by design</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                        {backupStatus?.retention || "Recent recovery points are retained automatically."}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {backupStatus?.restore_protection || "Restore is kept outside the browser to prevent accidental data replacement."}
+                                    </p>
                                 </div>
                             </div>
                         </div>

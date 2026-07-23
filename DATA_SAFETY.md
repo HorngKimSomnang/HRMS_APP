@@ -4,6 +4,14 @@ Protections added on 2026-07-02 after an accidental wipe of employee data. Four 
 
 ## Layer 1 — Automated backups
 
+### Easiest method (recommended for demonstrations)
+
+Sign in as **Super Admin**, then open **Settings → Backup & Recovery**. The page shows the latest recovery point, file size, automatic schedule, and whether both the database and uploaded files are protected. Select **Back up now** to create a verified recovery point without opening PowerShell.
+
+Restoring is intentionally not available in the browser because it replaces current data. This separation prevents an accidental click from overwriting the live HRMS database.
+
+### Command-line method
+
 Run this once to schedule a daily backup at 8:00 PM:
 
 ```powershell

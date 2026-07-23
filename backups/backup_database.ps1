@@ -56,7 +56,7 @@ if (-not $pgDump) {
 if (-not $pgDump) { Log "ERROR: pg_dump.exe not found. Install PostgreSQL client tools or add them to PATH."; exit 1 }
 
 # --- Dump the database ---------------------------------------------------------
-$stamp    = Get-Date -Format "yyyy-MM-dd_HHmm"
+$stamp    = Get-Date -Format "yyyy-MM-dd_HHmmss"
 $dumpFile = Join-Path $backupDir "HRMS_$stamp.dump"
 & $pgDump -h $dbHost -p $dbPort -U $dbUser -d $dbName -F c -f $dumpFile
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dumpFile) -or (Get-Item $dumpFile).Length -eq 0) {

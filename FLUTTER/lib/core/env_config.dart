@@ -4,9 +4,15 @@ class EnvConfig {
 
   
 
-  /// Get the correct Base URL based on the current platform/device
+  /// Get the correct Base URL based on the current platform/device.
+  ///
+  /// Override at build time without editing source, e.g.:
+  ///   flutter build apk --release --dart-define=API_BASE_URL=https://your-domain.com/api
+  /// If no --dart-define is provided, falls back to the ngrok tunnel below.
   static String get baseUrl {
-    // Using the static ngrok domain so the Android device can connect over the internet
+    const fromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    // Fallback: the static ngrok domain so the Android device can connect over the internet
     return 'https://lilla-semivulcanized-geopolitically.ngrok-free.dev/api';
   }
 

@@ -20,7 +20,13 @@ class EmployeeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Employee::with(['user']);
+        if ($request->boolean('archived')) {
+            $query = Employee::onlyTrashed()->with([
+                'user' => fn ($userQuery) => $userQuery->withTrashed(),
+            ]);
+        } else {
+            $query = Employee::with(['user']);
+        }
         
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -32,6 +38,27 @@ class EmployeeController extends Controller
         }
 
         $employees = $query->paginate(10);
+
+        if ($request->boolean('archived')) {
+            $emails = $employees->getCollection()
+                ->pluck('user.email')
+                ->filter()
+                ->values();
+
+            $activeEmployeesByEmail = Employee::with('user')
+                ->whereHas('user', fn ($userQuery) => $userQuery->whereIn('email', $emails))
+                ->get()
+                ->keyBy(fn (Employee $employee) => strtolower($employee->user->email));
+
+            $employees->getCollection()->each(function (Employee $employee) use ($activeEmployeesByEmail) {
+                $email = $employee->user?->email;
+                $conflict = $email ? $activeEmployeesByEmail->get(strtolower($email)) : null;
+
+                $employee->setAttribute('restore_conflict', $conflict !== null);
+                $employee->setAttribute('conflicting_employee_code', $conflict?->employee_code);
+            });
+        }
+
         return EmployeeResource::collection($employees);
     }
 
@@ -404,6 +431,14 @@ class EmployeeController extends Controller
         try {
             $employee = Employee::onlyTrashed()->findOrFail($id);
 
+            $archivedUser = User::onlyTrashed()->find($employee->user_id);
+            if ($archivedUser && User::where('email', $archivedUser->email)->exists()) {
+                return $this->errorResponse(
+                    'This email already belongs to an active employee record. Keep this record archived or resolve the duplicate account first.',
+                    409
+                );
+            }
+
             DB::beginTransaction();
 
             \App\Models\Attendance::onlyTrashed()->where('employee_id', $employee->id)->restore();
@@ -412,7 +447,7 @@ class EmployeeController extends Controller
             \App\Models\Task::onlyTrashed()->where('assigned_to', $employee->id)->restore();
             \App\Models\Payslip::onlyTrashed()->where('employee_id', $employee->id)->restore();
 
-            $user = User::onlyTrashed()->find($employee->user_id);
+            $user = $archivedUser;
             if ($user) {
                 $user->restore();
                 // Access stays revoked (no roles, no tokens) until an admin re-assigns a role.

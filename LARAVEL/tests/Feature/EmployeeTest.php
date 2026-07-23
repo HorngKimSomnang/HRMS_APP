@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
+use App\Models\Employee;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 
@@ -61,5 +62,117 @@ class EmployeeTest extends TestCase
         // Verify Role was assigned
         $newUser = User::where('email', 'john.doe@example.com')->first();
         $this->assertTrue($newUser->hasRole('Employee'));
+    }
+
+    public function test_offboarding_preserves_the_employee_record(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        $employee = Employee::factory()->create(['status' => 'active']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/employees/{$employee->id}")
+            ->assertOk()
+            ->assertJsonPath('message', 'Employee offboarded successfully');
+
+        $this->assertDatabaseHas('employees', [
+            'id' => $employee->id,
+            'status' => 'terminated',
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_archived_employee_can_be_listed_and_restored(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        $employeeUser = User::factory()->create();
+        $employeeUser->assignRole('Employee');
+        $employee = Employee::factory()->for($employeeUser)->create(['status' => 'terminated']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/employees/{$employee->id}")
+            ->assertOk()
+            ->assertJsonPath('message', 'Employee archived (recoverable via restore)');
+
+        $this->assertSoftDeleted('employees', ['id' => $employee->id]);
+        $this->assertSoftDeleted('users', ['id' => $employeeUser->id]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/employees?archived=true')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $employee->id,
+                'employee_code' => $employee->employee_code,
+            ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/employees/{$employee->id}/restore")
+            ->assertOk()
+            ->assertJsonPath('message', 'Employee restored successfully');
+
+        $this->assertDatabaseHas('employees', [
+            'id' => $employee->id,
+            'status' => 'terminated',
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $employeeUser->id,
+            'deleted_at' => null,
+        ]);
+        $this->assertFalse($employeeUser->fresh()->hasAnyRole());
+    }
+
+    public function test_new_employee_cannot_reuse_an_archived_email(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        $archivedUser = User::factory()->create(['email' => 'archived@example.com']);
+        $archivedEmployee = Employee::factory()->for($archivedUser)->create(['status' => 'terminated']);
+        $archivedUser->delete();
+        $archivedEmployee->delete();
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/employees', [
+                'first_name' => 'Duplicate',
+                'last_name' => 'Person',
+                'email' => 'archived@example.com',
+                'job_title' => 'Tester',
+                'joining_date' => '2026-01-01',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+    }
+
+    public function test_restore_is_blocked_when_an_active_employee_uses_the_same_email(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        $archivedUser = User::factory()->create(['email' => 'duplicate@example.com']);
+        $archivedEmployee = Employee::factory()->for($archivedUser)->create(['status' => 'terminated']);
+        $archivedUser->delete();
+        $archivedEmployee->delete();
+
+        $activeUser = User::factory()->create(['email' => 'duplicate@example.com']);
+        $activeEmployee = Employee::factory()->for($activeUser)->create(['status' => 'active']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/employees?archived=true')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $archivedEmployee->id,
+                'restore_conflict' => true,
+                'conflicting_employee_code' => $activeEmployee->employee_code,
+            ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/employees/{$archivedEmployee->id}/restore")
+            ->assertStatus(409);
+
+        $this->assertSoftDeleted('employees', ['id' => $archivedEmployee->id]);
     }
 }

@@ -58,8 +58,8 @@ export default function Shifts() {
             }
             setIsDialogOpen(false);
             fetchShifts();
-        } catch {
-            toast.error('Failed to save shift');
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Failed to save shift');
         }
     };
 

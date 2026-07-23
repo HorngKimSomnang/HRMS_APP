@@ -157,6 +157,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/settings', [\App\Http\Controllers\Api\SettingController::class, 'index']);
 
     Route::middleware('role:Super Admin')->group(function () {
+        Route::get('/backups/status', [\App\Http\Controllers\Api\BackupController::class, 'status']);
+        Route::post('/backups', [\App\Http\Controllers\Api\BackupController::class, 'store'])->middleware('throttle:3,10');
         Route::post('/settings', [\App\Http\Controllers\Api\SettingController::class, 'update']);
         Route::post('/settings/logo', [\App\Http\Controllers\Api\SettingController::class, 'uploadLogo']);
         Route::apiResource('shifts', \App\Http\Controllers\Api\ShiftController::class);
@@ -170,4 +172,3 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/entities/{entity:slug}', [\App\Http\Controllers\Api\CustomEntityController::class, 'destroy']);
     });
 });
-

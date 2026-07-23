@@ -16,7 +16,7 @@ class DemoDataSeeder extends Seeder
 
         // Let's create some attendances for the last 7 days to populate the bar chart
         // And some attendances for the current month to populate the pie chart
-        $today = \Carbon\Carbon::today();
+        $today = \Carbon\Carbon::today('Asia/Phnom_Penh');
         
         foreach ($employees as $employee) {
             // Generate attendances for the last 15 days
@@ -36,8 +36,9 @@ class DemoDataSeeder extends Seeder
                 // 20% chance of being late
                 $isLate = rand(1, 100) <= 20;
                 
-                $clockIn = $date->copy()->setHour(8)->setMinute($isLate ? rand(15, 59) : rand(0, 10));
-                $clockOut = $date->copy()->setHour(17)->setMinute(rand(0, 30));
+                // Shift is 08:00-16:55 Cambodia time; build in that timezone, then store in UTC.
+                $clockIn = $date->copy()->setHour(8)->setMinute($isLate ? rand(15, 59) : rand(0, 10))->utc();
+                $clockOut = $date->copy()->setHour(16)->setMinute(rand(30, 55))->utc();
 
                 \App\Models\Attendance::create([
                     'employee_id' => $employee->id,
@@ -46,8 +47,8 @@ class DemoDataSeeder extends Seeder
                     'clock_out' => $clockOut,
                     'status' => $isLate ? 'late' : 'present',
                     'is_late' => $isLate,
-                    'latitude' => 11.5564,
-                    'longitude' => 104.9282,
+                    'latitude' => 11.58739,
+                    'longitude' => 104.93052,
                 ]);
             }
             

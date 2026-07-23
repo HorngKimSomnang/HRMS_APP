@@ -3,3 +3,6 @@
 /backups/*.dump
 /backups/storage_files/
 /backups/backup_log.txt
+
+# Mobile app build artifacts: don't commit binaries to git history
+/releases/

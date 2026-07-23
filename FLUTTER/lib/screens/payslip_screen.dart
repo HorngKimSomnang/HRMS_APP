@@ -183,12 +183,15 @@ class _PayslipDetailDialog extends StatefulWidget {
 
 class _PayslipDetailDialogState extends State<_PayslipDetailDialog> {
   late bool _isSigned;
+  late bool _isLocked;
   String? _signedAt;
 
   @override
   void initState() {
     super.initState();
+    final requiresSignature = widget.slip['requires_signature'] == 1 || widget.slip['requires_signature'] == true;
     _isSigned = widget.slip['is_signed'] == 1 || widget.slip['is_signed'] == true;
+    _isLocked = requiresSignature && !_isSigned;
     _signedAt = widget.slip['signed_at']?.toString();
   }
 
@@ -237,7 +240,7 @@ class _PayslipDetailDialogState extends State<_PayslipDetailDialog> {
                 ],
               ),
             ),
-            if (!_isSigned)
+            if (_isLocked)
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
@@ -326,20 +329,22 @@ class _PayslipDetailDialogState extends State<_PayslipDetailDialog> {
                       ),
                       
                       // Signature Section
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          const Icon(LucideIcons.checkCircle2, color: Color(0xFF10B981), size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text('Verified and Released on ${_signedAt != null && _signedAt!.length >= 10 ? _signedAt!.substring(0, 10) : 'time'}', 
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.notoSansKhmer(color: const Color(0xFF10B981), fontWeight: FontWeight.w600, fontSize: 13)),
-                          ),
-                        ]),
-                      ),
+                      if (_isSigned) ...[
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            const Icon(LucideIcons.checkCircle2, color: Color(0xFF10B981), size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Verified and Released on ${_signedAt != null && _signedAt!.length >= 10 ? _signedAt!.substring(0, 10) : 'time'}',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.notoSansKhmer(color: const Color(0xFF10B981), fontWeight: FontWeight.w600, fontSize: 13)),
+                            ),
+                          ]),
+                        ),
+                      ],
                     ],
                   ),
                 ),

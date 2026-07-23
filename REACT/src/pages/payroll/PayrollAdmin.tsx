@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
@@ -27,20 +28,40 @@ type MenuItem = { label: string; icon?: any; onClick?: () => void; href?: string
 
 function DropdownMenu({ trigger, items }: { trigger: React.ReactNode; items: MenuItem[] }) {
     const [open, setOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    const updatePosition = () => {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setPos({ top: rect.bottom + 4, left: rect.right - 192 }); // 192px = menu width (w-48)
+    };
 
     useEffect(() => {
         if (!open) return;
-        const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+        updatePosition();
+        const onClick = (e: MouseEvent) => {
+            if (triggerRef.current?.contains(e.target as Node)) return;
+            if (menuRef.current?.contains(e.target as Node)) return;
+            setOpen(false);
+        };
         document.addEventListener('mousedown', onClick);
-        return () => document.removeEventListener('mousedown', onClick);
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+        return () => {
+            document.removeEventListener('mousedown', onClick);
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+        };
     }, [open]);
 
     return (
-        <div className="relative inline-block" ref={ref}>
+        <div className="relative inline-block" ref={triggerRef}>
             <div onClick={() => setOpen(o => !o)}>{trigger}</div>
-            {open && (
-                <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
+            {open && createPortal(
+                <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }}
+                    className="w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
                     {items.map((item, i) => {
                         const cls = `w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
                             item.disabled ? 'text-gray-300 cursor-not-allowed' :
@@ -57,7 +78,8 @@ function DropdownMenu({ trigger, items }: { trigger: React.ReactNode; items: Men
                             </button>
                         );
                     })}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
@@ -393,17 +415,17 @@ export default function PayrollAdmin() {
                 return;
             }
 
-            const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
             if (companyLogo) {
                 doc.addImage(companyLogo, 'PNG', 14, 15, 18, 18);
             }
 
-            doc.setFontSize(20);
+            doc.setFontSize(15);
             doc.setTextColor(30, 64, 175);
-            doc.text("HEN CHEN INVESTMENT CO.LTD", 36, 23);
+            doc.text("HEN CHEN INVESTMENT CO.LTD", 36, 21);
 
-            doc.setFontSize(14);
+            doc.setFontSize(11);
             doc.setTextColor(55, 65, 81);
             let titleMonthName = filterMonth ? MONTH_NAMES[parseInt(filterMonth) - 1] : "";
             let titleYearStr = filterYear;
@@ -416,17 +438,17 @@ export default function PayrollAdmin() {
             }
 
             const titlePeriod = (titleMonthName && titleYearStr) ? ` - ${titleMonthName} ${titleYearStr}` : "";
-            doc.text(`Monthly Payroll Roster${titlePeriod}`, 36, 31);
+            doc.text(`Monthly Payroll Roster${titlePeriod}`, 36, 28);
 
             // Right-aligned meta: address + document info, like a real company form
-            doc.setFontSize(9);
+            doc.setFontSize(8);
             doc.setTextColor(100, 116, 139);
-            doc.text("Phnom Penh, Kingdom of Cambodia", 283, 21, { align: 'right' });
-            doc.text(`Doc No: PR-${titleYearStr || ''}${filterMonth || ''}`, 283, 26, { align: 'right' });
-            doc.text(`Printed: ${new Date().toLocaleDateString()}`, 283, 31, { align: 'right' });
+            doc.text("Phnom Penh, Kingdom of Cambodia", 196, 16, { align: 'right' });
+            doc.text(`Doc No: PR-${titleYearStr || ''}${filterMonth || ''}`, 196, 21, { align: 'right' });
+            doc.text(`Printed: ${new Date().toLocaleDateString()}`, 196, 26, { align: 'right' });
 
             doc.setDrawColor(226, 232, 240);
-            doc.line(14, 35, 283, 35);
+            doc.line(14, 35, 196, 35);
 
             doc.setFontSize(10);
             doc.setTextColor(55, 65, 81);
@@ -442,6 +464,7 @@ export default function PayrollAdmin() {
                 const deduct = num(slip.advance_deduction) + num(slip.unpaid_leave_deduction) + num(slip.deductions);
                 const net = num(slip.net_salary);
                 totBasic += basic; totAllow += allow; totDeduct += deduct; totNet += net;
+                const isSigned = slip.is_signed === 1 || slip.is_signed === true;
                 return [
                     (i + 1).toString(),
                     slip.employee?.user?.name || "Unknown",
@@ -450,57 +473,65 @@ export default function PayrollAdmin() {
                     money(allow),
                     money(deduct),
                     money(net),
-                    "",
-                    ""
+                    isSigned && slip.signed_at ? new Date(slip.signed_at).toLocaleDateString() : "",
+                    isSigned ? "Verified (scanned)" : ""
                 ];
             });
 
             autoTable(doc, {
                 startY: 48,
-                head: [["No.", "Employee Name", "Position", "Basic", "Allowances", "Deductions", "Net Salary", "Date", "Employee Signature"]],
+                margin: { left: 14, right: 14 },
+                head: [["No.", "Employee Name", "Position", "Basic", "Allow.", "Deduct.", "Net Pay", "Date", "Signature"]],
                 body: tableData,
                 foot: [["", "TOTAL", "", money(totBasic), money(totAllow), money(totDeduct), money(totNet), "", ""]],
                 theme: 'grid',
-                styles: { fontSize: 9, cellPadding: { top: 5, bottom: 5, left: 2, right: 2 }, valign: 'middle', lineColor: [203, 213, 225], lineWidth: 0.1 },
-                headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, halign: 'left', valign: 'middle' },
-                footStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold', halign: 'right' },
+                styles: { fontSize: 10, cellPadding: { top: 6, bottom: 6, left: 2, right: 2 }, valign: 'middle', lineColor: [203, 213, 225], lineWidth: 0.1 },
+                headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, halign: 'left', valign: 'middle' },
+                footStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold', halign: 'right', fontSize: 9 },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
-                bodyStyles: { minCellHeight: 20 },
+                bodyStyles: { minCellHeight: 24 },
                 columnStyles: {
-                    0: { cellWidth: 13, halign: 'center' },
-                    1: { cellWidth: 38 },
-                    2: { cellWidth: 26 },
-                    3: { cellWidth: 22, halign: 'right' },
-                    4: { cellWidth: 26, halign: 'right' },
-                    5: { cellWidth: 26, halign: 'right', textColor: [220, 38, 38] },
-                    6: { cellWidth: 24, halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] },
-                    7: { cellWidth: 22 },
-                    8: { cellWidth: 72 }
+                    0: { cellWidth: 10, halign: 'center' },
+                    1: { cellWidth: 25 },
+                    2: { cellWidth: 18 },
+                    3: { cellWidth: 18, halign: 'right' },
+                    4: { cellWidth: 15, halign: 'right' },
+                    5: { cellWidth: 15, halign: 'right', textColor: [220, 38, 38] },
+                    6: { cellWidth: 18, halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] },
+                    7: { cellWidth: 13 },
+                    8: { cellWidth: 50 }
                 }
             });
 
             const finalY = (doc as any).lastAutoTable.finalY || 160;
 
-            // Prepared / Checked / Approved — standard three-signature approval block
+            // Prepared / Checked / Approved — always pinned near the bottom of the page,
+            // regardless of how many employees are in the table (not right after it).
+            const pageHeight = doc.internal.pageSize.getHeight();
+            let sigY = pageHeight - 35;
+            if (finalY + 10 > sigY) {
+                doc.addPage();
+                sigY = pageHeight - 35;
+            }
+
             doc.setFontSize(10);
             doc.setTextColor(31, 41, 55);
-            const sigY = finalY + 30;
-            doc.text("_____________________", 25, sigY);
-            doc.text("Prepared by", 38, sigY + 6);
+            doc.text("_____________", 16, sigY);
+            doc.text("Prepared by", 24, sigY + 6);
             doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text("HR / Admin", 40, sigY + 11);
+            doc.text("HR / Admin", 26, sigY + 11);
 
             doc.setFontSize(10); doc.setTextColor(31, 41, 55);
-            doc.text("_____________________", 122, sigY);
-            doc.text("Checked by", 136, sigY + 6);
+            doc.text("_____________", 80, sigY);
+            doc.text("Checked by", 88, sigY + 6);
             doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text("Finance / Accounting", 130, sigY + 11);
+            doc.text("Finance / Accounting", 76, sigY + 11);
 
             doc.setFontSize(10); doc.setTextColor(31, 41, 55);
-            doc.text("_____________________", 220, sigY);
-            doc.text("Approved by", 233, sigY + 6);
+            doc.text("_____________", 144, sigY);
+            doc.text("Approved by", 152, sigY + 6);
             doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text("Director / CEO", 235, sigY + 11);
+            doc.text("Director / CEO", 150, sigY + 11);
 
             doc.save("Monthly_Payroll_Roster.pdf");
         } catch (e: any) { toast.error("Download failed: " + e.message); console.error(e); }
@@ -525,7 +556,7 @@ export default function PayrollAdmin() {
             }
             const titlePeriod = (titleMonthName && titleYearStr) ? ` - ${titleMonthName} ${titleYearStr}` : "";
 
-            const headerRow = ["No.", "Employee Name", "Position", "Basic", "Allowances", "Deductions", "Net Salary", "Date", "Employee Signature"];
+            const headerRow = ["No.", "Employee Name", "Position", "Basic", "Allow.", "Deduct.", "Net Pay", "Date", "Signature"];
 
             let totBasic = 0, totAllow = 0, totDeduct = 0, totNet = 0;
             const dataRows = filteredPayslips.map((slip: any, i: number) => {
@@ -534,6 +565,7 @@ export default function PayrollAdmin() {
                 const deduct = num(slip.advance_deduction) + num(slip.unpaid_leave_deduction) + num(slip.deductions);
                 const net = num(slip.net_salary);
                 totBasic += basic; totAllow += allow; totDeduct += deduct; totNet += net;
+                const isSigned = slip.is_signed === 1 || slip.is_signed === true;
                 return [
                     i + 1,
                     slip.employee?.user?.name || "Unknown",
@@ -542,8 +574,8 @@ export default function PayrollAdmin() {
                     allow,
                     deduct,
                     net,
-                    "",
-                    ""
+                    isSigned && slip.signed_at ? new Date(slip.signed_at).toLocaleDateString() : "",
+                    isSigned ? "Verified (scanned)" : ""
                 ];
             });
 
@@ -567,8 +599,8 @@ export default function PayrollAdmin() {
             const ws = XLSXStyle.utils.aoa_to_sheet(sheetData);
 
             ws['!cols'] = [
-                { wch: 5 }, { wch: 24 }, { wch: 18 }, { wch: 12 }, { wch: 15 },
-                { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 24 },
+                { wch: 5 }, { wch: 22 }, { wch: 14 }, { wch: 10 }, { wch: 12 },
+                { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 40 },
             ];
             ws['!merges'] = [
                 { s: { r: 0, c: 0 }, e: { r: 0, c: LAST_COL_IDX } },
