@@ -343,8 +343,8 @@ class DashboardController extends Controller
         for ($i = $days - 1; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
 
-            // Count Present
-            $present = Attendance::whereDate('date', $date)->where('status', 'present')->count();
+            // Count Present (present, late, and early_out all mean the employee showed up)
+            $present = Attendance::whereDate('date', $date)->whereIn('status', ['present', 'late', 'early_out'])->count();
 
             $absent = Attendance::whereDate('date', $date)->where('status', 'absent')->count();
 
