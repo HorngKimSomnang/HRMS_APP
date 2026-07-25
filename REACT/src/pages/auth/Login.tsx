@@ -161,13 +161,6 @@ export default function Login() {
                             ) : t('login.sign_in')}
                         </Button>
                     </form>
-
-                    <p className="px-8 text-center text-sm text-muted-foreground">
-                        {t('login.no_account')}{' '}
-                        <a href="#" className="underline underline-offset-4 hover:text-primary">
-                            {t('login.contact_admin')}
-                        </a>
-                    </p>
                 </div>
             </motion.div>
 
