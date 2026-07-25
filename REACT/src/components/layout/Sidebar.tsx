@@ -54,7 +54,7 @@ export function Sidebar() {
     }, []);
 
     return (
-        <div className="flex h-full min-h-screen w-64 flex-col bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 text-blue-50 print:hidden">
+        <div className="flex h-full w-64 flex-col bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 text-blue-50 print:hidden">
             {/* Logo Area */}
             <div className="flex h-20 items-center px-6 border-b border-white/10">
                 <div className="flex items-center gap-3">

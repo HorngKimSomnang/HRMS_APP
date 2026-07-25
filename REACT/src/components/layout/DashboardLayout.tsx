@@ -99,7 +99,7 @@ export default function DashboardLayout() {
     // unreadCount is now managed via state from the API
 
     return (
-        <div className="flex min-h-screen w-full bg-blue-50/60">
+        <div className="flex h-screen w-full overflow-hidden bg-blue-50/60">
             <Sidebar />
             <div className="flex flex-col flex-1 overflow-hidden relative print:overflow-visible">
                 <header className="flex h-14 items-center gap-4 border-b border-blue-100 bg-gradient-to-r from-blue-50/80 to-white/80 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0 print:hidden">
