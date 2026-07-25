@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Users, CalendarCheck, Settings, LogOut,
     FileText, CheckSquare, FileBarChart, Wallet, Clock,
-    Building2, ShieldCheck, UserCog, ChevronRight, ScrollText,
+    Building2, UserCog, ChevronRight, ScrollText,
     Package, Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -68,23 +68,7 @@ export function Sidebar() {
                 </div>
             </div>
 
-            {/* Role Badge */}
-            <div className="px-4 py-3 border-b border-white/10">
-                <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold",
-                    isSuperAdmin
-                        ? "bg-white/15 text-white border border-white/25"
-                        : "bg-white/10 text-white border border-white/20"
-                )}>
-                    {isSuperAdmin ? <ShieldCheck className="h-3.5 w-3.5" /> : <UserCog className="h-3.5 w-3.5" />}
-                    <div>
-                        <div>{isSuperAdmin ? 'Super Admin' : 'Admin'}</div>
-                        <div className="font-normal opacity-70 text-[10px]">{isSuperAdmin ? 'CEO · Full Access' : 'HR Manager · Operations'}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex-1 py-3 overflow-y-auto">
+            <div className="flex-1 py-3 overflow-y-auto no-scrollbar">
                 <nav className="grid gap-0.5 px-3">
 
                     {/* ── MAIN ── */}
