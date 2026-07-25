@@ -256,7 +256,7 @@ class DashboardController extends Controller
 
         // Attendance
         $presentToday = Attendance::where('date', $today)
-            ->where('status', 'present')
+            ->whereIn('status', ['present', 'late', 'early_out'])
             ->count();
 
         // Pending Actions
