@@ -1,9 +1,10 @@
 <x-mail::message>
 
-{{-- Logo hosted on public CDN - works in Gmail --}}
+@if($logoBase64)
 <div style="text-align: center; margin-bottom: 16px;">
-<img src="https://i.imgur.com/lwgNc2y.png" alt="{{ config('app.name') }}" width="120" height="120" style="display:inline-block; width:120px; height:120px; object-fit:contain;">
+<img src="{{ $logoBase64 }}" alt="{{ config('app.name') }}" width="120" height="120" style="display:inline-block; width:120px; height:120px; object-fit:contain;">
 </div>
+@endif
 
 # Welcome to {{ config('app.name', 'HRMS') }}
 
