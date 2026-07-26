@@ -42,8 +42,17 @@ class DashboardController extends Controller
         $periodStart = $refMonth->copy()->startOfMonth();
         $periodEnd = $refMonth->copy()->endOfMonth();
 
-        // Headcount & Users — always live/current org state, not month-scoped.
-        $totalEmployees = Employee::where('status', 'active')->count();
+        // Headcount — period-aware: counts employees who had already joined by
+        // the end of the selected month and weren't yet terminated as of then.
+        // withTrashed() + deleted_at is needed because terminating an employee
+        // now archives (soft-deletes) them immediately, so someone terminated
+        // after the selected period must still be included via deleted_at > periodEnd.
+        $totalEmployees = Employee::withTrashed()
+            ->where('joining_date', '<=', $periodEnd)
+            ->where(function ($q) use ($periodEnd) {
+                $q->whereNull('deleted_at')->orWhere('deleted_at', '>', $periodEnd);
+            })
+            ->count();
         $totalUsers = \App\Models\User::count();
 
         $adminCount = \App\Models\User::role('Admin', 'web')->count();

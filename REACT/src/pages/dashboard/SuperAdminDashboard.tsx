@@ -131,7 +131,7 @@ export default function SuperAdminDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground">Current headcount (live, not period-specific)</span>
+                        <span className="text-[11px] text-muted-foreground">{isCurrentMonth ? 'Employed as of today' : `Employed as of ${periodLabel}`}</span>
                         <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </div>
                 </Link>
