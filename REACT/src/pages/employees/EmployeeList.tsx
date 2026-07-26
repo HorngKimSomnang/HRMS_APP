@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, UserMinus, Plus, Search, Eye, KeyRound, RotateCcw, Users } from 'lucide-react';
+import { Pencil, UserMinus, Plus, Search, Eye, Archive, KeyRound, RotateCcw, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/context/AuthContext';
