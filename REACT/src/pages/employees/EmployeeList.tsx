@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, UserMinus, Plus, Search, Eye, Archive, KeyRound, RotateCcw, Users } from 'lucide-react';
+import { Pencil, UserMinus, Plus, Search, Eye, KeyRound, RotateCcw, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/context/AuthContext';
@@ -60,7 +60,7 @@ export default function EmployeeList() {
             await api.delete(`/employees/${selectedEmployee.id}`);
             // Fetch employees again to refresh the status
             fetchEmployees();
-            toast.success(selectedEmployee.status === 'terminated' ? "Employee archived safely" : "Employee successfully offboarded");
+            toast.success("Employee terminated and archived");
             setSelectedEmployee(null);
         } catch (error: any) {
             console.error("Failed to delete/offboard employee", error);
@@ -279,14 +279,10 @@ export default function EmployeeList() {
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => setSelectedEmployee(employee)}
-                                                title={user?.id === employee.user_id ? "Cannot offboard own profile" : (employee.status === 'terminated' ? "Archive employee record" : "Offboard / Terminate")}
+                                                title={user?.id === employee.user_id ? "Cannot offboard own profile" : "Terminate & Archive"}
                                                 disabled={user?.id === employee.user_id}
                                             >
-                                                {employee.status === 'terminated' ? (
-                                                    <Archive className="h-4 w-4 text-slate-500" />
-                                                ) : (
-                                                    <UserMinus className="h-4 w-4 text-orange-500" />
-                                                )}
+                                                <UserMinus className="h-4 w-4 text-orange-500" />
                                             </Button>
                                                 </>
                                             )}
@@ -303,22 +299,22 @@ export default function EmployeeList() {
             <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className={selectedEmployee?.status === 'terminated' ? "text-slate-700 flex items-center gap-2" : "text-orange-600 flex items-center gap-2"}>
-                            {selectedEmployee?.status === 'terminated' ? <Archive className="h-5 w-5" /> : <UserMinus className="h-5 w-5" />}
-                            {selectedEmployee?.status === 'terminated' ? "Archive Employee Record" : "Offboard Employee"}
+                        <DialogTitle className="text-orange-600 flex items-center gap-2">
+                            <UserMinus className="h-5 w-5" />
+                            Terminate Employee
                         </DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
                         <p className="text-sm text-muted-foreground">
-                            {selectedEmployee?.status === 'terminated' 
-                                ? "Archive this former employee? The record and related history will be hidden from the current list but retained safely and can be restored later."
-                                : "Are you sure you want to offboard/terminate this employee? This will revoke their system access immediately but keep their historical records intact."}
+                            Are you sure you want to terminate this employee? This will revoke their system access
+                            immediately and move their record straight to Archived — their historical records are
+                            retained safely and can be restored later.
                         </p>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedEmployee(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={confirmOffboard} className={selectedEmployee?.status === 'terminated' ? "bg-slate-700 hover:bg-slate-800" : "bg-orange-600 hover:bg-orange-700"}>
-                            {selectedEmployee?.status === 'terminated' ? "Yes, Archive Record" : "Yes, Offboard"}
+                        <Button variant="destructive" onClick={confirmOffboard} className="bg-orange-600 hover:bg-orange-700">
+                            Yes, Terminate
                         </Button>
                     </DialogFooter>
                 </DialogContent>

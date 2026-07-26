@@ -361,62 +361,27 @@ class EmployeeController extends Controller
     {
         try {
             $employee = Employee::findOrFail($id);
-            $user = $employee->user;
 
             DB::beginTransaction();
             
             $employeeName = $employee->last_name . ' ' . $employee->first_name;
             $employeeCode = $employee->employee_code;
 
-            if ($employee->status === 'terminated') {
-                // ARCHIVE (soft delete) — never hard delete employee data.
-                // All models use SoftDeletes, so rows stay in the database
-                // with deleted_at set and can be restored via /employees/{id}/restore.
-                \App\Models\Attendance::where('employee_id', $employee->id)->delete();
-                \App\Models\Leave::where('employee_id', $employee->id)->delete();
-                \App\Models\Overtime::where('employee_id', $employee->id)->delete();
-                \App\Models\Task::where('assigned_to', $employee->id)->delete();
-                \App\Models\Payslip::where('employee_id', $employee->id)->delete();
+            // Terminating an employee archives (soft deletes) them immediately —
+            // never hard delete employee data. All models use SoftDeletes, so
+            // rows stay in the database with deleted_at set and can be restored
+            // via /employees/{id}/restore.
+            $employee->archive();
 
-                // Soft-delete the user (NOT $user->delete() before SoftDeletes existed:
-                // the employees.user_id FK cascades on hard delete and would destroy
-                // the employee row). Revoke access first.
-                if ($user) {
-                    $user->syncRoles([]);
-                    $user->tokens()->delete();
-                    $user->delete(); // soft delete
-                }
-                $employee->delete(); // soft delete
+            DB::commit();
 
-                DB::commit();
+            AuditLogger::log($request, 'EMPLOYEE_ARCHIVED', null, [
+                'employee_code' => $employeeCode,
+                'employee'      => $employeeName,
+            ]);
 
-                AuditLogger::log($request, 'EMPLOYEE_ARCHIVED', null, [
-                    'employee_code' => $employeeCode,
-                    'employee'      => $employeeName,
-                ]);
+            return $this->successResponse(null, 'Employee terminated and archived (recoverable via restore)');
 
-                return $this->successResponse(null, 'Employee archived (recoverable via restore)');
-            } else {
-                // Instead of hard deleting active records, we mark the employee as terminated
-                $employee->update(['status' => 'terminated']);
-                
-                // Revoke user roles to prevent login access or API actions
-                if ($user) {
-                    $user->syncRoles([]);
-                    // Delete active API tokens
-                    $user->tokens()->delete();
-                }
-
-                DB::commit();
-
-                AuditLogger::log($request, 'EMPLOYEE_OFFBOARDED', null, [
-                    'employee_code' => $employeeCode,
-                    'employee'      => $employeeName,
-                ]);
-
-                return $this->successResponse(null, 'Employee offboarded successfully');
-            }
-            
         } catch (\Exception $e) {
             DB::rollBack();
             return $this->errorResponse('Failed to delete employee: ' . $e->getMessage(), 500);

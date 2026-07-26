@@ -11,6 +11,7 @@ use App\Services\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class LifecycleController extends Controller
 {
@@ -197,8 +198,10 @@ class LifecycleController extends Controller
 
     public function offboardingsIndex(Request $request)
     {
-        $query = Offboarding::with(['employee:id,first_name,last_name,job_title,department', 'creator:id,name'])
-            ->orderBy('last_working_day');
+        $query = Offboarding::with([
+            'employee' => fn ($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title', 'department'),
+            'creator:id,name',
+        ])->orderBy('last_working_day');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -248,13 +251,20 @@ class LifecycleController extends Controller
             'settlement_notes' => 'nullable|string',
         ]);
 
-        if (($validated['status'] ?? null) === 'completed' && $offboarding->status !== 'completed') {
+        $completingNow = ($validated['status'] ?? null) === 'completed' && $offboarding->status !== 'completed';
+        if ($completingNow) {
             $validated['completed_at'] = now();
-            // Mark the employee inactive once offboarding completes.
-            $offboarding->employee()->update(['status' => 'inactive']);
         }
 
-        $offboarding->update($validated);
+        DB::transaction(function () use ($offboarding, $validated, $completingNow) {
+            $offboarding->update($validated);
+
+            if ($completingNow) {
+                // Completing an offboarding terminates the employee straight to
+                // Archived — no separate manual archive step needed.
+                $offboarding->employee->archive();
+            }
+        });
 
         AuditLogger::log(
             $request,
@@ -263,7 +273,10 @@ class LifecycleController extends Controller
             ['employee_id' => $offboarding->employee_id, 'status' => $offboarding->status]
         );
 
-        return response()->json(['data' => $offboarding->fresh()->load('employee:id,first_name,last_name,job_title,department'), 'message' => 'Offboarding updated.']);
+        return response()->json([
+            'data' => $offboarding->fresh()->load(['employee' => fn ($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title', 'department')]),
+            'message' => 'Offboarding updated.',
+        ]);
     }
 
     public function offboardingsDestroy(Request $request, Offboarding $offboarding)

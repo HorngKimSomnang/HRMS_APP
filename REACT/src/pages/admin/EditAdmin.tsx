@@ -24,7 +24,7 @@ export default function EditAdmin() {
                 const data = response.data.data;
                 setFormData({
                     name: data.name,
-                    email: data.email ? data.email.replace('@gmail.com', '') : '',
+                    email: data.email || '',
                     password: '', // Don't populate password
                     role: data.roles?.[0]?.name || 'Admin',
                 });
@@ -46,11 +46,7 @@ export default function EditAdmin() {
         e.preventDefault();
         setLoading(true);
         try {
-            const submitData = { ...formData };
-            if (!submitData.email.includes('@')) {
-                submitData.email = `${submitData.email}@gmail.com`;
-            }
-            await api.put(`/users/${id}`, submitData);
+            await api.put(`/users/${id}`, formData);
             navigate('/admins');
         } catch (error: any) {
             console.error('Failed to update user', error);
@@ -78,12 +74,7 @@ export default function EditAdmin() {
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
-                    <div className="flex rounded-md">
-                        <Input name="email" type="text" value={formData.email} required onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
-                        <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
-                            @gmail.com
-                        </div>
-                    </div>
+                    <Input name="email" type="email" value={formData.email} required onChange={handleChange} placeholder="name@example.com" />
                 </div>
 
                 <div className="space-y-2">

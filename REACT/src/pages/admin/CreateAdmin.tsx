@@ -23,11 +23,7 @@ export default function CreateAdmin() {
         e.preventDefault();
         setLoading(true);
         try {
-            const submitData = { ...formData };
-            if (!submitData.email.includes('@')) {
-                submitData.email = `${submitData.email}@gmail.com`;
-            }
-            await api.post('/users', submitData);
+            await api.post('/users', formData);
             navigate('/admins');
         } catch (error: any) {
             console.error('Failed to create user', error);
@@ -53,12 +49,7 @@ export default function CreateAdmin() {
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
-                    <div className="flex rounded-md">
-                        <Input name="email" type="text" required onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
-                        <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
-                            @gmail.com
-                        </div>
-                    </div>
+                    <Input name="email" type="email" required onChange={handleChange} placeholder="name@example.com" />
                 </div>
 
                 <div className="space-y-2">

@@ -90,4 +90,27 @@ class Employee extends Model
     {
         return HrCatalog::findShiftById($this->shift_id);
     }
+
+    /**
+     * Archive (soft delete) this employee and everything tied to it: revokes
+     * system access and soft-deletes related records so they're recoverable
+     * via restore(), but never hard-deletes anything.
+     */
+    public function archive(): void
+    {
+        \App\Models\Attendance::where('employee_id', $this->id)->delete();
+        \App\Models\Leave::where('employee_id', $this->id)->delete();
+        \App\Models\Overtime::where('employee_id', $this->id)->delete();
+        \App\Models\Task::where('assigned_to', $this->id)->delete();
+        \App\Models\Payslip::where('employee_id', $this->id)->delete();
+
+        if ($this->user) {
+            $this->user->syncRoles([]);
+            $this->user->tokens()->delete();
+            $this->user->delete(); // soft delete
+        }
+
+        $this->update(['status' => 'terminated']);
+        $this->delete(); // soft delete
+    }
 }

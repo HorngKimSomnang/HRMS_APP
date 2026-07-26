@@ -50,7 +50,7 @@ export default function EditEmployee() {
             setFormData({
                 first_name: emp.first_name,
                 last_name: emp.last_name,
-                email: emp.email ? emp.email.replace('@gmail.com', '') : '',
+                email: emp.email || '',
                 phone: emp.phone || '',
                 gender: emp.gender,
                 dob: emp.dob ? emp.dob.split('T')[0].split(' ')[0] : '',
@@ -118,11 +118,7 @@ export default function EditEmployee() {
             data.append('_method', 'PUT');
             Object.entries(formData).forEach(([key, value]) => {
                 if (value !== null && value !== undefined && value !== '') {
-                    let finalValue = value.toString();
-                    if (key === 'email' && !finalValue.includes('@')) {
-                        finalValue = `${finalValue}@gmail.com`;
-                    }
-                    data.append(key, finalValue);
+                    data.append(key, value.toString());
                 }
             });
 
@@ -185,12 +181,7 @@ export default function EditEmployee() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Email / អ៊ីមែល</label>
-                        <div className="flex rounded-md">
-                            <Input name="email" type="text" value={formData.email} required onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
-                            <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
-                                @gmail.com
-                            </div>
-                        </div>
+                        <Input name="email" type="email" value={formData.email} required onChange={handleChange} placeholder="name@example.com" />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
