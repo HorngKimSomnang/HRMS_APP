@@ -258,7 +258,7 @@ export default function PayrollAdmin() {
         setShowScanRosterModal(true);
     };
 
-    // The roster PDF is A4 landscape (297x210mm, ratio ~1.41). Detection assumes the
+    // The roster PDF is A4 portrait (210x297mm, ratio ~0.71). Detection assumes the
     // uploaded image IS that full page edge-to-edge — a cropped screenshot or a photo
     // of just part of the page has a very different ratio and breaks every coordinate
     // the detector calculates, which is what caused false positives before this check existed.
@@ -282,10 +282,10 @@ export default function PayrollAdmin() {
 
         const dims = await getImageDimensions(file);
         const ratio = dims ? dims.width / dims.height : null;
-        const looksLikeFullPage = ratio !== null && ratio > 1.15 && ratio < 1.7;
+        const looksLikeFullPage = ratio !== null && ratio > 0.58 && ratio < 0.87;
 
         if (!looksLikeFullPage) {
-            // Doesn't look like a full landscape page (e.g. a cropped screenshot) —
+            // Doesn't look like a full portrait page (e.g. a cropped screenshot) —
             // auto-detection would be guessing blindly, so skip it and let the admin
             // check rows manually instead of risking another false positive.
             setRosterDetectionSkipped(true);

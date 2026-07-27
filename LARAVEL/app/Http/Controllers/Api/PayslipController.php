@@ -519,17 +519,17 @@ class PayslipController extends Controller
         $height = imagesy($image);
 
         // Fixed fractions derived from the actual roster PDF's known geometry
-        // (A4 landscape 297x210mm, table startY=48mm, header row ~14mm,
-        // minCellHeight=20mm, signature column spans x=169mm to x=283mm).
+        // (A4 portrait 210x297mm, table startY=48mm, header row ~14mm,
+        // minCellHeight=24mm, signature column spans x=146mm to x=196mm).
         // Rows do NOT stretch to fill the image — a short roster (few employees)
         // leaves real blank space below the table before the footer signature
         // lines, and treating that blank space as part of the last row's band
         // is exactly what caused false positives on unsigned rosters.
-        $tableTopFraction    = 48 / 210;
-        $headerRowFraction   = 14 / 210;
-        $bodyRowFraction     = 20 / 210;
-        $sigColStartFraction = 204 / 297; // signature col starts after No(10)+Name(40)+Position(28)+Basic(22)+Allow(22)+Deduct(22)+Net(24)+Date(22) = 190mm + 14mm margin
-        $sigColEndFraction   = 283 / 297; // stop at the table's right border — beyond it are
+        $tableTopFraction    = 48 / 297;
+        $headerRowFraction   = 14 / 297;
+        $bodyRowFraction     = 24 / 297;
+        $sigColStartFraction = 146 / 210; // signature col starts after No(10)+Name(25)+Position(18)+Basic(18)+Allow(15)+Deduct(15)+Net(18)+Date(13) = 132mm + 14mm margin
+        $sigColEndFraction   = 196 / 210; // stop at the table's right border — beyond it are
                                           // page margins where scan shadows read as "ink".
 
         $sigColStart = (int) ($width * $sigColStartFraction);
