@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Employee;
+use App\Models\Setting;
 use Database\Seeders\RolePermissionSeeder;
 
 class AttendanceTest extends TestCase
@@ -67,5 +68,47 @@ class AttendanceTest extends TestCase
 
         $response->assertStatus(400)
                  ->assertJson(['message' => 'Already clocked in today.']);
+    }
+
+    public function test_clock_in_uses_the_configured_office_address(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('Employee');
+
+        $employee = Employee::factory()->create([
+            'user_id' => $user->id,
+            'employee_code' => 'EMP998',
+            'first_name' => 'Sok',
+            'last_name' => 'Dara',
+        ]);
+
+        foreach ([
+            'office_latitude' => '11.58817',
+            'office_longitude' => '104.93074',
+            'office_address' => 'Norton University, St. Keo Chenda, Phnom Penh, Cambodia',
+            'attendance_allowed_radius' => '100',
+        ] as $key => $value) {
+            Setting::updateOrCreate(
+                ['key' => $key],
+                [
+                    'value' => $value,
+                    'type' => 'text',
+                    'group' => 'attendance',
+                ]
+            );
+        }
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/attendance/clock-in', [
+                'latitude' => 11.58817,
+                'longitude' => 104.93074,
+                'address' => 'Khan Chamkar Mon, Phnom Penh',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('attendances', [
+            'employee_id' => $employee->id,
+            'address' => 'Norton University, St. Keo Chenda, Phnom Penh, Cambodia',
+        ]);
     }
 }

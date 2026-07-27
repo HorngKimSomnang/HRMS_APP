@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Models\Setting;
 use App\Notifications\EmployeeClockedIn;
 use Illuminate\Support\Facades\Notification;
 
@@ -36,9 +37,16 @@ class AttendanceController extends Controller
         $today = Carbon::today();
 
         // Location validation
-        $officeLat     = \App\Models\Setting::where('key', 'office_latitude')->value('value');
-        $officeLng     = \App\Models\Setting::where('key', 'office_longitude')->value('value');
-        $allowedRadius = \App\Models\Setting::where('key', 'attendance_allowed_radius')->value('value') ?? 100;
+        $officeSettings = Setting::whereIn('key', [
+            'office_latitude',
+            'office_longitude',
+            'office_address',
+            'attendance_allowed_radius',
+        ])->pluck('value', 'key');
+        $officeLat = $officeSettings->get('office_latitude');
+        $officeLng = $officeSettings->get('office_longitude');
+        $officeAddress = $officeSettings->get('office_address');
+        $allowedRadius = $officeSettings->get('attendance_allowed_radius') ?? 100;
 
         if ($officeLat && $officeLng) {
             $distance = $this->calculateDistance($officeLat, $officeLng, $request->latitude, $request->longitude);
@@ -63,14 +71,24 @@ class AttendanceController extends Controller
             }
         }
 
-        $attendance = DB::transaction(function () use ($employee, $today, $request, $isLate) {
+        $attendanceAddress = $officeLat && $officeLng && $officeAddress
+            ? $officeAddress
+            : ($request->address ?? 'Unknown');
+
+        $attendance = DB::transaction(function () use (
+            $employee,
+            $today,
+            $request,
+            $isLate,
+            $attendanceAddress
+        ) {
             return Attendance::firstOrCreate(
                 ['employee_id' => $employee->id, 'date' => $today],
                 [
                     'clock_in'          => Carbon::now(),
                     'latitude'          => $request->latitude,
                     'longitude'         => $request->longitude,
-                    'address'           => $request->address ?? 'Unknown',
+                    'address'           => $attendanceAddress,
                     'location_accuracy' => $request->accuracy,
                     'status'            => $isLate ? 'late' : 'present',
                     'is_late'           => $isLate,
@@ -88,7 +106,7 @@ class AttendanceController extends Controller
                 'clock_in'          => Carbon::now(),
                 'latitude'          => $request->latitude,
                 'longitude'         => $request->longitude,
-                'address'           => $request->address ?? 'Unknown',
+                'address'           => $attendanceAddress,
                 'location_accuracy' => $request->accuracy,
                 'status'            => $isLate ? 'late' : 'present',
                 'is_late'           => $isLate,

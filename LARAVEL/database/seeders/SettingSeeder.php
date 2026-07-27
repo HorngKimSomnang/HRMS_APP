@@ -52,6 +52,12 @@ class SettingSeeder extends Seeder
                 'group' => 'attendance',
             ],
             [
+                'key' => 'office_address',
+                'value' => 'Norton University, St. Keo Chenda, Sangkat Chroy Changvar, Khan Chroy Changvar, Phnom Penh, Cambodia',
+                'type' => 'text',
+                'group' => 'attendance',
+            ],
+            [
                 'key' => 'attendance_allowed_radius',
                 'value' => '100', // 100 meters
                 'type' => 'number',

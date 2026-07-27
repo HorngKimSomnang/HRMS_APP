@@ -340,6 +340,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'group' => 'attendance',
             ]
         );
+        Setting::updateOrCreate(
+            ['key' => 'office_address'],
+            [
+                'value' => self::WORKPLACE_ADDRESS,
+                'type' => 'text',
+                'group' => 'attendance',
+            ]
+        );
 
         $shifts = HrCatalog::getShifts();
         $morningShiftFound = false;

@@ -135,6 +135,10 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertNotEmpty($lateAttendance->fresh()->late_reason);
         $this->assertSame('08:00:00', HrCatalog::findShiftById(1)['start_time']);
         $this->assertSame('16:55:00', HrCatalog::findShiftById(1)['end_time']);
+        $this->assertDatabaseHas('settings', [
+            'key' => 'office_address',
+            'value' => 'Norton University, St. Keo Chenda, Sangkat Chroy Changvar, Khan Chroy Changvar, Phnom Penh, Cambodia',
+        ]);
         $hengAttendanceHistory = Attendance::where(
             'employee_id',
             $hengCamary->id
@@ -206,6 +210,17 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             0,
             (clone $locatedAttendances)
                 ->whereNotBetween('longitude', [104.93050, 104.93110])
+                ->count()
+        );
+        $allThesisEmployeeIds = $originalTestEmployeeIds->merge($employeeIds);
+        $allClockedAttendances = Attendance::whereIn(
+            'employee_id',
+            $allThesisEmployeeIds
+        )->whereNotNull('clock_in');
+        $this->assertSame(
+            (clone $allClockedAttendances)->count(),
+            (clone $allClockedAttendances)
+                ->where('address', 'like', 'Norton University%')
                 ->count()
         );
         $invalidClockOuts = Attendance::whereIn('employee_id', $employeeIds)
