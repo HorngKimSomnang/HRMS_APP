@@ -41,37 +41,39 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _sendOtp() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_emailController.text.isEmpty) {
-      _showError('Email is required');
+      _showError(l10n.emailRequired);
       return;
     }
-    
+
     setState(() => _loading = true);
     try {
       final response = await _apiService.client.post('/forgot-password', data: {
         'email': _emailController.text,
       });
-      _showSuccess(response.data is Map ? (response.data['message'] ?? 'OTP Sent!') : 'OTP Sent!');
+      _showSuccess(response.data is Map ? (response.data['message'] ?? l10n.otpSent) : l10n.otpSent);
       setState(() {
         _step = 2;
       });
     } on DioException catch (e) {
-      _showError(serverMessage(e, 'Failed to send reset link'));
+      _showError(serverMessage(e, l10n.failedToSendResetLink));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _resetPassword() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_otpController.text.isEmpty || _passwordController.text.isEmpty || _confirmPasswordController.text.isEmpty) {
-      _showError('All fields are required');
+      _showError(l10n.allFieldsRequired);
       return;
     }
     if (_passwordController.text != _confirmPasswordController.text) {
-      _showError('Passwords do not match');
+      _showError(l10n.passwordsDoNotMatch);
       return;
     }
-    
+
     setState(() => _loading = true);
     try {
       final response = await _apiService.client.post('/reset-password', data: {
@@ -80,10 +82,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         'password': _passwordController.text,
         'password_confirmation': _confirmPasswordController.text,
       });
-      _showSuccess(response.data is Map ? (response.data['message'] ?? 'Password reset successfully') : 'Password reset successfully');
+      _showSuccess(response.data is Map ? (response.data['message'] ?? l10n.passwordResetSuccessfully) : l10n.passwordResetSuccessfully);
       setState(() => _step = 3);
     } on DioException catch (e) {
-      _showError(serverMessage(e, 'Failed to reset password'));
+      _showError(serverMessage(e, l10n.failedToResetPassword));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -139,9 +141,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _step == 1 ? AppLocalizations.of(context)!.forgotPasswordDesc : 
-                  _step == 2 ? 'We sent a 6-digit code to ${_emailController.text}' : 
-                  'You can now log in with your new password.',
+                  _step == 1 ? AppLocalizations.of(context)!.forgotPasswordDesc :
+                  _step == 2 ? AppLocalizations.of(context)!.sentCodeTo(_emailController.text) :
+                  AppLocalizations.of(context)!.canNowLoginNewPassword,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.white70),
                 ),
@@ -161,7 +163,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         TextFormField(
                           controller: _emailController,
                           decoration: InputDecoration(
-                            labelText: 'Email Address',
+                            labelText: AppLocalizations.of(context)!.emailAddress,
                             prefixIcon: const Icon(LucideIcons.mail, size: 20),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                           ),
@@ -186,7 +188,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           textAlign: TextAlign.center,
                           style: GoogleFonts.notoSansKhmer(letterSpacing: 8, fontSize: 18, fontWeight: FontWeight.bold),
                           decoration: InputDecoration(
-                            labelText: '6-Digit Code',
+                            labelText: AppLocalizations.of(context)!.sixDigitCode,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                         ),
@@ -195,7 +197,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'New Password',
+                            labelText: AppLocalizations.of(context)!.newPassword,
                             prefixIcon: const Icon(LucideIcons.lock, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(_obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
@@ -209,7 +211,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           controller: _confirmPasswordController,
                           obscureText: _obscureConfirm,
                           decoration: InputDecoration(
-                            labelText: 'Confirm New Password',
+                            labelText: AppLocalizations.of(context)!.confirmNewPassword,
                             prefixIcon: const Icon(LucideIcons.lock, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(_obscureConfirm ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
@@ -239,7 +241,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
-                          child: const Text('Go to Login'),
+                          child: Text(AppLocalizations.of(context)!.goToLogin),
                         ),
                       ]
                     ],

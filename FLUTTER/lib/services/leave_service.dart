@@ -23,6 +23,15 @@ class LeaveService {
     }
   }
 
+  Future<List<dynamic>> fetchLeaveBalances() async {
+    try {
+      final response = await _apiService.client.get('/leaves/balances');
+      return response.data;
+    } catch (e) {
+      throw Exception('Failed to fetch leave balances');
+    }
+  }
+
   Future<void> submitLeaveRequest(Map<String, dynamic> data) async {
     try {
       await _apiService.client.post('/leaves', data: data);

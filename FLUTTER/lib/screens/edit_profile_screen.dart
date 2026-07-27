@@ -4,6 +4,7 @@ import '../core/error_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
+import '../l10n/app_localizations.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -68,7 +69,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.profileUpdatedSuccessfully)),
         );
         Navigator.pop(context, true); // Return true to trigger refresh
       }
@@ -88,7 +89,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: Text('Edit Profile', style: GoogleFonts.notoSansKhmer(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text(AppLocalizations.of(context)!.editProfile, style: GoogleFonts.notoSansKhmer(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -103,27 +104,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle('Personal Information'),
+              _buildSectionTitle(AppLocalizations.of(context)!.personalInformation),
               const SizedBox(height: 16),
-              _buildTextField(label: 'First Name', controller: _firstNameController, isReadOnly: true),
+              _buildTextField(label: AppLocalizations.of(context)!.firstName, controller: _firstNameController, isReadOnly: true),
               const SizedBox(height: 16),
-              _buildTextField(label: 'Last Name', controller: _lastNameController, isReadOnly: true),
+              _buildTextField(label: AppLocalizations.of(context)!.lastName, controller: _lastNameController, isReadOnly: true),
               const SizedBox(height: 24),
-              
-              _buildSectionTitle('Contact Details'),
+
+              _buildSectionTitle(AppLocalizations.of(context)!.contactDetails),
               const SizedBox(height: 16),
-              _buildTextField(label: 'Email', controller: _emailController, keyboardType: TextInputType.emailAddress),
+              _buildTextField(label: AppLocalizations.of(context)!.email, controller: _emailController, keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 16),
-              _buildTextField(label: 'Phone Number', controller: _phoneController, keyboardType: TextInputType.phone),
+              _buildTextField(label: AppLocalizations.of(context)!.phoneNumber, controller: _phoneController, keyboardType: TextInputType.phone),
               const SizedBox(height: 16),
-              _buildTextField(label: 'Address', controller: _addressController, maxLines: 3),
+              _buildTextField(label: AppLocalizations.of(context)!.address, controller: _addressController, maxLines: 3),
               const SizedBox(height: 24),
-              
-              _buildSectionTitle('Additional Details'),
+
+              _buildSectionTitle(AppLocalizations.of(context)!.additionalDetails),
               const SizedBox(height: 16),
-              _buildTextField(label: 'Khmer Name', controller: _nameKhController),
+              _buildTextField(label: AppLocalizations.of(context)!.khmerName, controller: _nameKhController),
               const SizedBox(height: 16),
-              _buildTextField(label: 'Emergency Contact', controller: _emergencyContactController, keyboardType: TextInputType.phone),
+              _buildTextField(label: AppLocalizations.of(context)!.emergencyContact, controller: _emergencyContactController, keyboardType: TextInputType.phone),
               
               const SizedBox(height: 40),
               SizedBox(
@@ -138,7 +139,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   child: _loading 
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text('Save Changes', style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      : Text(AppLocalizations.of(context)!.saveChanges, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ),
             ],
@@ -196,7 +197,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             validator: isReadOnly ? null : (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter $label';
+                return AppLocalizations.of(context)!.pleaseEnterField(label);
               }
               return null;
             },

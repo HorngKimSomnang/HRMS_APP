@@ -4,6 +4,7 @@ import '../core/error_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../l10n/app_localizations.dart';
 
 class DocumentViewerScreen extends StatelessWidget {
   final String fileUrl;
@@ -73,7 +74,7 @@ class DocumentViewerScreen extends StatelessWidget {
                     children: [
                       const Icon(LucideIcons.fileWarning, color: Colors.red, size: 48),
                       const SizedBox(height: 16),
-                      Text('Failed to load image', style: GoogleFonts.notoSansKhmer(color: Colors.white)),
+                      Text(AppLocalizations.of(context)!.failedToLoadImage, style: GoogleFonts.notoSansKhmer(color: Colors.white)),
                     ],
                   );
                 },
@@ -85,13 +86,13 @@ class DocumentViewerScreen extends StatelessWidget {
                 const Icon(LucideIcons.fileText, color: Colors.white54, size: 64),
                 const SizedBox(height: 24),
                 Text(
-                  'Cannot preview this file type in-app.',
+                  AppLocalizations.of(context)!.cannotPreviewFileType,
                   style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 16),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   icon: const Icon(LucideIcons.externalLink),
-                  label: Text('Open Externally', style: GoogleFonts.notoSansKhmer()),
+                  label: Text(AppLocalizations.of(context)!.openExternally, style: GoogleFonts.notoSansKhmer()),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),

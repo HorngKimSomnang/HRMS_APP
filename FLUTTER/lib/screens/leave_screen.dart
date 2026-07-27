@@ -26,10 +26,28 @@ class _LeaveScreenState extends State<LeaveScreen> {
   bool _loadingTypes = true;
   bool _submitting = false;
 
+  List<dynamic> _balances = [];
+  bool _loadingBalances = true;
+
   @override
   void initState() {
     super.initState();
     _loadTypes();
+    _loadBalances();
+  }
+
+  Future<void> _loadBalances() async {
+    try {
+      final balances = await _leaveService.fetchLeaveBalances();
+      if (mounted) {
+        setState(() {
+          _balances = balances;
+          _loadingBalances = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingBalances = false);
+    }
   }
 
   Future<void> _loadTypes() async {
@@ -67,11 +85,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
   void _submit(LeaveProvider provider) async {
     if (!_formKey.currentState!.validate()) return;
     if (provider.startDate == null || provider.endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select dates')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.selectDates)));
       return;
     }
     if (provider.selectedType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a leave type')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectLeaveType)));
       return;
     }
 
@@ -85,7 +103,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
       });
       
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Leave requested successfully!')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.leaveRequestedSuccessfully)));
       provider.clear(); // Clear draft on success
       
       // Optionally navigate to history or show success dialog
@@ -123,7 +141,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.history, color: Color(0xFF2563EB)),
-            tooltip: 'History',
+            tooltip: AppLocalizations.of(context)!.history,
             onPressed: () => _showHistory(context),
           ),
         ],
@@ -135,6 +153,86 @@ class _LeaveScreenState extends State<LeaveScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 0. Leave Balances
+              if (_loadingBalances || _balances.isNotEmpty) ...[
+                Text(AppLocalizations.of(context)!.yourLeaveBalance, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 92,
+                  child: Skeletonizer(
+                    enabled: _loadingBalances,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _loadingBalances ? 3 : _balances.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final balance = _loadingBalances
+                            ? {'leave_type': 'Loading...', 'days_allowed': 0, 'days_used': 0, 'days_remaining': 0}
+                            : _balances[index];
+                        final allowed = (balance['days_allowed'] as num).toInt();
+                        final remaining = (balance['days_remaining'] as num).toInt();
+                        final isLimit = allowed > 0 && remaining == 0;
+                        final progress = allowed > 0 ? ((allowed - remaining) / allowed).clamp(0.0, 1.0) : 0.0;
+                        return Container(
+                          width: 160,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                            border: Border.all(color: isLimit ? Colors.red.shade100 : Colors.orange.shade100),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      balance['leave_type'].toString(),
+                                      style: GoogleFonts.notoSansKhmer(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey[600], letterSpacing: 0.3),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (isLimit)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                                      child: Text(AppLocalizations.of(context)!.limitBadge, style: GoogleFonts.notoSansKhmer(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.red)),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  Text('$remaining', style: GoogleFonts.notoSansKhmer(fontSize: 20, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 4),
+                                  Text('/ $allowed ${AppLocalizations.of(context)!.daysUnit}', style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[500])),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 5,
+                                  backgroundColor: Colors.grey.shade100,
+                                  valueColor: AlwaysStoppedAnimation<Color>(isLimit ? Colors.red : const Color(0xFF2563EB)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
               // 1. Leave Type Dropdown
               Text(AppLocalizations.of(context)!.leaveType, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
@@ -165,7 +263,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                         provider.setLeaveType(selectedMap);
                       }
                     },
-                    validator: (v) => v == null ? 'Required' : null,
+                    validator: (v) => v == null ? AppLocalizations.of(context)!.required : null,
                   ),
                 ),
                 ),
@@ -227,7 +325,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     border: InputBorder.none,
                   ),
                   maxLines: 4,
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
+                  validator: (v) => v!.isEmpty ? AppLocalizations.of(context)!.required : null,
                 ),
               ),
               
@@ -332,13 +430,13 @@ class _HistorySheetState extends State<_HistorySheet> {
               ),
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text("Leave History", style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text(AppLocalizations.of(context)!.leaveHistory, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
               Expanded(
                 child: Skeletonizer(
                   enabled: _loading,
                   child: (_leaves.isEmpty && !_loading)
-                    ? Center(child: Text("No history", style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
+                    ? Center(child: Text(AppLocalizations.of(context)!.noHistory, style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
                     : ListView.builder(
                         controller: controller,
                         padding: const EdgeInsets.symmetric(horizontal: 20),

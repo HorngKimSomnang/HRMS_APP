@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/notification_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -74,10 +75,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
     try {
       final dt = DateTime.parse(createdAt).toLocal();
       final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 1) return 'Just now';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-      if (diff.inHours < 24) return '${diff.inHours}h ago';
-      return '${diff.inDays}d ago';
+      final l10n = AppLocalizations.of(context)!;
+      if (diff.inMinutes < 1) return l10n.justNow;
+      if (diff.inMinutes < 60) return l10n.minutesAgo(diff.inMinutes);
+      if (diff.inHours < 24) return l10n.hoursAgo(diff.inHours);
+      return l10n.daysAgo(diff.inDays);
     } catch (_) {
       return '';
     }
@@ -87,16 +89,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Clear All', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to delete all notifications?', style: GoogleFonts.notoSansKhmer()),
+        title: Text(AppLocalizations.of(context)!.clearAll, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
+        content: Text(AppLocalizations.of(context)!.confirmClearAllNotifications, style: GoogleFonts.notoSansKhmer()),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.notoSansKhmer(color: Colors.grey)),
+            child: Text(AppLocalizations.of(context)!.cancel, style: GoogleFonts.notoSansKhmer(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Clear All', style: GoogleFonts.notoSansKhmer(color: Colors.red, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context)!.clearAll, style: GoogleFonts.notoSansKhmer(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -114,7 +116,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Text(
-          'Notifications',
+          AppLocalizations.of(context)!.notifications,
           style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
@@ -132,7 +134,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.trash2),
-            tooltip: 'Clear All',
+            tooltip: AppLocalizations.of(context)!.clearAll,
             onPressed: () => _confirmClearAll(context),
           ),
           const SizedBox(width: 8),
@@ -160,7 +162,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'All caught up!',
+                    AppLocalizations.of(context)!.allCaughtUp,
                     style: GoogleFonts.notoSansKhmer(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -169,7 +171,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'No new notifications right now.',
+                    AppLocalizations.of(context)!.noNewNotifications,
                     style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[500]),
                   ),
                 ],
@@ -193,9 +195,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   onDismissed: (direction) {
                     provider.deleteNotification(notificationId);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notification deleted'),
-                        duration: Duration(seconds: 2),
+                      SnackBar(
+                        content: Text(AppLocalizations.of(context)!.notificationDeleted),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                   },
@@ -228,7 +230,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final String? type = payload['type'] as String?;
     final String title = (payload['title'] as String?) ?? _labelForType(type);
     final String message =
-        (payload['message'] as String?) ?? 'You have a new notification';
+        (payload['message'] as String?) ?? AppLocalizations.of(context)!.defaultNotificationMessage;
     final bool isRead = nData['read_at'] != null;
     final String time = _timeAgo(nData['created_at'] as String?);
 
@@ -333,25 +335,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   String _labelForType(String? type) {
+    final l10n = AppLocalizations.of(context)!;
     switch (type) {
       case 'leave_request':
-        return 'Leave Request';
+        return l10n.notifLeaveRequest;
       case 'leave_status':
-        return 'Leave Update';
+        return l10n.notifLeaveUpdate;
       case 'attendance':
-        return 'Attendance Update';
+        return l10n.notifAttendanceUpdate;
       case 'holiday':
-        return 'New Holiday';
+        return l10n.notifNewHoliday;
       case 'task_completed':
-        return 'Task Completed';
+        return l10n.notifTaskCompleted;
       case 'task_assigned':
-        return 'New Task Assigned';
+        return l10n.notifNewTaskAssigned;
       case 'document_uploaded':
-        return 'Document Received';
+        return l10n.notifDocumentReceived;
       case 'custom_entity_record_submitted':
-        return 'Form Submission';
+        return l10n.notifFormSubmission;
       default:
-        return 'Notification';
+        return l10n.notificationLabel;
     }
   }
 }

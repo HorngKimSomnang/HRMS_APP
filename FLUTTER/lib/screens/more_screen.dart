@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../core/theme.dart';
+import '../l10n/app_localizations.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -64,7 +65,7 @@ class MoreScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?['name'] ?? 'Employee',
+                            user?['name'] ?? AppLocalizations.of(context)!.employeeFallback,
                             style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                           Text(
@@ -79,7 +80,7 @@ class MoreScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              (user?['roles'] as List?)?.firstOrNull?['name'] ?? 'Employee',
+                              (user?['roles'] as List?)?.firstOrNull?['name'] ?? AppLocalizations.of(context)!.employeeFallback,
                               style: GoogleFonts.notoSansKhmer(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
                             ),
                           ),
@@ -100,38 +101,38 @@ class MoreScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Quick Access', style: GoogleFonts.notoSansKhmer(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryLight, letterSpacing: 0.8)),
+                    Text(AppLocalizations.of(context)!.quickAccess, style: GoogleFonts.notoSansKhmer(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryLight, letterSpacing: 0.8)),
                     const SizedBox(height: 10),
                     _MenuSection(items: [
-                      _MenuItem(icon: LucideIcons.user, label: 'My Profile', subtitle: 'View & edit your info', color: const Color(0xFF3B82F6), onTap: () => context.push('/profile')),
-                      _MenuItem(icon: LucideIcons.fileSignature, label: 'My Contract', subtitle: 'Contract type & dates', color: const Color(0xFF8B5CF6), onTap: () => context.push('/my-contract')),
-                      _MenuItem(icon: LucideIcons.mapPin, label: 'Attendance', subtitle: 'Clock in & out', color: const Color(0xFF10B981), onTap: () => context.push('/attendance')),
-                      _MenuItem(icon: LucideIcons.fileText, label: 'Documents', subtitle: 'HR documents', color: const Color(0xFFF59E0B), onTap: () => context.push('/documents')),
-                      _MenuItem(icon: LucideIcons.clipboardList, label: 'My Forms', subtitle: 'Submit reports & forms', color: const Color(0xFF14B8A6), onTap: () => context.push('/my-forms')),
+                      _MenuItem(icon: LucideIcons.user, label: AppLocalizations.of(context)!.myProfile, subtitle: AppLocalizations.of(context)!.viewEditYourInfo, color: const Color(0xFF3B82F6), onTap: () => context.push('/profile')),
+                      _MenuItem(icon: LucideIcons.fileSignature, label: AppLocalizations.of(context)!.myContract, subtitle: AppLocalizations.of(context)!.contractTypeAndDates, color: const Color(0xFF8B5CF6), onTap: () => context.push('/my-contract')),
+                      _MenuItem(icon: LucideIcons.mapPin, label: AppLocalizations.of(context)!.attendance, subtitle: AppLocalizations.of(context)!.clockInAndOut, color: const Color(0xFF10B981), onTap: () => context.push('/attendance')),
+                      _MenuItem(icon: LucideIcons.fileText, label: AppLocalizations.of(context)!.documents, subtitle: AppLocalizations.of(context)!.hrDocuments, color: const Color(0xFFF59E0B), onTap: () => context.push('/documents')),
+                      _MenuItem(icon: LucideIcons.clipboardList, label: AppLocalizations.of(context)!.myForms, subtitle: AppLocalizations.of(context)!.submitReportsAndForms, color: const Color(0xFF14B8A6), onTap: () => context.push('/my-forms')),
                     ]),
 
                     const SizedBox(height: 20),
-                    Text('Account', style: GoogleFonts.notoSansKhmer(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryLight, letterSpacing: 0.8)),
+                    Text(AppLocalizations.of(context)!.account, style: GoogleFonts.notoSansKhmer(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondaryLight, letterSpacing: 0.8)),
                     const SizedBox(height: 10),
                     _MenuSection(items: [
                       _MenuItem(
                         icon: LucideIcons.logOut,
-                        label: 'Logout',
-                        subtitle: 'Sign out of your account',
+                        label: AppLocalizations.of(context)!.logout,
+                        subtitle: AppLocalizations.of(context)!.signOut,
                         color: const Color(0xFFEF4444),
                         onTap: () async {
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (_) => AlertDialog(
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              title: Text('Logout', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
-                              content: Text('Are you sure you want to sign out?', style: GoogleFonts.notoSansKhmer()),
+                              title: Text(AppLocalizations.of(context)!.logout, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
+                              content: Text(AppLocalizations.of(context)!.confirmSignOut, style: GoogleFonts.notoSansKhmer()),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: GoogleFonts.notoSansKhmer(color: Colors.grey))),
+                                TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.cancel, style: GoogleFonts.notoSansKhmer(color: Colors.grey))),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                                   onPressed: () => Navigator.pop(context, true),
-                                  child: Text('Logout', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+                                  child: Text(AppLocalizations.of(context)!.logout, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
                                 ),
                               ],
                             ),

@@ -38,7 +38,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
     } on DioException catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.message ?? 'Failed to load history';
+          _error = e.message ?? AppLocalizations.of(context)!.failedToLoadHistory;
           _loading = false;
         });
       }
@@ -75,12 +75,13 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
     if (status == null || status.isEmpty) {
       return (color: Colors.grey, label: '—', icon: Icons.help_outline);
     }
+    final l10n = AppLocalizations.of(context)!;
     return switch (status) {
-      'present'   => (color: const Color(0xFF10B981), label: 'Present',   icon: Icons.check_circle_outline),
-      'late'      => (color: Colors.orange,            label: 'Late',      icon: Icons.access_time),
-      'early_out' => (color: const Color(0xFFF59E0B),  label: 'Early Out', icon: Icons.logout),
-      'warning'   => (color: Colors.red,               label: 'Warning',   icon: Icons.warning_amber_rounded),
-      'absent'    => (color: Colors.red,               label: 'Absent',    icon: Icons.cancel_outlined),
+      'present'   => (color: const Color(0xFF10B981), label: l10n.statusPresent,   icon: Icons.check_circle_outline),
+      'late'      => (color: Colors.orange,            label: l10n.statusLate,      icon: Icons.access_time),
+      'early_out' => (color: const Color(0xFFF59E0B),  label: l10n.statusEarlyOut, icon: Icons.logout),
+      'warning'   => (color: Colors.red,               label: l10n.statusWarning,   icon: Icons.warning_amber_rounded),
+      'absent'    => (color: Colors.red,               label: l10n.statusAbsent,    icon: Icons.cancel_outlined),
       _           => (color: Colors.grey,              label: status,      icon: Icons.help_outline),
     };
   }
@@ -102,9 +103,9 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))
+              ? Center(child: Text(AppLocalizations.of(context)!.errorPrefix(_error ?? ''), style: const TextStyle(color: Colors.red)))
               : _attendanceHistory.isEmpty
-                  ? Center(child: Text('No attendance records found.', style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
+                  ? Center(child: Text(AppLocalizations.of(context)!.noAttendanceRecordsFound, style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
                   : RefreshIndicator(
                       onRefresh: _loadHistory,
                       child: ListView.builder(
@@ -178,7 +179,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                                         Column(
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
-                                            Text('Hours', style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey)),
+                                            Text(AppLocalizations.of(context)!.hoursLabel, style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey)),
                                             Text(hoursWorked, style: GoogleFonts.notoSansKhmer(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF3B82F6))),
                                           ],
                                         ),
@@ -189,11 +190,11 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
 
                                 // Reason notes (only shown when relevant)
                                 if (lateReason != null && lateReason.isNotEmpty)
-                                  _ReasonBanner(icon: Icons.access_time, color: Colors.orange, text: 'Late reason: $lateReason'),
+                                  _ReasonBanner(icon: Icons.access_time, color: Colors.orange, text: AppLocalizations.of(context)!.lateReasonNote(lateReason)),
                                 if (earlyOutReason == 'System auto clock-out')
-                                  _ReasonBanner(icon: Icons.computer_outlined, color: const Color(0xFF3B82F6), text: 'Auto clocked out by system at shift end')
+                                  _ReasonBanner(icon: Icons.computer_outlined, color: const Color(0xFF3B82F6), text: AppLocalizations.of(context)!.autoClockOutBySystem)
                                 else if (earlyOutReason != null && earlyOutReason.isNotEmpty && !earlyOutReason.startsWith('Auto-detected'))
-                                  _ReasonBanner(icon: Icons.logout, color: const Color(0xFFF59E0B), text: 'Early out: $earlyOutReason'),
+                                  _ReasonBanner(icon: Icons.logout, color: const Color(0xFFF59E0B), text: AppLocalizations.of(context)!.earlyOutNote(earlyOutReason)),
                               ],
                             ),
                           );

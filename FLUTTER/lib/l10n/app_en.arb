@@ -76,5 +76,412 @@
     "myActivity": "My Activity",
     "myContract": "My Contract",
     "myForms": "My Forms",
-    "submitReportsAndForms": "Submit reports & forms"
+    "submitReportsAndForms": "Submit reports & forms",
+    "yourLeaveBalance": "Your Leave Balance",
+    "daysUnit": "days",
+
+    "gettingLocation": "Getting location...",
+    "locationPermissionDeniedOrGpsDisabled": "Location permission denied or GPS disabled",
+    "submittingToServer": "Submitting to server...",
+    "yourLiveLocation": "Your Live Location",
+    "ensureAtOffice": "Ensure you are at the office",
+    "yourWeek": "Your Week",
+    "offDuty": "Off Duty",
+    "onDuty": "On Duty",
+    "daySatShort": "SAT",
+    "daySunShort": "SUN",
+    "dayMonShort": "MON",
+    "dayTueShort": "TUE",
+    "dayWedShort": "WED",
+    "dayThuShort": "THU",
+    "dayFriShort": "FRI",
+    "statusPresent": "Present",
+    "statusLate": "Late",
+    "statusEarlyOut": "Early Out",
+    "statusWarning": "Warning",
+    "statusAbsent": "Absent",
+    "failedToLoadHistory": "Failed to load history",
+    "errorPrefix": "Error: {error}",
+    "@errorPrefix": {
+        "placeholders": {
+            "error": {"type": "String"}
+        }
+    },
+    "noAttendanceRecordsFound": "No attendance records found.",
+    "hoursLabel": "Hours",
+    "lateReasonNote": "Late reason: {reason}",
+    "@lateReasonNote": {
+        "placeholders": {
+            "reason": {"type": "String"}
+        }
+    },
+    "autoClockOutBySystem": "Auto clocked out by system at shift end",
+    "earlyOutNote": "Early out: {reason}",
+    "@earlyOutNote": {
+        "placeholders": {
+            "reason": {"type": "String"}
+        }
+    },
+    "attendanceReportTitle": "Attendance Report",
+    "statusGood": "Good",
+    "timeLabel": "Time: {time}",
+    "@timeLabel": {
+        "placeholders": {
+            "time": {"type": "String"}
+        }
+    },
+
+    "newAnnouncementNotifTitle": "New Announcement: {title}",
+    "@newAnnouncementNotifTitle": {
+        "placeholders": {
+            "title": {"type": "String"}
+        }
+    },
+    "clockOutUndone": "Clock-out undone. You are clocked in again.",
+    "locationPermissionDenied": "Location permission denied",
+    "submittingEllipsis": "Submitting...",
+    "unknownLocation": "Unknown Location",
+    "locationCaptured": "Location Captured",
+    "clockedInAt": "Clocked In at: {location}",
+    "@clockedInAt": {
+        "placeholders": {
+            "location": {"type": "String"}
+        }
+    },
+    "clockedOutFrom": "Clocked Out from: {location}",
+    "@clockedOutFrom": {
+        "placeholders": {
+            "location": {"type": "String"}
+        }
+    },
+    "youClockedInLate": "You clocked in late",
+    "provideLateReasonOptional": "Please provide a reason for being late (optional).",
+    "lateReasonHint": "e.g. Traffic, personal emergency...",
+    "skip": "Skip",
+    "submit": "Submit",
+    "documentFallbackName": "Document",
+    "myAttachedDocuments": "My Attached Documents",
+    "noDocumentsFound": "No documents found.",
+    "go": "Go",
+    "employeeIdFallback": "ID: --",
+    "shiftTime": "Shift: {start} - {end}",
+    "@shiftTime": {
+        "placeholders": {
+            "start": {"type": "String"},
+            "end": {"type": "String"}
+        }
+    },
+    "roleLabel": "Role: {job}",
+    "@roleLabel": {
+        "placeholders": {
+            "job": {"type": "String"}
+        }
+    },
+    "completedForToday": "Completed for today",
+    "currentlyClockedIn": "Currently clocked in",
+    "inOutTimes": "In: {inTime}  •  Out: {outTime}",
+    "@inOutTimes": {
+        "placeholders": {
+            "inTime": {"type": "String"},
+            "outTime": {"type": "String"}
+        }
+    },
+    "sinceTime": "Since {time}",
+    "@sinceTime": {
+        "placeholders": {
+            "time": {"type": "String"}
+        }
+    },
+    "clockedOutByMistakeUndo": "Clocked out by mistake? Undo",
+    "notClockedInYet": "Not clocked in yet",
+
+    "couldNotLaunchDocument": "Could not launch document url",
+    "noSpecialInstructions": "No special instructions.",
+    "you": "You",
+    "instructions": "Instructions",
+    "uploaded": "Uploaded",
+    "uploadedBy": "Uploaded By",
+    "viewDocument": "View Document",
+    "documents": "Documents",
+
+    "failedToLoadImage": "Failed to load image",
+    "cannotPreviewFileType": "Cannot preview this file type in-app.",
+    "openExternally": "Open Externally",
+
+    "profileUpdatedSuccessfully": "Profile updated successfully!",
+    "editProfile": "Edit Profile",
+    "personalInformation": "Personal Information",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "contactDetails": "Contact Details",
+    "phoneNumber": "Phone Number",
+    "address": "Address",
+    "additionalDetails": "Additional Details",
+    "khmerName": "Khmer Name",
+    "emergencyContact": "Emergency Contact",
+    "saveChanges": "Save Changes",
+    "pleaseEnterField": "Please enter {field}",
+    "@pleaseEnterField": {
+        "placeholders": {
+            "field": {"type": "String"}
+        }
+    },
+
+    "emailRequired": "Email is required",
+    "otpSent": "OTP Sent!",
+    "failedToSendResetLink": "Failed to send reset link",
+    "allFieldsRequired": "All fields are required",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordResetSuccessfully": "Password reset successfully",
+    "failedToResetPassword": "Failed to reset password",
+    "sentCodeTo": "We sent a 6-digit code to {email}",
+    "@sentCodeTo": {
+        "placeholders": {
+            "email": {"type": "String"}
+        }
+    },
+    "canNowLoginNewPassword": "You can now log in with your new password.",
+    "emailAddress": "Email Address",
+    "sixDigitCode": "6-Digit Code",
+    "confirmNewPassword": "Confirm New Password",
+    "goToLogin": "Go to Login",
+    "employeeSelfServicePortal": "Employee Self-Service Portal",
+    "passwordRequired": "Password is required",
+
+    "allHolidays": "All Holidays",
+    "noHolidaysFound": "No holidays found.",
+    "comingUpNext": "Coming Up Next",
+    "announcement": "Announcement",
+    "today": "Today",
+    "daysLeftCount": "{days} days left",
+    "@daysLeftCount": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "event": "Event",
+
+    "selectDates": "Select dates",
+    "pleaseSelectLeaveType": "Please select a leave type",
+    "leaveRequestedSuccessfully": "Leave requested successfully!",
+    "limitBadge": "LIMIT",
+    "required": "Required",
+    "leaveHistory": "Leave History",
+    "noHistory": "No history",
+    "history": "History",
+
+    "quickAccess": "Quick Access",
+    "myProfile": "My Profile",
+    "viewEditYourInfo": "View & edit your info",
+    "contractTypeAndDates": "Contract type & dates",
+    "clockInAndOut": "Clock in & out",
+    "hrDocuments": "HR documents",
+    "account": "Account",
+    "confirmSignOut": "Are you sure you want to sign out?",
+    "cancel": "Cancel",
+    "employeeFallback": "Employee",
+    "userFallback": "User",
+
+    "failedToLoadContract": "Failed to load contract",
+    "contractProbation": "Probation",
+    "contractFixedTerm": "Fixed Term",
+    "contractPermanent": "Permanent",
+    "previousContracts": "Previous Contracts",
+    "noActiveContract": "No active contract on record.",
+    "contactHrForInfo": "Please contact HR for more information.",
+    "currentContractLabel": "Current Contract",
+    "activeBadge": "ACTIVE",
+    "openEnded": "Open-ended",
+    "daysLeftInProbation": "{days} days left in probation",
+    "@daysLeftInProbation": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "daysUntilContractEnds": "{days} days until contract ends",
+    "@daysUntilContractEnds": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "notes": "Notes",
+
+    "noFormsAvailable": "No forms available yet",
+
+    "justNow": "Just now",
+    "minutesAgo": "{minutes}m ago",
+    "@minutesAgo": {
+        "placeholders": {
+            "minutes": {"type": "int"}
+        }
+    },
+    "hoursAgo": "{hours}h ago",
+    "@hoursAgo": {
+        "placeholders": {
+            "hours": {"type": "int"}
+        }
+    },
+    "daysAgo": "{days}d ago",
+    "@daysAgo": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "clearAll": "Clear All",
+    "confirmClearAllNotifications": "Are you sure you want to delete all notifications?",
+    "notifications": "Notifications",
+    "allCaughtUp": "All caught up!",
+    "noNewNotifications": "No new notifications right now.",
+    "notificationDeleted": "Notification deleted",
+    "defaultNotificationMessage": "You have a new notification",
+    "notifLeaveRequest": "Leave Request",
+    "notifLeaveUpdate": "Leave Update",
+    "notifAttendanceUpdate": "Attendance Update",
+    "notifNewHoliday": "New Holiday",
+    "notifTaskCompleted": "Task Completed",
+    "notifNewTaskAssigned": "New Task Assigned",
+    "notifDocumentReceived": "Document Received",
+    "notifFormSubmission": "Form Submission",
+    "notificationLabel": "Notification",
+
+    "submitOvertimeRequestDesc": "Submit a request to work extra hours",
+    "hoursHintExample": "e.g. 2.5",
+    "overtimeReasonHint": "e.g. Server maintenance, Project deadline...",
+    "pleaseFillRequiredFields": "Please fill required fields",
+    "hoursValue": "{hours} Hours",
+    "@hoursValue": {
+        "placeholders": {
+            "hours": {"type": "String"}
+        }
+    },
+
+    "totalPayslipsCount": "{count} Total Payslips",
+    "@totalPayslipsCount": {
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "noPayslipsYet": "No Payslips Yet",
+    "payslipsWillAppearHere": "Your payslips will appear here\nonce generated by HR.",
+    "payslipMonthYear": "Payslip - {month} {year}",
+    "@payslipMonthYear": {
+        "placeholders": {
+            "month": {"type": "String"},
+            "year": {"type": "String"}
+        }
+    },
+    "tapToViewDetails": "Tap to view full details",
+    "issuedBadge": "ISSUED",
+    "grossSalary": "Gross Salary",
+    "netPay": "Net Pay",
+    "monthYearPayslip": "{month} {year} Payslip",
+    "@monthYearPayslip": {
+        "placeholders": {
+            "month": {"type": "String"},
+            "year": {"type": "String"}
+        }
+    },
+    "verificationRequired": "Verification Required",
+    "visitHrToVerify": "Please visit the HR office to verify your work hours and sign your physical timesheet to unlock this payslip.",
+    "salarySlipMonthYear": "SALARY SLIP  •  {month} {year}",
+    "@salarySlipMonthYear": {
+        "placeholders": {
+            "month": {"type": "String"},
+            "year": {"type": "String"}
+        }
+    },
+    "earningsSection": "💰 Earnings",
+    "basicSalary": "Basic Salary",
+    "overtimeOT": "Overtime (OT)",
+    "commission": "Commission",
+    "attendanceBonus": "Attendance Bonus",
+    "allowances": "Allowances",
+    "totalEarnings": "Total Earnings",
+    "deductionsSection": "➖ Deductions",
+    "tax": "Tax",
+    "advanceDeduction": "Advance Deduction",
+    "unpaidLeave": "Unpaid Leave",
+    "otherDeductions": "Other Deductions",
+    "noneTaxExempt": "None / Tax (Exempt)",
+    "totalDeductions": "Total Deductions",
+    "netSalaryCaps": "NET SALARY",
+    "verifiedReleasedOn": "Verified and Released on {date}",
+    "@verifiedReleasedOn": {
+        "placeholders": {
+            "date": {"type": "String"}
+        }
+    },
+    "genericTimeFallback": "time",
+    "monthJan": "Jan",
+    "monthFeb": "Feb",
+    "monthMar": "Mar",
+    "monthApr": "Apr",
+    "monthMay": "May",
+    "monthJun": "Jun",
+    "monthJul": "Jul",
+    "monthAug": "Aug",
+    "monthSep": "Sep",
+    "monthOct": "Oct",
+    "monthNov": "Nov",
+    "monthDec": "Dec",
+
+    "notApplicable": "N/A",
+    "uploadingImage": "Uploading image...",
+    "profilePictureUpdated": "Profile picture updated!",
+    "networkError": "Network error",
+    "uploadFailed": "Upload failed: {error}",
+    "@uploadFailed": {
+        "placeholders": {
+            "error": {"type": "String"}
+        }
+    },
+    "currentPassword": "Current Password",
+    "passwordMinLength": "Password must be at least 6 characters",
+    "passwordChangedSuccessfully": "Password changed successfully!",
+    "save": "Save",
+    "empCode": "Emp Code",
+    "joined": "Joined",
+    "viewLess": "View Less",
+    "viewMoreDetails": "View More Details",
+
+    "attachProof": "Attach Proof",
+    "takePhoto": "Take Photo",
+    "recordVideo": "Record Video",
+    "choosePhotoFromGallery": "Choose Photo from Gallery",
+    "chooseVideoFromGallery": "Choose Video from Gallery",
+    "attachProofQuestion": "Attach Proof?",
+    "attachProofPrompt": "Would you like to attach a photo or video of your completed task?",
+    "attachMedia": "Attach Media",
+    "untitledTask": "Untitled Task",
+    "low": "LOW",
+    "noDescriptionProvided": "No additional description provided.",
+    "dueDateLabel": "Due Date: {date}",
+    "@dueDateLabel": {
+        "placeholders": {
+            "date": {"type": "String"}
+        }
+    },
+    "noDueDate": "No Due Date",
+    "attachments": "Attachments",
+    "adminInstructions": "Admin Instructions",
+    "yourSubmission": "Your Submission",
+    "submissionNote": "Submission Note",
+    "addNoteOptional": "Add a note or remark (optional)",
+    "changeProofFile": "Change Proof File",
+    "attachPhotoOrVideoProof": "Attach Photo or Video Proof",
+    "proofAttachedReady": "Proof attached and ready to submit!",
+    "completedLabel": "Completed",
+    "saveNewProof": "Save New Proof",
+    "markAsComplete": "Mark as Complete",
+    "noTasksAssigned": "No tasks assigned to you.",
+    "untitled": "Untitled",
+
+    "submittedSuccessfully": "Submitted successfully!",
+    "enterValidNumber": "Enter a valid number",
+    "yes": "Yes",
+    "select": "Select",
+    "mySubmissions": "My Submissions",
+    "noSubmissionsYet": "No submissions yet",
+    "submissionLabel": "Submission",
+    "adminFallback": "Admin"
 }

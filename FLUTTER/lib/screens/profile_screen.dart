@@ -74,22 +74,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
        if (employeeId == null) return;
 
        if (!mounted) return;
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Uploading image...')));
-       
+       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.uploadingImage)));
+
        await _employeeService.uploadProfilePicture(employeeId, File(image.path));
        if (!mounted) return;
-       
-       await _fetchProfile(); 
+
+       await _fetchProfile();
        if (!mounted) return;
-       
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile picture updated!')));
+
+       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.profilePictureUpdated)));
      } on DioException catch (e) {
        if (mounted) {
-         String errMsg = e.response?.data?['message'] ?? 'Network error';
+         String errMsg = e.response?.data?['message'] ?? AppLocalizations.of(context)!.networkError;
          if (e.response?.data?['errors'] != null) {
            errMsg += ' - ${e.response!.data['errors']}';
          }
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $errMsg')));
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.uploadFailed(errMsg))));
        }
      } catch (e) {
        if (mounted) {
@@ -99,9 +99,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _getSafeString(dynamic value) {
-    if (value == null) return 'N/A';
+    if (value == null) return AppLocalizations.of(context)!.notApplicable;
     if (value is Map) {
-      return value['name']?.toString() ?? 'N/A';
+      return value['name']?.toString() ?? AppLocalizations.of(context)!.notApplicable;
     }
     return value.toString();
   }
@@ -134,20 +134,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       TextField(
                         controller: currentPasswordController,
                         obscureText: true,
-                        decoration: const InputDecoration(labelText: 'Current Password'),
+                        decoration: InputDecoration(labelText: AppLocalizations.of(context)!.currentPassword),
                       ),
                       const SizedBox(height: 10),
                     ],
                     TextField(
                       controller: newPasswordController,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'New Password'),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.newPassword),
                     ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: confirmPasswordController,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Confirm New Password'),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.confirmNewPassword),
                     ),
                   ],
                 ),
@@ -155,16 +155,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
+                  child: Text(AppLocalizations.of(context)!.cancel),
                 ),
                 ElevatedButton(
                   onPressed: isLoading ? null : () async {
                     if (newPasswordController.text != confirmPasswordController.text) {
-                      setState(() => errorMsg = "Passwords do not match");
+                      setState(() => errorMsg = AppLocalizations.of(context)!.passwordsDoNotMatch);
                       return;
                     }
                     if (newPasswordController.text.length < 6) {
-                      setState(() => errorMsg = "Password must be at least 6 characters");
+                      setState(() => errorMsg = AppLocalizations.of(context)!.passwordMinLength);
                       return;
                     }
                     setState(() { isLoading = true; errorMsg = null; });
@@ -181,7 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (!ctx.mounted) return;
                       Navigator.pop(ctx);
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password changed successfully!')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.passwordChangedSuccessfully)));
                       _fetchProfile(); // refresh profile to update needs_password_change flag
                     } on DioException catch (e) {
                       setState(() { 
@@ -192,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       setState(() { isLoading = false; errorMsg = friendlyError(context, e); });
                     }
                   },
-                  child: isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator()) : const Text('Save'),
+                  child: isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator()) : Text(AppLocalizations.of(context)!.save),
                 ),
               ],
             );
@@ -300,7 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              displayUser?['name'] ?? 'User',
+                              displayUser?['name'] ?? AppLocalizations.of(context)!.userFallback,
                               style: GoogleFonts.notoSansKhmer(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -346,14 +346,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Row(
                     children: [
                        Expanded(child: _InfoCard(
-                         label: 'Emp Code', 
-                         value: employee?['employee_code'] ?? '000', 
+                         label: AppLocalizations.of(context)!.empCode,
+                         value: employee?['employee_code'] ?? '000',
                          icon: LucideIcons.badgeCheck,
                          color: Colors.blue,
                        )),
                        const SizedBox(width: 16),
                        Expanded(child: _InfoCard(
-                         label: 'Joined', 
+                         label: AppLocalizations.of(context)!.joined,
                          value: employee?['joining_date'] != null
                             ? DateFormat('d MMM y').format(DateTime.parse(employee!['joining_date']))
                             : '-',
@@ -388,17 +388,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 20),
                     _DetailRow(AppLocalizations.of(context)!.department, _getSafeString(employee?['department'])),
                     const Divider(height: 32, color: Color(0xFFF1F5F9)),
-                    _DetailRow(AppLocalizations.of(context)!.jobTitle, employee?['job_title'] ?? 'N/A'),
+                    _DetailRow(AppLocalizations.of(context)!.jobTitle, employee?['job_title'] ?? AppLocalizations.of(context)!.notApplicable),
                     const Divider(height: 32, color: Color(0xFFF1F5F9)),
-                    _DetailRow('Email', displayUser?['email'] ?? 'N/A'),
-                    
+                    _DetailRow(AppLocalizations.of(context)!.email, displayUser?['email'] ?? AppLocalizations.of(context)!.notApplicable),
+
                     if (_showMoreDetails) ...[
                       const Divider(height: 32, color: Color(0xFFF1F5F9)),
-                      _DetailRow('Khmer Name', employee?['documents']?['name_kh'] ?? 'N/A'),
+                      _DetailRow(AppLocalizations.of(context)!.khmerName, employee?['documents']?['name_kh'] ?? AppLocalizations.of(context)!.notApplicable),
                       const Divider(height: 32, color: Color(0xFFF1F5F9)),
-                      _DetailRow('Emergency Contact', employee?['documents']?['emergency_contact'] ?? 'N/A'),
+                      _DetailRow(AppLocalizations.of(context)!.emergencyContact, employee?['documents']?['emergency_contact'] ?? AppLocalizations.of(context)!.notApplicable),
                     ],
-                    
+
                     const SizedBox(height: 16),
                     Center(
                       child: GestureDetector(
@@ -408,7 +408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           });
                         },
                         child: Text(
-                          _showMoreDetails ? 'View Less' : 'View More Details',
+                          _showMoreDetails ? AppLocalizations.of(context)!.viewLess : AppLocalizations.of(context)!.viewMoreDetails,
                           style: GoogleFonts.notoSansKhmer(
                             color: Colors.blue,
                             fontWeight: FontWeight.w600,

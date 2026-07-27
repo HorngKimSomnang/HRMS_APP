@@ -105,9 +105,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final latestNoticeId = latestNotice['id'].toString();
         final lastSeenId = await _storage.read(key: 'last_seen_notice_id');
         if (lastSeenId != latestNoticeId) {
+          if (!mounted) return;
           await _notificationService.showNotification(
             id: latestNotice['id'],
-            title: 'New Announcement: ${latestNotice['title']}',
+            title: AppLocalizations.of(context)!.newAnnouncementNotifTitle(latestNotice['title']),
             body: latestNotice['content'],
           );
           await _storage.write(key: 'last_seen_notice_id', value: latestNoticeId);
@@ -156,10 +157,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _handleUndoClockOut() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _statusMessage = null);
     try {
       await _attendanceService.undoClockOut();
-      _statusMessage = 'Clock-out undone. You are clocked in again.';
+      _statusMessage = l10n.clockOutUndone;
       _isSuccess = true;
       await _loadData();
     } catch (e) {
@@ -172,19 +174,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _handleAttendance(bool isClockIn) async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
-      _statusMessage = 'Getting location...';
+      _statusMessage = l10n.gettingLocation;
       _isSuccess = false;
     });
 
     try {
       final position = await _locationService.getCurrentPosition();
-      if (position == null) throw Exception('Location permission denied');
+      if (position == null) throw Exception(l10n.locationPermissionDenied);
 
-      setState(() => _statusMessage = 'Submitting...');
+      setState(() => _statusMessage = l10n.submittingEllipsis);
 
       // Reverse geocode to a human-readable address
-      String locationName = 'Unknown Location';
+      String locationName = l10n.unknownLocation;
       try {
         final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
         if (placemarks.isNotEmpty) {
@@ -197,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if ((place.subLocality ?? '').isNotEmpty) place.subLocality!,
             if ((place.locality ?? '').isNotEmpty) place.locality!,
           }.toList();
-          locationName = parts.isNotEmpty ? parts.join(', ') : 'Location Captured';
+          locationName = parts.isNotEmpty ? parts.join(', ') : l10n.locationCaptured;
         }
       } catch (_) {
         locationName = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
@@ -210,7 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           address: locationName,
           accuracy: position.accuracy,
         );
-        _statusMessage = 'Clocked In at: $locationName';
+        _statusMessage = l10n.clockedInAt(locationName);
         _isSuccess = true;
 
         // Check if the response says they were marked late
@@ -227,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           address: locationName,
           accuracy: position.accuracy,
         );
-        _statusMessage = 'Clocked Out from: $locationName';
+        _statusMessage = l10n.clockedOutFrom(locationName);
         _isSuccess = true;
         await _loadData();
       }
@@ -270,14 +273,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const Icon(LucideIcons.alertTriangle, color: Colors.orange, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'You clocked in late',
+                    AppLocalizations.of(context)!.youClockedInLate,
                     style: GoogleFonts.notoSansKhmer(fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                'Please provide a reason for being late (optional).',
+                AppLocalizations.of(context)!.provideLateReasonOptional,
                 style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.grey[600]),
               ),
               const SizedBox(height: 16),
@@ -285,7 +288,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 controller: controller,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: 'e.g. Traffic, personal emergency...',
+                  hintText: AppLocalizations.of(context)!.lateReasonHint,
                   hintStyle: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.grey),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -302,7 +305,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text('Skip', style: GoogleFonts.notoSansKhmer()),
+                      child: Text(AppLocalizations.of(context)!.skip, style: GoogleFonts.notoSansKhmer()),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -330,7 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text('Submit', style: GoogleFonts.notoSansKhmer()),
+                      child: Text(AppLocalizations.of(context)!.submit, style: GoogleFonts.notoSansKhmer()),
                     ),
                   ),
                 ],
@@ -368,9 +371,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           child: const Icon(LucideIcons.fileText, color: Colors.indigo, size: 20),
         ),
-        title: Text(doc['name'] ?? 'Document', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 14)),
+        title: Text(doc['name'] ?? AppLocalizations.of(context)!.documentFallbackName, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 14)),
         trailing: const Icon(LucideIcons.externalLink, size: 16, color: Colors.grey),
         onTap: () async {
+          final fallbackName = AppLocalizations.of(context)!.documentFallbackName;
           String? fileUrl = doc['url'];
           String? documentPath = doc['path'] ?? doc['file_path'];
           if (fileUrl == null && documentPath != null) {
@@ -379,7 +383,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (fileUrl != null) {
             Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute(
-                builder: (context) => DocumentViewerScreen(fileUrl: fileUrl!, fileName: doc['name'] ?? 'Document'),
+                builder: (context) => DocumentViewerScreen(fileUrl: fileUrl!, fileName: doc['name'] ?? fallbackName),
               ),
             );
           }
@@ -407,10 +411,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
               ),
             ),
-            Text('My Attached Documents', style: GoogleFonts.notoSansKhmer(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(AppLocalizations.of(context)!.myAttachedDocuments, style: GoogleFonts.notoSansKhmer(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             if (workDocs.isEmpty)
-              Expanded(child: Center(child: Text('No documents found.', style: GoogleFonts.notoSansKhmer(color: Colors.grey))))
+              Expanded(child: Center(child: Text(AppLocalizations.of(context)!.noDocumentsFound, style: GoogleFonts.notoSansKhmer(color: Colors.grey))))
             else
               Expanded(child: ListView(children: workDocs.map((doc) => buildDocTile(doc)).toList())),
           ],
@@ -511,7 +515,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const Icon(LucideIcons.alertTriangle, color: Colors.amber),
                         const SizedBox(width: 12),
                         Expanded(child: Text(AppLocalizations.of(context)!.changeGeneratedPassword, style: GoogleFonts.notoSansKhmer(color: Colors.amber[900], fontSize: 13))),
-                        TextButton(onPressed: () => context.go('/profile?openPassword=true'), child: const Text('Go')),
+                        TextButton(onPressed: () => context.go('/profile?openPassword=true'), child: Text(AppLocalizations.of(context)!.go)),
                       ],
                     ),
                   ),
@@ -540,7 +544,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('HEN CHEN', style: GoogleFonts.notoSansKhmer(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B), letterSpacing: 0.5)),
-                            Text('HR Portal', style: GoogleFonts.notoSansKhmer(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.grey.shade500)),
+                            Text(AppLocalizations.of(context)!.hrPortal, style: GoogleFonts.notoSansKhmer(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.grey.shade500)),
                           ],
                         ),
                       ],
@@ -612,8 +616,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Text(AppLocalizations.of(context)!.welcomeBack, style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
-                            Text(displayUser?['name'] ?? 'Employee', style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 16)),
-                            Text(displayUser?['employee']?['employee_code'] ?? 'ID: --', style: GoogleFonts.notoSansKhmer(color: Colors.white70, fontSize: 14)),
+                            Text(displayUser?['name'] ?? AppLocalizations.of(context)!.employeeFallback, style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 16)),
+                            Text(displayUser?['employee']?['employee_code'] ?? AppLocalizations.of(context)!.employeeIdFallback, style: GoogleFonts.notoSansKhmer(color: Colors.white70, fontSize: 14)),
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -625,10 +629,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       final et = displayUser['employee']['shift']['end_time']?.toString() ?? '';
                                       final s = st.length >= 5 ? st.substring(0, 5) : st;
                                       final e = et.length >= 5 ? et.substring(0, 5) : et;
-                                      return 'Shift: $s - $e';
+                                      return AppLocalizations.of(context)!.shiftTime(s, e);
                                     }()
                                   : (displayUser?['employee']?['job_title'] != null
-                                      ? 'Role: ${displayUser!['employee']['job_title']}'
+                                      ? AppLocalizations.of(context)!.roleLabel(displayUser!['employee']['job_title'])
                                       : AppLocalizations.of(context)!.standardShift),
                                 style: GoogleFonts.notoSansKhmer(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                               ),
@@ -674,13 +678,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    hasClockedOut ? 'Completed for today' : 'Currently clocked in',
+                                    hasClockedOut ? AppLocalizations.of(context)!.completedForToday : AppLocalizations.of(context)!.currentlyClockedIn,
                                     style: GoogleFonts.notoSansKhmer(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
                                   ),
                                   Text(
                                     hasClockedOut
-                                      ? 'In: ${_formatTime(_todayAttendance!['clock_in'])}  •  Out: ${_formatTime(_todayAttendance!['clock_out'])}'
-                                      : 'Since ${_formatTime(_todayAttendance!['clock_in'])}',
+                                      ? AppLocalizations.of(context)!.inOutTimes(_formatTime(_todayAttendance!['clock_in']), _formatTime(_todayAttendance!['clock_out']))
+                                      : AppLocalizations.of(context)!.sinceTime(_formatTime(_todayAttendance!['clock_in'])),
                                     style: GoogleFonts.notoSansKhmer(fontSize: 12, color: Colors.black54),
                                   ),
                                   if (hasClockedOut && _canUndoClockOut)
@@ -689,7 +693,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       child: GestureDetector(
                                         onTap: _handleUndoClockOut,
                                         child: Text(
-                                          'Clocked out by mistake? Undo',
+                                          AppLocalizations.of(context)!.clockedOutByMistakeUndo,
                                           style: GoogleFonts.notoSansKhmer(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -701,7 +705,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                 ],
                               )
-                            : Text('Not clocked in yet', style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.orange[800])),
+                            : Text(AppLocalizations.of(context)!.notClockedInYet, style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.orange[800])),
                         ),
                         if (todayStatus != null)
                           _StatusChip(status: todayStatus),
@@ -840,7 +844,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final config = _statusConfig(status);
+    final config = _statusConfig(context, status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: config.$1.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
@@ -848,14 +852,17 @@ class _StatusChip extends StatelessWidget {
     );
   }
 
-  static (Color, String) _statusConfig(String status) => switch (status) {
-    'present'   => (Colors.green,        'Present'),
-    'late'      => (Colors.orange,       'Late'),
-    'early_out' => (const Color(0xFFF59E0B), 'Early Out'),
-    'warning'   => (Colors.red,          'Warning'),
-    'absent'    => (Colors.red,          'Absent'),
-    _           => (Colors.grey,         status),
-  };
+  static (Color, String) _statusConfig(BuildContext context, String status) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (status) {
+      'present'   => (Colors.green,        l10n.statusPresent),
+      'late'      => (Colors.orange,       l10n.statusLate),
+      'early_out' => (const Color(0xFFF59E0B), l10n.statusEarlyOut),
+      'warning'   => (Colors.red,          l10n.statusWarning),
+      'absent'    => (Colors.red,          l10n.statusAbsent),
+      _           => (Colors.grey,         status),
+    };
+  }
 }
 
 class _QuickActionIcon extends StatelessWidget {

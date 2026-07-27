@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../services/custom_entity_service.dart';
+import '../l10n/app_localizations.dart';
 
 class MyFormsScreen extends StatefulWidget {
   const MyFormsScreen({super.key});
@@ -45,7 +46,7 @@ class _MyFormsScreenState extends State<MyFormsScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('My Forms', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context)!.myForms, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -72,7 +73,7 @@ class _MyFormsScreenState extends State<MyFormsScreen> {
           children: [
             Icon(LucideIcons.clipboardList, size: 48, color: Colors.grey[300]),
             const SizedBox(height: 12),
-            Text('No forms available yet', style: GoogleFonts.notoSansKhmer(color: Colors.grey)),
+            Text(AppLocalizations.of(context)!.noFormsAvailable, style: GoogleFonts.notoSansKhmer(color: Colors.grey)),
           ],
         ),
       );

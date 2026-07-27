@@ -109,7 +109,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                   const SizedBox(width: 14),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(AppLocalizations.of(context)!.requestOvertime, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    Text('Submit a request to work extra hours', style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[600])),
+                    Text(AppLocalizations.of(context)!.submitOvertimeRequestDesc, style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[600])),
                   ]),
                 ],
               ),
@@ -191,7 +191,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
               TextField(
                 controller: hoursCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: _inputDeco(icon: LucideIcons.hourglass, hint: 'e.g. 2.5'),
+                decoration: _inputDeco(icon: LucideIcons.hourglass, hint: AppLocalizations.of(context)!.hoursHintExample),
               ),
               const SizedBox(height: 20),
 
@@ -201,7 +201,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
               TextField(
                 controller: reasonCtrl,
                 maxLines: 3,
-                decoration: _inputDeco(icon: LucideIcons.messageSquare, hint: 'e.g. Server maintenance, Project deadline...'),
+                decoration: _inputDeco(icon: LucideIcons.messageSquare, hint: AppLocalizations.of(context)!.overtimeReasonHint),
               ),
               const SizedBox(height: 32),
 
@@ -216,7 +216,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                   ),
                   onPressed: () async {
                     if (dateCtrl.text.isEmpty || hoursCtrl.text.isEmpty || reasonCtrl.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill required fields')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.pleaseFillRequiredFields)));
                       return;
                     }
                     Navigator.pop(ctx);
@@ -331,7 +331,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                             children: [
                               Icon(LucideIcons.hourglass, size: 14, color: Colors.grey[600]),
                               const SizedBox(width: 6),
-                              Text('${item['hours']} Hours', style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+                              Text(AppLocalizations.of(context)!.hoursValue(item['hours'].toString()), style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
                               if (item['start_time'] != null && item['end_time'] != null) ...[
                                 const SizedBox(width: 12),
                                 Text('(${item['start_time']} - ${item['end_time']})', style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.grey[600])),

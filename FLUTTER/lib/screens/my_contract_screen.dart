@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
+import '../l10n/app_localizations.dart';
 
 class MyContractScreen extends StatefulWidget {
   const MyContractScreen({super.key});
@@ -37,7 +38,7 @@ class _MyContractScreenState extends State<MyContractScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Failed to load contract';
+        _error = AppLocalizations.of(context)!.failedToLoadContract;
       });
     }
   }
@@ -65,11 +66,11 @@ class _MyContractScreenState extends State<MyContractScreen> {
   String _typeLabel(String? type) {
     switch (type) {
       case 'probation':
-        return 'Probation';
+        return AppLocalizations.of(context)!.contractProbation;
       case 'fixed_term':
-        return 'Fixed Term';
+        return AppLocalizations.of(context)!.contractFixedTerm;
       case 'permanent':
-        return 'Permanent';
+        return AppLocalizations.of(context)!.contractPermanent;
       default:
         return type ?? '—';
     }
@@ -93,7 +94,7 @@ class _MyContractScreenState extends State<MyContractScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text('My Contract',
+        title: Text(AppLocalizations.of(context)!.myContract,
             style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, fontSize: 17)),
         centerTitle: true,
       ),
@@ -114,7 +115,7 @@ class _MyContractScreenState extends State<MyContractScreen> {
                         _currentContractCard(_current!),
                       if (_history.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        Text('Previous Contracts',
+                        Text(AppLocalizations.of(context)!.previousContracts,
                             style: GoogleFonts.notoSansKhmer(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -140,11 +141,11 @@ class _MyContractScreenState extends State<MyContractScreen> {
         children: [
           const Icon(LucideIcons.fileSignature, size: 40, color: Color(0xFFCBD5E1)),
           const SizedBox(height: 12),
-          Text('No active contract on record.',
+          Text(AppLocalizations.of(context)!.noActiveContract,
               style: GoogleFonts.notoSansKhmer(
                   fontSize: 13, color: const Color(0xFF64748B))),
           const SizedBox(height: 4),
-          Text('Please contact HR for more information.',
+          Text(AppLocalizations.of(context)!.contactHrForInfo,
               style: GoogleFonts.notoSansKhmer(
                   fontSize: 11, color: const Color(0xFF94A3B8))),
         ],
@@ -190,7 +191,7 @@ class _MyContractScreenState extends State<MyContractScreen> {
                     Text(_typeLabel(c['type']),
                         style: GoogleFonts.notoSansKhmer(
                             fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('Current Contract',
+                    Text(AppLocalizations.of(context)!.currentContractLabel,
                         style: GoogleFonts.notoSansKhmer(
                             fontSize: 11, color: const Color(0xFF64748B))),
                   ],
@@ -202,7 +203,7 @@ class _MyContractScreenState extends State<MyContractScreen> {
                   color: const Color(0xFF10B981).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text('ACTIVE',
+                child: Text(AppLocalizations.of(context)!.activeBadge,
                     style: GoogleFonts.notoSansKhmer(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -213,11 +214,11 @@ class _MyContractScreenState extends State<MyContractScreen> {
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(child: _dateBox('Start Date', _fmt(c['start_date']))),
+              Expanded(child: _dateBox(AppLocalizations.of(context)!.startDate, _fmt(c['start_date']))),
               const SizedBox(width: 12),
               Expanded(
-                  child: _dateBox('End Date',
-                      c['end_date'] == null ? 'Open-ended' : _fmt(c['end_date']))),
+                  child: _dateBox(AppLocalizations.of(context)!.endDate,
+                      c['end_date'] == null ? AppLocalizations.of(context)!.openEnded : _fmt(c['end_date']))),
             ],
           ),
           if (days != null && days >= 0) ...[
@@ -240,8 +241,8 @@ class _MyContractScreenState extends State<MyContractScreen> {
                   const SizedBox(width: 8),
                   Text(
                     c['type'] == 'probation'
-                        ? '$days days left in probation'
-                        : '$days days until contract ends',
+                        ? AppLocalizations.of(context)!.daysLeftInProbation(days)
+                        : AppLocalizations.of(context)!.daysUntilContractEnds(days),
                     style: GoogleFonts.notoSansKhmer(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -255,7 +256,7 @@ class _MyContractScreenState extends State<MyContractScreen> {
           ],
           if (c['notes'] != null && '${c['notes']}'.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text('Notes',
+            Text(AppLocalizations.of(context)!.notes,
                 style: GoogleFonts.notoSansKhmer(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,

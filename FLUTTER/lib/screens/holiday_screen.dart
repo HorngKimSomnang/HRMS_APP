@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
+import '../l10n/app_localizations.dart';
 
 class HolidayScreen extends StatefulWidget {
   const HolidayScreen({super.key});
@@ -58,7 +59,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
       return Scaffold(
         backgroundColor: const Color(0xFFF3F4F6),
         appBar: AppBar(
-          title: Text('Holidays & Events', style: GoogleFonts.notoSansKhmer(color: Colors.black, fontWeight: FontWeight.bold)),
+          title: Text(AppLocalizations.of(context)!.holidaysEvents, style: GoogleFonts.notoSansKhmer(color: Colors.black, fontWeight: FontWeight.bold)),
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
@@ -78,12 +79,12 @@ class _HolidayScreenState extends State<HolidayScreen> {
                       const SizedBox(height: 24),
                     ],
                     Text(
-                      'All Holidays', 
+                      AppLocalizations.of(context)!.allHolidays,
                       style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)
                     ),
                     const SizedBox(height: 16),
                     if (_holidays.isEmpty)
-                      const Center(child: Text("No holidays found."))
+                      Center(child: Text(AppLocalizations.of(context)!.noHolidaysFound))
                     else
                       ..._holidays.map((h) => _buildHolidayItem(h)),
                   ],
@@ -122,12 +123,12 @@ class _HolidayScreenState extends State<HolidayScreen> {
                   child: const Icon(LucideIcons.partyPopper, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text('Coming Up Next', style: GoogleFonts.notoSansKhmer(color: Colors.white.withValues(alpha: 0.9), fontSize: 14)),
+                Text(AppLocalizations.of(context)!.comingUpNext, style: GoogleFonts.notoSansKhmer(color: Colors.white.withValues(alpha: 0.9), fontSize: 14)),
               ],
             ),
             const SizedBox(height: 20),
             Text(
-              holiday['title'] ?? 'Announcement',
+              holiday['title'] ?? AppLocalizations.of(context)!.announcement,
               style: GoogleFonts.notoSansKhmer(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 8),
@@ -149,7 +150,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
                borderRadius: BorderRadius.circular(30),
              ),
              child: Text(
-               daysLeft == 0 ? 'Today' : '$daysLeft days left',
+               daysLeft == 0 ? AppLocalizations.of(context)!.today : AppLocalizations.of(context)!.daysLeftCount(daysLeft),
                style: GoogleFonts.notoSansKhmer(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
              ),
            )
@@ -206,7 +207,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  holiday['title'] ?? 'Announcement',
+                  holiday['title'] ?? AppLocalizations.of(context)!.announcement,
                   style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
                 ),
                 const SizedBox(height: 4),
@@ -220,7 +221,7 @@ class _HolidayScreenState extends State<HolidayScreen> {
                         border: Border.all(color: isPublic ? Colors.blue.shade100 : Colors.purple.shade100),
                       ),
                       child: Text(
-                        (holiday['type']?.toString() ?? 'event').toUpperCase(),
+                        (holiday['type']?.toString() ?? AppLocalizations.of(context)!.event).toUpperCase(),
                         style: GoogleFonts.notoSansKhmer(
                           fontSize: 10, 
                           fontWeight: FontWeight.bold, 

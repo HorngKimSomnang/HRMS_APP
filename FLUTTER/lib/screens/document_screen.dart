@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants.dart';
 import '../services/document_service.dart';
+import '../l10n/app_localizations.dart';
 
 class DocumentScreen extends StatefulWidget {
   const DocumentScreen({super.key});
@@ -52,7 +53,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch document url')));
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.couldNotLaunchDocument)));
       }
     }
   }
@@ -65,8 +66,8 @@ class _DocumentScreenState extends State<DocumentScreen> {
       date = DateTime.now();
     }
     final formattedDate = DateFormat('MMMM d, yyyy - h:mm a').format(date);
-    final String instructions = doc['type'] ?? 'No special instructions.';
-    final String uploader = doc['employee']?['name'] ?? 'You';
+    final String instructions = doc['type'] ?? AppLocalizations.of(context)!.noSpecialInstructions;
+    final String uploader = doc['employee']?['name'] ?? AppLocalizations.of(context)!.you;
 
     showModalBottomSheet(
       context: context,
@@ -143,7 +144,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         Icon(LucideIcons.info, size: 16, color: Colors.orange[800]),
                         const SizedBox(width: 8),
                         Text(
-                          'Instructions',
+                          AppLocalizations.of(context)!.instructions,
                           style: GoogleFonts.notoSansKhmer(
                             fontSize: 13,
                             color: Colors.orange[900],
@@ -165,9 +166,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildDetailRow(LucideIcons.calendar, 'Uploaded', formattedDate),
+              _buildDetailRow(LucideIcons.calendar, AppLocalizations.of(context)!.uploaded, formattedDate),
               const SizedBox(height: 16),
-              _buildDetailRow(LucideIcons.user, 'Uploaded By', uploader),
+              _buildDetailRow(LucideIcons.user, AppLocalizations.of(context)!.uploadedBy, uploader),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
@@ -178,7 +179,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
                   },
                   icon: const Icon(LucideIcons.externalLink, color: Colors.white),
                   label: Text(
-                    'View Document',
+                    AppLocalizations.of(context)!.viewDocument,
                     style: GoogleFonts.notoSansKhmer(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -236,7 +237,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Documents', style: GoogleFonts.notoSansKhmer(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context)!.documents, style: GoogleFonts.notoSansKhmer(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w600)),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -245,7 +246,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _documents.isEmpty
-              ? Center(child: Text("No documents found.", style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
+              ? Center(child: Text(AppLocalizations.of(context)!.noDocumentsFound, style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _documents.length,

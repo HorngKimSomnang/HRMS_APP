@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Employee Self-Service Portal',
+                  AppLocalizations.of(context)!.employeeSelfServicePortal,
                   style: GoogleFonts.notoSansKhmer(
                     fontSize: 14,
                     color: Colors.white70,
@@ -182,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             filled: true,
                             fillColor: Colors.grey[50],
                           ),
-                          validator: (v) => v!.isEmpty ? 'Email is required' : null,
+                          validator: (v) => v!.isEmpty ? AppLocalizations.of(context)!.emailRequired : null,
                         ),
                         const SizedBox(height: 20),
 
@@ -217,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             filled: true,
                             fillColor: Colors.grey[50],
                           ),
-                          validator: (v) => v!.isEmpty ? 'Password is required' : null,
+                          validator: (v) => v!.isEmpty ? AppLocalizations.of(context)!.passwordRequired : null,
                         ),
                         const SizedBox(height: 8),
                         Align(
@@ -225,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: TextButton(
                             onPressed: () => context.push('/forgot-password'),
                             child: Text(
-                              'Forgot Password?',
+                              '${AppLocalizations.of(context)!.forgotPassword}?',
                               style: GoogleFonts.notoSansKhmer(color: const Color(0xFF2563EB), fontWeight: FontWeight.w500),
                             ),
                           ),

@@ -63,11 +63,11 @@ class _TaskScreenState extends State<TaskScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Text('Attach Proof', style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text(AppLocalizations.of(context)!.attachProof, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             ListTile(
               leading: const Icon(LucideIcons.camera, color: Colors.blue),
-              title: Text('Take Photo', style: GoogleFonts.notoSansKhmer()),
+              title: Text(AppLocalizations.of(context)!.takePhoto, style: GoogleFonts.notoSansKhmer()),
               onTap: () async {
                 final file = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 70);
                 if (!ctx.mounted) return;
@@ -76,7 +76,7 @@ class _TaskScreenState extends State<TaskScreen> {
             ),
             ListTile(
               leading: const Icon(LucideIcons.video, color: Colors.red),
-              title: Text('Record Video', style: GoogleFonts.notoSansKhmer()),
+              title: Text(AppLocalizations.of(context)!.recordVideo, style: GoogleFonts.notoSansKhmer()),
               onTap: () async {
                 final file = await ImagePicker().pickVideo(source: ImageSource.camera);
                 if (!ctx.mounted) return;
@@ -85,7 +85,7 @@ class _TaskScreenState extends State<TaskScreen> {
             ),
             ListTile(
               leading: const Icon(LucideIcons.image, color: Colors.green),
-              title: Text('Choose Photo from Gallery', style: GoogleFonts.notoSansKhmer()),
+              title: Text(AppLocalizations.of(context)!.choosePhotoFromGallery, style: GoogleFonts.notoSansKhmer()),
               onTap: () async {
                 final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
                 if (!ctx.mounted) return;
@@ -94,7 +94,7 @@ class _TaskScreenState extends State<TaskScreen> {
             ),
             ListTile(
               leading: const Icon(LucideIcons.film, color: Colors.purple),
-              title: Text('Choose Video from Gallery', style: GoogleFonts.notoSansKhmer()),
+              title: Text(AppLocalizations.of(context)!.chooseVideoFromGallery, style: GoogleFonts.notoSansKhmer()),
               onTap: () async {
                 final file = await ImagePicker().pickVideo(source: ImageSource.gallery);
                 if (!ctx.mounted) return;
@@ -118,11 +118,11 @@ class _TaskScreenState extends State<TaskScreen> {
         final bool? doUpload = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Attach Proof?'),
-            content: const Text('Would you like to attach a photo or video of your completed task?'),
+            title: Text(AppLocalizations.of(context)!.attachProofQuestion),
+            content: Text(AppLocalizations.of(context)!.attachProofPrompt),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
-              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Attach Media')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context)!.skip)),
+              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: Text(AppLocalizations.of(context)!.attachMedia)),
             ],
           )
         );
@@ -204,7 +204,7 @@ class _TaskScreenState extends State<TaskScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      task['title'] ?? 'Untitled Task',
+                      task['title'] ?? AppLocalizations.of(context)!.untitledTask,
                       style: GoogleFonts.notoSansKhmer(fontSize: 20, fontWeight: FontWeight.bold, decoration: isCompleted ? TextDecoration.lineThrough : null),
                     ),
                   ),
@@ -215,7 +215,7 @@ class _TaskScreenState extends State<TaskScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      (task['priority'] ?? 'LOW').toUpperCase(),
+                      (task['priority'] ?? AppLocalizations.of(context)!.low).toUpperCase(),
                       style: GoogleFonts.notoSansKhmer(color: priorityColor, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -232,16 +232,16 @@ class _TaskScreenState extends State<TaskScreen> {
                     style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[800]),
                   ),
                 )
-              else 
-                Text('No additional description provided.', style: GoogleFonts.notoSansKhmer(fontSize: 14, fontStyle: FontStyle.italic, color: Colors.grey)),
-              
+              else
+                Text(AppLocalizations.of(context)!.noDescriptionProvided, style: GoogleFonts.notoSansKhmer(fontSize: 14, fontStyle: FontStyle.italic, color: Colors.grey)),
+
               const SizedBox(height: 16),
               Row(
                 children: [
                   Icon(LucideIcons.calendar, size: 16, color: Colors.blue[600]),
                   const SizedBox(width: 8),
                   Text(
-                    'Due Date: ${task['due_date'] ?? 'No Due Date'}',
+                    AppLocalizations.of(context)!.dueDateLabel(task['due_date'] ?? AppLocalizations.of(context)!.noDueDate),
                     style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[800], fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -249,7 +249,7 @@ class _TaskScreenState extends State<TaskScreen> {
 
               if (task['attachment_path'] != null || task['submission_path'] != null) ...[
                 const SizedBox(height: 24),
-                Text('Attachments', style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context)!.attachments, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 if (task['attachment_path'] != null)
                   ListTile(
@@ -257,7 +257,7 @@ class _TaskScreenState extends State<TaskScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.blue.shade100)),
                     tileColor: Colors.blue.shade50.withValues(alpha:0.5),
                     leading: const Icon(LucideIcons.paperclip, color: Colors.blue),
-                    title: Text('Admin Instructions', style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
+                    title: Text(AppLocalizations.of(context)!.adminInstructions, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
                     trailing: const Icon(LucideIcons.externalLink, size: 16, color: Colors.blue),
                   ),
                 if (task['submission_path'] != null)
@@ -268,7 +268,7 @@ class _TaskScreenState extends State<TaskScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.green.shade100)),
                       tileColor: Colors.green.shade50.withValues(alpha:0.5),
                       leading: const Icon(LucideIcons.image, color: Colors.green),
-                      title: Text('Your Submission', style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.green.shade700, fontWeight: FontWeight.w600)),
+                      title: Text(AppLocalizations.of(context)!.yourSubmission, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.green.shade700, fontWeight: FontWeight.w600)),
                       trailing: const Icon(LucideIcons.externalLink, size: 16, color: Colors.green),
                     ),
                   ),
@@ -276,7 +276,7 @@ class _TaskScreenState extends State<TaskScreen> {
               
               if (task['submission_note'] != null && (task['submission_note'] as String).isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text('Submission Note', style: GoogleFonts.notoSansKhmer(fontSize: 14, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context)!.submissionNote, style: GoogleFonts.notoSansKhmer(fontSize: 14, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Container(
                   width: double.infinity,
@@ -295,7 +295,7 @@ class _TaskScreenState extends State<TaskScreen> {
                  TextField(
                    controller: noteController,
                    decoration: InputDecoration(
-                     hintText: 'Add a note or remark (optional)',
+                     hintText: AppLocalizations.of(context)!.addNoteOptional,
                      hintStyle: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey),
                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
@@ -319,7 +319,7 @@ class _TaskScreenState extends State<TaskScreen> {
                     }
                   },
                   icon: const Icon(LucideIcons.upload),
-                  label: Text(isCompleted ? 'Change Proof File' : 'Attach Photo or Video Proof'),
+                  label: Text(isCompleted ? AppLocalizations.of(context)!.changeProofFile : AppLocalizations.of(context)!.attachPhotoOrVideoProof),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -334,7 +334,7 @@ class _TaskScreenState extends State<TaskScreen> {
                     children: [
                       const Icon(LucideIcons.checkCircle2, color: Colors.green),
                       const SizedBox(width: 8),
-                      Expanded(child: Text('Proof attached and ready to submit!', style: GoogleFonts.notoSansKhmer(color: Colors.green.shade700, fontSize: 13))),
+                      Expanded(child: Text(AppLocalizations.of(context)!.proofAttachedReady, style: GoogleFonts.notoSansKhmer(color: Colors.green.shade700, fontSize: 13))),
                     ],
                   ),
                 ),
@@ -375,8 +375,8 @@ class _TaskScreenState extends State<TaskScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
-                    (isCompleted && localSheetFilePath == null) ? 'Completed' : 
-                    (isCompleted && localSheetFilePath != null) ? 'Save New Proof' : 'Mark as Complete',
+                    (isCompleted && localSheetFilePath == null) ? AppLocalizations.of(context)!.completedLabel :
+                    (isCompleted && localSheetFilePath != null) ? AppLocalizations.of(context)!.saveNewProof : AppLocalizations.of(context)!.markAsComplete,
                     style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                 ),
@@ -448,8 +448,8 @@ class _TaskScreenState extends State<TaskScreen> {
                               children: [
                                 Icon(LucideIcons.clipboardCheck, size: 64, color: Colors.grey[300]),
                                 const SizedBox(height: 16),
-                                Text('All caught up!', style: GoogleFonts.notoSansKhmer(fontSize: 18, color: Colors.grey[600])),
-                                Text('No tasks assigned to you.', style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
+                                Text(AppLocalizations.of(context)!.allCaughtUp, style: GoogleFonts.notoSansKhmer(fontSize: 18, color: Colors.grey[600])),
+                                Text(AppLocalizations.of(context)!.noTasksAssigned, style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
                               ],
                             )),
                           ],
@@ -513,7 +513,7 @@ class _TaskScreenState extends State<TaskScreen> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                task['title'] ?? 'Untitled',
+                                                task['title'] ?? AppLocalizations.of(context)!.untitled,
                                                 style: GoogleFonts.notoSansKhmer(
                                                   decoration: isCompleted ? TextDecoration.lineThrough : null,
                                                   fontWeight: FontWeight.w600,
@@ -537,7 +537,7 @@ class _TaskScreenState extends State<TaskScreen> {
                                                   Icon(LucideIcons.calendar, size: 12, color: Colors.blue[400]),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    task['due_date'] ?? 'No Due Date',
+                                                    task['due_date'] ?? AppLocalizations.of(context)!.noDueDate,
                                                     style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.blue[400], fontWeight: FontWeight.w500),
                                                   ),
                                                   const Spacer(),
@@ -551,7 +551,7 @@ class _TaskScreenState extends State<TaskScreen> {
                                                       borderRadius: BorderRadius.circular(12),
                                                     ),
                                                     child: Text(
-                                                      (task['priority'] ?? 'LOW').toUpperCase(),
+                                                      (task['priority'] ?? AppLocalizations.of(context)!.low).toUpperCase(),
                                                       style: GoogleFonts.notoSansKhmer(
                                                         color: priorityColor,
                                                         fontSize: 10,

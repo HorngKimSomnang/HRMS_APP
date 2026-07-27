@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
+
 class AttendanceReportScreen extends StatelessWidget {
   final Map<String, dynamic> attendance;
 
@@ -38,19 +40,20 @@ class AttendanceReportScreen extends StatelessWidget {
     final clockOutTime = _formatTime(attendance['clock_out']);
     
     // Logic for early/late (hardcoded 'Good'/'Late' for now based on 'is_late')
+    final l10n = AppLocalizations.of(context)!;
     final bool isLate = attendance['is_late'] == 1 || attendance['is_late'] == true;
-    final clockInStatus = isLate ? 'Late' : 'Good';
+    final clockInStatus = isLate ? l10n.statusLate : l10n.statusGood;
     final clockInColor = isLate ? Colors.orange : Colors.green;
-    
+
     // We assume check-out is 'Good' if it exists
-    final clockOutStatus = attendance['clock_out'] != null ? 'Good' : '--';
+    final clockOutStatus = attendance['clock_out'] != null ? l10n.statusGood : '--';
     final clockOutColor = attendance['clock_out'] != null ? Colors.blue : Colors.grey;
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Text(
-          'Attendance Report',
+          l10n.attendanceReportTitle,
           style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         backgroundColor: Colors.white,
@@ -92,7 +95,7 @@ class AttendanceReportScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Check-in :', style: GoogleFonts.notoSansKhmer(fontSize: 15, color: Colors.black87)),
+                  Text('${l10n.checkIn} :', style: GoogleFonts.notoSansKhmer(fontSize: 15, color: Colors.black87)),
                   Row(
                     children: [
                       Container(
@@ -111,17 +114,17 @@ class AttendanceReportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Time: $clockInTime',
+                l10n.timeLabel(clockInTime),
                 style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Check-out Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Check-out :', style: GoogleFonts.notoSansKhmer(fontSize: 15, color: Colors.black87)),
+                  Text('${l10n.checkOut} :', style: GoogleFonts.notoSansKhmer(fontSize: 15, color: Colors.black87)),
                   Row(
                     children: [
                       Container(
@@ -140,7 +143,7 @@ class AttendanceReportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Time: $clockOutTime',
+                l10n.timeLabel(clockOutTime),
                 style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
             ],

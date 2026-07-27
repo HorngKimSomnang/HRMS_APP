@@ -8,6 +8,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../core/error_utils.dart';
 import '../services/custom_entity_service.dart';
 import '../widgets/date_selector.dart';
+import '../l10n/app_localizations.dart';
 
 class EntityFormScreen extends StatefulWidget {
   final String slug;
@@ -112,7 +113,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
 
       await _service.submitRecord(widget.slug, payload);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted successfully!')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.submittedSuccessfully)));
       _clearForm();
     } catch (e) {
       if (mounted) {
@@ -184,7 +185,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             controller: _controllers[key],
             decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16)),
             style: GoogleFonts.notoSansKhmer(),
-            validator: (v) => isRequired && (v == null || v.isEmpty) ? 'Required' : null,
+            validator: (v) => isRequired && (v == null || v.isEmpty) ? AppLocalizations.of(context)!.required : null,
           ),
         );
       case 'textarea':
@@ -195,7 +196,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             maxLines: 4,
             decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16)),
             style: GoogleFonts.notoSansKhmer(),
-            validator: (v) => isRequired && (v == null || v.isEmpty) ? 'Required' : null,
+            validator: (v) => isRequired && (v == null || v.isEmpty) ? AppLocalizations.of(context)!.required : null,
           ),
         );
       case 'number':
@@ -208,14 +209,14 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16)),
             style: GoogleFonts.notoSansKhmer(),
             validator: (v) {
-              if (isRequired && (v == null || v.isEmpty)) return 'Required';
-              if (v != null && v.isNotEmpty && double.tryParse(v) == null) return 'Enter a valid number';
+              if (isRequired && (v == null || v.isEmpty)) return AppLocalizations.of(context)!.required;
+              if (v != null && v.isNotEmpty && double.tryParse(v) == null) return AppLocalizations.of(context)!.enterValidNumber;
               return null;
             },
           ),
         );
       case 'date':
-        return DateSelector(date: _values[key] as DateTime?, onTap: () => _pickDate(key), placeholder: 'Select date');
+        return DateSelector(date: _values[key] as DateTime?, onTap: () => _pickDate(key), placeholder: AppLocalizations.of(context)!.selectDate);
       case 'boolean':
         return Container(
           decoration: _cardDecoration,
@@ -223,7 +224,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             value: (_values[key] as bool?) ?? false,
             onChanged: (v) => setState(() => _values[key] = v),
             activeColor: const Color(0xFF2563EB),
-            title: Text('Yes', style: GoogleFonts.notoSansKhmer(fontSize: 13)),
+            title: Text(AppLocalizations.of(context)!.yes, style: GoogleFonts.notoSansKhmer(fontSize: 13)),
           ),
         );
       case 'dropdown':
@@ -235,12 +236,12 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             child: DropdownButtonFormField<String>(
               value: _values[key] as String?,
               decoration: const InputDecoration(border: InputBorder.none, icon: Icon(LucideIcons.list, size: 18, color: Color(0xFF2563EB))),
-              hint: Text('Select', style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
+              hint: Text(AppLocalizations.of(context)!.select, style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
               items: options.map<DropdownMenuItem<String>>((opt) {
                 return DropdownMenuItem<String>(value: opt as String, child: Text(opt, style: GoogleFonts.notoSansKhmer()));
               }).toList(),
               onChanged: (v) => setState(() => _values[key] = v),
-              validator: (v) => isRequired && v == null ? 'Required' : null,
+              validator: (v) => isRequired && v == null ? AppLocalizations.of(context)!.required : null,
             ),
           ),
         );
@@ -262,7 +263,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.history, color: Color(0xFF2563EB)),
-            tooltip: 'History',
+            tooltip: AppLocalizations.of(context)!.history,
             onPressed: _loading ? null : _showHistory,
           ),
         ],
@@ -308,7 +309,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
                                   children: [
                                     const Icon(LucideIcons.send, size: 20),
                                     const SizedBox(width: 8),
-                                    Text('Submit', style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w700)),
+                                    Text(AppLocalizations.of(context)!.submit, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w700)),
                                   ],
                                 ),
                         ),
@@ -367,7 +368,7 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
       final value = data[field['key']];
       if (value != null && value.toString().isNotEmpty) return value.toString();
     }
-    return 'Submission';
+    return AppLocalizations.of(context)!.submissionLabel;
   }
 
   @override
@@ -391,13 +392,13 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
               ),
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text('My Submissions', style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text(AppLocalizations.of(context)!.mySubmissions, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
               Expanded(
                 child: Skeletonizer(
                   enabled: _loading,
                   child: (_records.isEmpty && !_loading)
-                      ? Center(child: Text('No submissions yet', style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
+                      ? Center(child: Text(AppLocalizations.of(context)!.noSubmissionsYet, style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
                       : ListView.builder(
                           controller: controller,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -446,7 +447,7 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
                                               children: [
                                                 Text(adminReply['message']?.toString() ?? '', style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.black87)),
                                                 const SizedBox(height: 2),
-                                                Text(adminReply['replied_by']?.toString() ?? 'Admin', style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[600])),
+                                                Text(adminReply['replied_by']?.toString() ?? AppLocalizations.of(context)!.adminFallback, style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[600])),
                                               ],
                                             ),
                                           ),

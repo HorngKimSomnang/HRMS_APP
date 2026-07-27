@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/location_service.dart';
 import '../services/attendance_service.dart';
+import '../l10n/app_localizations.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -40,26 +41,27 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   Future<void> _handleAttendance(bool isClockIn) async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
       _loading = true;
-      _statusMessage = "Getting location...";
+      _statusMessage = l10n.gettingLocation;
       _isSuccess = false;
     });
 
     try {
       final position = await _locationService.getCurrentPosition();
       if (position == null) {
-        throw Exception("Location permission denied or GPS disabled");
+        throw Exception(l10n.locationPermissionDeniedOrGpsDisabled);
       }
 
-      setState(() => _statusMessage = "Submitting to server...");
+      setState(() => _statusMessage = l10n.submittingToServer);
 
       if (isClockIn) {
         await _attendanceService.clockIn(position.latitude, position.longitude);
-        _statusMessage = "Clocked In Successfully!";
+        _statusMessage = l10n.clockInSuccess;
       } else {
         await _attendanceService.clockOut(position.latitude, position.longitude);
-        _statusMessage = "Clocked Out Successfully!";
+        _statusMessage = l10n.clockOutSuccess;
       }
       _isSuccess = true;
 
@@ -77,7 +79,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('Attendance', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context)!.attendance, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
         centerTitle: true,
         automaticallyImplyLeading: false, // Removed unnecessary back button
         flexibleSpace: Container(
@@ -127,12 +129,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Your Live Location',
+                      AppLocalizations.of(context)!.yourLiveLocation,
                       style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue[900]),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Ensure you are at the office',
+                      AppLocalizations.of(context)!.ensureAtOffice,
                       style: GoogleFonts.notoSansKhmer(fontSize: 12, color: Colors.blue[700]),
                     ),
                   ],
@@ -178,7 +180,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                 children: [
                   Expanded(
                     child: _BigButton(
-                      label: 'CLOCK IN',
+                      label: AppLocalizations.of(context)!.clockIn.toUpperCase(),
                       icon: LucideIcons.logIn,
                       color: Colors.green,
                       isLoading: _loading,
@@ -188,7 +190,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   const SizedBox(width: 16),
                   Expanded(
                     child: _BigButton(
-                      label: 'CLOCK OUT',
+                      label: AppLocalizations.of(context)!.clockOut.toUpperCase(),
                       icon: LucideIcons.logOut,
                       color: Colors.red,
                       isLoading: _loading,
@@ -203,19 +205,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               // 3. Your Week Schedule
               const SizedBox(height: 20),
               Align(
-                alignment: Alignment.centerLeft, 
-                child: Text('Your Week', style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w600))
+                alignment: Alignment.centerLeft,
+                child: Text(AppLocalizations.of(context)!.yourWeek, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w600))
               ),
               const SizedBox(height: 12),
               Column(
                 children: [
-                  _ScheduleRow('SAT', '08:00 - 16:00', 'Off Duty', Colors.red),
-                  _ScheduleRow('SUN', '08:00 - 16:00', 'On Duty', Colors.blue),
-                  _ScheduleRow('MON', '08:00 - 16:00', 'On Duty', Colors.blue),
-                  _ScheduleRow('TUE', '08:00 - 16:00', 'On Duty', Colors.blue),
-                  _ScheduleRow('WED', '08:00 - 16:00', 'On Duty', Colors.blue),
-                  _ScheduleRow('THU', '08:00 - 16:00', 'On Duty', Colors.blue),
-                  _ScheduleRow('FRI', '08:00 - 16:00', 'Off Duty', Colors.red),
+                  _ScheduleRow(AppLocalizations.of(context)!.daySatShort, '08:00 - 16:00', AppLocalizations.of(context)!.offDuty, Colors.red),
+                  _ScheduleRow(AppLocalizations.of(context)!.daySunShort, '08:00 - 16:00', AppLocalizations.of(context)!.onDuty, Colors.blue),
+                  _ScheduleRow(AppLocalizations.of(context)!.dayMonShort, '08:00 - 16:00', AppLocalizations.of(context)!.onDuty, Colors.blue),
+                  _ScheduleRow(AppLocalizations.of(context)!.dayTueShort, '08:00 - 16:00', AppLocalizations.of(context)!.onDuty, Colors.blue),
+                  _ScheduleRow(AppLocalizations.of(context)!.dayWedShort, '08:00 - 16:00', AppLocalizations.of(context)!.onDuty, Colors.blue),
+                  _ScheduleRow(AppLocalizations.of(context)!.dayThuShort, '08:00 - 16:00', AppLocalizations.of(context)!.onDuty, Colors.blue),
+                  _ScheduleRow(AppLocalizations.of(context)!.dayFriShort, '08:00 - 16:00', AppLocalizations.of(context)!.offDuty, Colors.red),
                 ],
               ),
               const SizedBox(height: 40),

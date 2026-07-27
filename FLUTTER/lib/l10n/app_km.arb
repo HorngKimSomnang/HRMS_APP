@@ -76,5 +76,412 @@
     "myActivity": "សកម្មភាពរបស់ខ្ញុំ",
     "myContract": "កិច្ចសន្យារបស់ខ្ញុំ",
     "myForms": "សំណុំបែបបទរបស់ខ្ញុំ",
-    "submitReportsAndForms": "ដាក់ស្នើរបាយការណ៍ និងសំណុំបែបបទ"
+    "submitReportsAndForms": "ដាក់ស្នើរបាយការណ៍ និងសំណុំបែបបទ",
+    "yourLeaveBalance": "សមតុល្យច្បាប់របស់អ្នក",
+    "daysUnit": "ថ្ងៃ",
+
+    "gettingLocation": "កំពុងទទួលទីតាំង...",
+    "locationPermissionDeniedOrGpsDisabled": "សិទ្ធិចូលប្រើទីតាំងត្រូវបានបដិសេធ ឬ GPS មិនបានបើក",
+    "submittingToServer": "កំពុងបញ្ជូនទៅម៉ាស៊ីនមេ...",
+    "yourLiveLocation": "ទីតាំងផ្ទាល់របស់អ្នក",
+    "ensureAtOffice": "សូមប្រាកដថាអ្នកកំពុងនៅការិយាល័យ",
+    "yourWeek": "សប្តាហ៍របស់អ្នក",
+    "offDuty": "ក្រៅម៉ោងធ្វើការ",
+    "onDuty": "ក្នុងម៉ោងធ្វើការ",
+    "daySatShort": "ស",
+    "daySunShort": "អា",
+    "dayMonShort": "ច",
+    "dayTueShort": "អ",
+    "dayWedShort": "ព",
+    "dayThuShort": "ព្រ",
+    "dayFriShort": "សុ",
+    "statusPresent": "មានវត្តមាន",
+    "statusLate": "យឺត",
+    "statusEarlyOut": "ចេញមុនម៉ោង",
+    "statusWarning": "ព្រមាន",
+    "statusAbsent": "អវត្តមាន",
+    "failedToLoadHistory": "មិនអាចផ្ទុកប្រវត្តិវត្តមានបានទេ",
+    "errorPrefix": "កំហុស៖ {error}",
+    "@errorPrefix": {
+        "placeholders": {
+            "error": {"type": "String"}
+        }
+    },
+    "noAttendanceRecordsFound": "រកមិនឃើញកំណត់ត្រាវត្តមានទេ។",
+    "hoursLabel": "ម៉ោង",
+    "lateReasonNote": "មូលហេតុយឺត៖ {reason}",
+    "@lateReasonNote": {
+        "placeholders": {
+            "reason": {"type": "String"}
+        }
+    },
+    "autoClockOutBySystem": "ប្រព័ន្ធបានចេញម៉ោងឲ្យស្វ័យប្រវត្តិនៅចុងវេន",
+    "earlyOutNote": "ចេញមុនម៉ោង៖ {reason}",
+    "@earlyOutNote": {
+        "placeholders": {
+            "reason": {"type": "String"}
+        }
+    },
+    "attendanceReportTitle": "របាយការណ៍វត្តមាន",
+    "statusGood": "ល្អ",
+    "timeLabel": "ម៉ោង៖ {time}",
+    "@timeLabel": {
+        "placeholders": {
+            "time": {"type": "String"}
+        }
+    },
+
+    "newAnnouncementNotifTitle": "សេចក្ដីជូនដំណឹងថ្មី៖ {title}",
+    "@newAnnouncementNotifTitle": {
+        "placeholders": {
+            "title": {"type": "String"}
+        }
+    },
+    "clockOutUndone": "បានលុបចោលការចេញម៉ោង។ អ្នកបានចូលម៉ោងម្តងទៀត។",
+    "locationPermissionDenied": "សិទ្ធិចូលប្រើទីតាំងត្រូវបានបដិសេធ",
+    "submittingEllipsis": "កំពុងបញ្ជូន...",
+    "unknownLocation": "ទីតាំងមិនស្គាល់",
+    "locationCaptured": "ទីតាំងបានកត់ត្រា",
+    "clockedInAt": "បានចូលម៉ោងនៅ៖ {location}",
+    "@clockedInAt": {
+        "placeholders": {
+            "location": {"type": "String"}
+        }
+    },
+    "clockedOutFrom": "បានចេញម៉ោងពី៖ {location}",
+    "@clockedOutFrom": {
+        "placeholders": {
+            "location": {"type": "String"}
+        }
+    },
+    "youClockedInLate": "អ្នកបានចូលម៉ោងយឺត",
+    "provideLateReasonOptional": "សូមផ្តល់មូលហេតុនៃការយឺត (មិនចាំបាច់)។",
+    "lateReasonHint": "ឧទាហរណ៍៖ ចរាចរណ៍កកស្ទះ, បញ្ហាបន្ទាន់ផ្ទាល់ខ្លួន...",
+    "skip": "រំលង",
+    "submit": "បញ្ជូន",
+    "documentFallbackName": "ឯកសារ",
+    "myAttachedDocuments": "ឯកសារភ្ជាប់របស់ខ្ញុំ",
+    "noDocumentsFound": "រកមិនឃើញឯកសារទេ។",
+    "go": "ទៅ",
+    "employeeIdFallback": "លេខសម្គាល់៖ --",
+    "shiftTime": "វេន៖ {start} - {end}",
+    "@shiftTime": {
+        "placeholders": {
+            "start": {"type": "String"},
+            "end": {"type": "String"}
+        }
+    },
+    "roleLabel": "តួនាទី៖ {job}",
+    "@roleLabel": {
+        "placeholders": {
+            "job": {"type": "String"}
+        }
+    },
+    "completedForToday": "បានបញ្ចប់សម្រាប់ថ្ងៃនេះ",
+    "currentlyClockedIn": "កំពុងចូលម៉ោង",
+    "inOutTimes": "ចូល៖ {inTime}  •  ចេញ៖ {outTime}",
+    "@inOutTimes": {
+        "placeholders": {
+            "inTime": {"type": "String"},
+            "outTime": {"type": "String"}
+        }
+    },
+    "sinceTime": "ចាប់តាំងពី {time}",
+    "@sinceTime": {
+        "placeholders": {
+            "time": {"type": "String"}
+        }
+    },
+    "clockedOutByMistakeUndo": "ចេញម៉ោងខុសឬ? សូមលុបចោល",
+    "notClockedInYet": "មិនទាន់បានចូលម៉ោងទេ",
+
+    "couldNotLaunchDocument": "មិនអាចបើកតំណឯកសារបានទេ",
+    "noSpecialInstructions": "គ្មានការណែនាំពិសេស។",
+    "you": "អ្នក",
+    "instructions": "ការណែនាំ",
+    "uploaded": "បានផ្ទុកឡើង",
+    "uploadedBy": "បានផ្ទុកឡើងដោយ",
+    "viewDocument": "មើលឯកសារ",
+    "documents": "ឯកសារ",
+
+    "failedToLoadImage": "មិនអាចផ្ទុករូបភាពបានទេ",
+    "cannotPreviewFileType": "មិនអាចមើលឯកសារប្រភេទនេះនៅក្នុងកម្មវិធីទេ។",
+    "openExternally": "បើកនៅខាងក្រៅ",
+
+    "profileUpdatedSuccessfully": "បានធ្វើបច្ចុប្បន្នភាពប្រវត្តិរូបដោយជោគជ័យ!",
+    "editProfile": "កែសម្រួលប្រវត្តិរូប",
+    "personalInformation": "ព័ត៌មានផ្ទាល់ខ្លួន",
+    "firstName": "នាមខ្លួន",
+    "lastName": "នាមត្រកូល",
+    "contactDetails": "ព័ត៌មានទំនាក់ទំនង",
+    "phoneNumber": "លេខទូរស័ព្ទ",
+    "address": "អាសយដ្ឋាន",
+    "additionalDetails": "ព័ត៌មានបន្ថែម",
+    "khmerName": "ឈ្មោះជាភាសាខ្មែរ",
+    "emergencyContact": "ទំនាក់ទំនងបន្ទាន់",
+    "saveChanges": "រក្សាទុកការផ្លាស់ប្តូរ",
+    "pleaseEnterField": "សូមបញ្ចូល {field}",
+    "@pleaseEnterField": {
+        "placeholders": {
+            "field": {"type": "String"}
+        }
+    },
+
+    "emailRequired": "សូមបញ្ចូលអ៊ីមែល",
+    "otpSent": "បានផ្ញើលេខកូដ!",
+    "failedToSendResetLink": "មិនអាចផ្ញើតំណកំណត់ពាក្យសម្ងាត់ឡើងវិញបានទេ",
+    "allFieldsRequired": "សូមបំពេញគ្រប់ចន្លោះទាំងអស់",
+    "passwordsDoNotMatch": "ពាក្យសម្ងាត់មិនត្រូវគ្នាទេ",
+    "passwordResetSuccessfully": "បានកំណត់ពាក្យសម្ងាត់ឡើងវិញដោយជោគជ័យ",
+    "failedToResetPassword": "មិនអាចកំណត់ពាក្យសម្ងាត់ឡើងវិញបានទេ",
+    "sentCodeTo": "យើងបានផ្ញើលេខកូដ៦ខ្ទង់ទៅ {email}",
+    "@sentCodeTo": {
+        "placeholders": {
+            "email": {"type": "String"}
+        }
+    },
+    "canNowLoginNewPassword": "ឥឡូវអ្នកអាចចូលគណនីដោយប្រើពាក្យសម្ងាត់ថ្មីរបស់អ្នក។",
+    "emailAddress": "អាសយដ្ឋានអ៊ីមែល",
+    "sixDigitCode": "លេខកូដ៦ខ្ទង់",
+    "confirmNewPassword": "បញ្ជាក់ពាក្យសម្ងាត់ថ្មី",
+    "goToLogin": "ទៅកាន់ការចូលគណនី",
+    "employeeSelfServicePortal": "វិបផតថលសេវាកម្មខ្លួនឯងសម្រាប់បុគ្គលិក",
+    "passwordRequired": "សូមបញ្ចូលពាក្យសម្ងាត់",
+
+    "allHolidays": "ថ្ងៃឈប់សម្រាកទាំងអស់",
+    "noHolidaysFound": "រកមិនឃើញថ្ងៃឈប់សម្រាកទេ។",
+    "comingUpNext": "បន្ទាប់ខាងមុខ",
+    "announcement": "សេចក្ដីជូនដំណឹង",
+    "today": "ថ្ងៃនេះ",
+    "daysLeftCount": "នៅសល់ {days} ថ្ងៃ",
+    "@daysLeftCount": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "event": "ព្រឹត្តិការណ៍",
+
+    "selectDates": "សូមជ្រើសរើសកាលបរិច្ឆេទ",
+    "pleaseSelectLeaveType": "សូមជ្រើសរើសប្រភេទច្បាប់",
+    "leaveRequestedSuccessfully": "បានស្នើសុំច្បាប់ដោយជោគជ័យ!",
+    "limitBadge": "កំណត់",
+    "required": "ត្រូវការ",
+    "leaveHistory": "ប្រវត្តិច្បាប់",
+    "noHistory": "គ្មានប្រវត្តិ",
+    "history": "ប្រវត្តិ",
+
+    "quickAccess": "ចូលប្រើលឿន",
+    "myProfile": "ប្រវត្តិរូបរបស់ខ្ញុំ",
+    "viewEditYourInfo": "មើល និងកែសម្រួលព័ត៌មានរបស់អ្នក",
+    "contractTypeAndDates": "ប្រភេទកិច្ចសន្យា និងកាលបរិច្ឆេទ",
+    "clockInAndOut": "ចូល និងចេញម៉ោង",
+    "hrDocuments": "ឯកសារ HR",
+    "account": "គណនី",
+    "confirmSignOut": "តើអ្នកប្រាកដថាចង់ចាកចេញមែនទេ?",
+    "cancel": "បោះបង់",
+    "employeeFallback": "បុគ្គលិក",
+    "userFallback": "អ្នកប្រើប្រាស់",
+
+    "failedToLoadContract": "មិនអាចផ្ទុកកិច្ចសន្យាបានទេ",
+    "contractProbation": "សាកល្បង",
+    "contractFixedTerm": "កំណត់រយៈពេល",
+    "contractPermanent": "អចិន្ត្រៃយ៍",
+    "previousContracts": "កិច្ចសន្យាមុនៗ",
+    "noActiveContract": "គ្មានកិច្ចសន្យាសកម្មនៅក្នុងកំណត់ត្រាទេ។",
+    "contactHrForInfo": "សូមទាក់ទងផ្នែក HR សម្រាប់ព័ត៌មានបន្ថែម។",
+    "currentContractLabel": "កិច្ចសន្យាបច្ចុប្បន្ន",
+    "activeBadge": "សកម្ម",
+    "openEnded": "មិនកំណត់ពេល",
+    "daysLeftInProbation": "នៅសល់ {days} ថ្ងៃទៀតក្នុងការសាកល្បង",
+    "@daysLeftInProbation": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "daysUntilContractEnds": "នៅសល់ {days} ថ្ងៃទៀតកិច្ចសន្យានឹងផុតកំណត់",
+    "@daysUntilContractEnds": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "notes": "ចំណាំ",
+
+    "noFormsAvailable": "មិនទាន់មានទម្រង់បែបបទនៅឡើយទេ",
+
+    "justNow": "ទើបតែឥឡូវនេះ",
+    "minutesAgo": "{minutes}នាទីមុន",
+    "@minutesAgo": {
+        "placeholders": {
+            "minutes": {"type": "int"}
+        }
+    },
+    "hoursAgo": "{hours}ម៉ោងមុន",
+    "@hoursAgo": {
+        "placeholders": {
+            "hours": {"type": "int"}
+        }
+    },
+    "daysAgo": "{days}ថ្ងៃមុន",
+    "@daysAgo": {
+        "placeholders": {
+            "days": {"type": "int"}
+        }
+    },
+    "clearAll": "លុបទាំងអស់",
+    "confirmClearAllNotifications": "តើអ្នកប្រាកដថាចង់លុបការជូនដំណឹងទាំងអស់មែនទេ?",
+    "notifications": "ការជូនដំណឹង",
+    "allCaughtUp": "បានធ្វើបច្ចុប្បន្នភាពទាំងអស់!",
+    "noNewNotifications": "មិនមានការជូនដំណឹងថ្មីនាពេលនេះទេ។",
+    "notificationDeleted": "បានលុបការជូនដំណឹង",
+    "defaultNotificationMessage": "អ្នកមានការជូនដំណឹងថ្មីមួយ",
+    "notifLeaveRequest": "សំណើសុំច្បាប់",
+    "notifLeaveUpdate": "ការធ្វើបច្ចុប្បន្នភាពច្បាប់",
+    "notifAttendanceUpdate": "ការធ្វើបច្ចុប្បន្នភាពវត្តមាន",
+    "notifNewHoliday": "ថ្ងៃឈប់សម្រាកថ្មី",
+    "notifTaskCompleted": "កិច្ចការបានបញ្ចប់",
+    "notifNewTaskAssigned": "កិច្ចការថ្មីត្រូវបានប្រគល់ឱ្យ",
+    "notifDocumentReceived": "បានទទួលឯកសារ",
+    "notifFormSubmission": "ការដាក់ស្នើទម្រង់បែបបទ",
+    "notificationLabel": "ការជូនដំណឹង",
+
+    "submitOvertimeRequestDesc": "ដាក់ស្នើសំណើដើម្បីធ្វើការបន្ថែមម៉ោង",
+    "hoursHintExample": "ឧទាហរណ៍៖ ២.៥",
+    "overtimeReasonHint": "ឧទាហរណ៍៖ ថែទាំម៉ាស៊ីនមេ, កាលកំណត់គម្រោង...",
+    "pleaseFillRequiredFields": "សូមបំពេញព័ត៌មានចាំបាច់ទាំងអស់",
+    "hoursValue": "{hours} ម៉ោង",
+    "@hoursValue": {
+        "placeholders": {
+            "hours": {"type": "String"}
+        }
+    },
+
+    "totalPayslipsCount": "សរុប {count} ប័ណ្ណប្រាក់ខែ",
+    "@totalPayslipsCount": {
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "noPayslipsYet": "មិនទាន់មានប័ណ្ណប្រាក់ខែនៅឡើយទេ",
+    "payslipsWillAppearHere": "ប័ណ្ណប្រាក់ខែរបស់អ្នកនឹងបង្ហាញនៅទីនេះ\nនៅពេលដែលផ្នែក HR បង្កើតវា។",
+    "payslipMonthYear": "ប័ណ្ណប្រាក់ខែ - {month} {year}",
+    "@payslipMonthYear": {
+        "placeholders": {
+            "month": {"type": "String"},
+            "year": {"type": "String"}
+        }
+    },
+    "tapToViewDetails": "ចុចដើម្បីមើលព័ត៌មានលម្អិត",
+    "issuedBadge": "បានចេញ",
+    "grossSalary": "ប្រាក់បៀវត្សសរុប",
+    "netPay": "ប្រាក់ខែសុទ្ធ",
+    "monthYearPayslip": "ប័ណ្ណប្រាក់ខែ {month} {year}",
+    "@monthYearPayslip": {
+        "placeholders": {
+            "month": {"type": "String"},
+            "year": {"type": "String"}
+        }
+    },
+    "verificationRequired": "ត្រូវការផ្ទៀងផ្ទាត់",
+    "visitHrToVerify": "សូមទៅកាន់ការិយាល័យ HR ដើម្បីផ្ទៀងផ្ទាត់ម៉ោងធ្វើការ និងចុះហត្ថលេខាលើសន្លឹកកត់ត្រាម៉ោងផ្ទាល់ ដើម្បីដោះសោប័ណ្ណប្រាក់ខែនេះ។",
+    "salarySlipMonthYear": "សន្លឹកប្រាក់ខែ  •  {month} {year}",
+    "@salarySlipMonthYear": {
+        "placeholders": {
+            "month": {"type": "String"},
+            "year": {"type": "String"}
+        }
+    },
+    "earningsSection": "💰 ចំណូល",
+    "basicSalary": "ប្រាក់ខែមូលដ្ឋាន",
+    "overtimeOT": "ថែមម៉ោង (OT)",
+    "commission": "កម្រៃជើងសារ",
+    "attendanceBonus": "រង្វាន់វត្តមាន",
+    "allowances": "ប្រាក់ឧបត្ថម្ភ",
+    "totalEarnings": "ចំណូលសរុប",
+    "deductionsSection": "➖ ការកាត់ទុក",
+    "tax": "ពន្ធ",
+    "advanceDeduction": "ការកាត់ប្រាក់បុរេប្រទាន",
+    "unpaidLeave": "ច្បាប់គ្មានប្រាក់ខែ",
+    "otherDeductions": "ការកាត់ទុកផ្សេងទៀត",
+    "noneTaxExempt": "គ្មាន / ពន្ធ (លើកលែង)",
+    "totalDeductions": "ការកាត់ទុកសរុប",
+    "netSalaryCaps": "ប្រាក់ខែសុទ្ធ",
+    "verifiedReleasedOn": "បានផ្ទៀងផ្ទាត់ និងចេញផ្សាយនៅថ្ងៃទី {date}",
+    "@verifiedReleasedOn": {
+        "placeholders": {
+            "date": {"type": "String"}
+        }
+    },
+    "genericTimeFallback": "ពេលវេលា",
+    "monthJan": "មករា",
+    "monthFeb": "កុម្ភៈ",
+    "monthMar": "មីនា",
+    "monthApr": "មេសា",
+    "monthMay": "ឧសភា",
+    "monthJun": "មិថុនា",
+    "monthJul": "កក្កដា",
+    "monthAug": "សីហា",
+    "monthSep": "កញ្ញា",
+    "monthOct": "តុលា",
+    "monthNov": "វិច្ឆិកា",
+    "monthDec": "ធ្នូ",
+
+    "notApplicable": "មិនមាន",
+    "uploadingImage": "កំពុងផ្ទុករូបភាពឡើង...",
+    "profilePictureUpdated": "បានធ្វើបច្ចុប្បន្នភាពរូបភាពប្រវត្តិរូប!",
+    "networkError": "បញ្ហាបណ្តាញ",
+    "uploadFailed": "ការផ្ទុកឡើងបានបរាជ័យ៖ {error}",
+    "@uploadFailed": {
+        "placeholders": {
+            "error": {"type": "String"}
+        }
+    },
+    "currentPassword": "ពាក្យសម្ងាត់បច្ចុប្បន្ន",
+    "passwordMinLength": "ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច៦តួអក្សរ",
+    "passwordChangedSuccessfully": "បានផ្លាស់ប្តូរពាក្យសម្ងាត់ដោយជោគជ័យ!",
+    "save": "រក្សាទុក",
+    "empCode": "លេខកូដបុគ្គលិក",
+    "joined": "ថ្ងៃចូលធ្វើការ",
+    "viewLess": "មើលតិចជាង",
+    "viewMoreDetails": "មើលព័ត៌មានលម្អិតបន្ថែម",
+
+    "attachProof": "ភ្ជាប់ភស្តុតាង",
+    "takePhoto": "ថតរូបភាព",
+    "recordVideo": "ថតវីដេអូ",
+    "choosePhotoFromGallery": "ជ្រើសរើសរូបភាពពីវិចិត្រសាល",
+    "chooseVideoFromGallery": "ជ្រើសរើសវីដេអូពីវិចិត្រសាល",
+    "attachProofQuestion": "ភ្ជាប់ភស្តុតាង?",
+    "attachProofPrompt": "តើអ្នកចង់ភ្ជាប់រូបភាព ឬវីដេអូនៃកិច្ចការដែលបានបញ្ចប់របស់អ្នកទេ?",
+    "attachMedia": "ភ្ជាប់មេឌៀ",
+    "untitledTask": "កិច្ចការគ្មានចំណងជើង",
+    "low": "ទាប",
+    "noDescriptionProvided": "មិនមានការពិពណ៌នាបន្ថែមទេ។",
+    "dueDateLabel": "ថ្ងៃកំណត់៖ {date}",
+    "@dueDateLabel": {
+        "placeholders": {
+            "date": {"type": "String"}
+        }
+    },
+    "noDueDate": "គ្មានថ្ងៃកំណត់",
+    "attachments": "ឯកសារភ្ជាប់",
+    "adminInstructions": "ការណែនាំពីអ្នកគ្រប់គ្រង",
+    "yourSubmission": "ការដាក់ស្នើរបស់អ្នក",
+    "submissionNote": "កំណត់ចំណាំការដាក់ស្នើ",
+    "addNoteOptional": "បន្ថែមចំណាំ ឬមតិ (មិនចាំបាច់)",
+    "changeProofFile": "ប្តូរឯកសារភស្តុតាង",
+    "attachPhotoOrVideoProof": "ភ្ជាប់រូបភាព ឬវីដេអូជាភស្តុតាង",
+    "proofAttachedReady": "បានភ្ជាប់ភស្តុតាង ហើយត្រៀមខ្លួនដើម្បីដាក់ស្នើ!",
+    "completedLabel": "បានបញ្ចប់",
+    "saveNewProof": "រក្សាទុកភស្តុតាងថ្មី",
+    "markAsComplete": "សម្គាល់ថាបានបញ្ចប់",
+    "noTasksAssigned": "មិនមានកិច្ចការណាត្រូវប្រគល់ឱ្យអ្នកទេ។",
+    "untitled": "គ្មានចំណងជើង",
+
+    "submittedSuccessfully": "បានដាក់ស្នើដោយជោគជ័យ!",
+    "enterValidNumber": "សូមបញ្ចូលលេខត្រឹមត្រូវ",
+    "yes": "បាទ/ចាស",
+    "select": "ជ្រើសរើស",
+    "mySubmissions": "ការដាក់ស្នើរបស់ខ្ញុំ",
+    "noSubmissionsYet": "មិនទាន់មានការដាក់ស្នើនៅឡើយទេ",
+    "submissionLabel": "ការដាក់ស្នើ",
+    "adminFallback": "អ្នកគ្រប់គ្រង"
 }
