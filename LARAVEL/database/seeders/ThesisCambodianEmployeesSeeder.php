@@ -43,6 +43,8 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     private const WORKPLACE_LONGITUDE = 104.93074;
     private const SHIFT_START_TIME = '08:00:00';
     private const SHIFT_END_TIME = '16:55:00';
+    private const LATE_GRACE_MINUTES = 15;
+    private const EARLY_OUT_FLEX_MINUTES = 10;
 
     public function run(): void
     {
@@ -84,14 +86,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 $this->seedAsset($employee, $index, $today);
             }
 
-            $this->normalizeAttendanceLocations();
+            $this->normalizeAttendanceRecords();
             $this->adjustHengCamarySalary();
         });
 
         $this->command?->newLine();
         $this->command?->info('Thesis dataset ready: 10 synthetic Cambodian employees.');
         $this->command?->line('Coverage: attendance, leave, overtime, payroll, tasks, contracts, lifecycle, and assets.');
-        $this->command?->line('Workplace: Norton University. Morning shift is 8:00 AM-4:55 PM; clocked-in attendance locations normalized.');
+        $this->command?->line('Workplace: Norton University. Morning shift is 8:00 AM-4:55 PM; attendance locations and status labels normalized.');
 
         if ($createdEmails !== []) {
             $this->command?->warn('Save these new demo credentials now:');
@@ -295,6 +297,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             ]
         );
         Setting::updateOrCreate(
+            ['key' => 'late_grace_period_minutes'],
+            [
+                'value' => (string) self::LATE_GRACE_MINUTES,
+                'type' => 'number',
+                'group' => 'attendance',
+            ]
+        );
+        Setting::updateOrCreate(
             ['key' => 'office_latitude'],
             [
                 'value' => (string) self::WORKPLACE_LATITUDE,
@@ -321,6 +331,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
             $shift['start_time'] = self::SHIFT_START_TIME;
             $shift['end_time'] = self::SHIFT_END_TIME;
+            $shift['grace_period_minutes'] = self::LATE_GRACE_MINUTES;
             $morningShiftFound = true;
             break;
         }
@@ -332,26 +343,60 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'name' => 'Morning Shift',
                 'start_time' => self::SHIFT_START_TIME,
                 'end_time' => self::SHIFT_END_TIME,
-                'grace_period_minutes' => 15,
+                'grace_period_minutes' => self::LATE_GRACE_MINUTES,
             ];
         }
 
         HrCatalog::saveShifts($shifts);
     }
 
-    private function normalizeAttendanceLocations(): void
+    private function normalizeAttendanceRecords(): void
     {
         Attendance::withTrashed()
             ->whereNotNull('clock_in')
             ->chunkById(250, function ($attendances): void {
                 foreach ($attendances as $attendance) {
                     $coordinateOffset = ((int) $attendance->employee_id % 10) * 0.00001;
+                    $clockIn = Carbon::parse(
+                        $attendance->getRawOriginal('clock_in'),
+                        'UTC'
+                    )->setTimezone(self::TIMEZONE);
+                    $lateThreshold = $clockIn->copy()
+                        ->startOfDay()
+                        ->setTimeFromTimeString(self::SHIFT_START_TIME)
+                        ->addMinutes(self::LATE_GRACE_MINUTES);
+                    $isLate = $clockIn->gt($lateThreshold);
+                    $isEarlyOut = $attendance->status === 'early_out';
+
+                    if (!$isEarlyOut && $attendance->clock_out) {
+                        $clockOut = Carbon::parse(
+                            $attendance->getRawOriginal('clock_out'),
+                            'UTC'
+                        )->setTimezone(self::TIMEZONE);
+                        $earliestFlexibleClockOut = $clockOut->copy()
+                            ->startOfDay()
+                            ->setTimeFromTimeString(self::SHIFT_END_TIME)
+                            ->subMinutes(self::EARLY_OUT_FLEX_MINUTES);
+                        $isEarlyOut = $clockOut->lt($earliestFlexibleClockOut);
+                    }
+
+                    $status = $attendance->status === 'warning'
+                        ? 'warning'
+                        : ($isEarlyOut ? 'early_out' : ($isLate ? 'late' : 'present'));
 
                     $attendance->forceFill([
                         'address' => self::WORKPLACE_ADDRESS,
                         'latitude' => (string) (self::WORKPLACE_LATITUDE + $coordinateOffset),
                         'longitude' => (string) (self::WORKPLACE_LONGITUDE + $coordinateOffset),
                         'location_accuracy' => $attendance->location_accuracy ?: '8',
+                        'status' => $status,
+                        'is_late' => $isLate,
+                        'late_reason' => $isLate
+                            ? ($attendance->late_reason ?: 'Traffic delay in Phnom Penh')
+                            : null,
+                        'early_out_reason' => $isEarlyOut
+                            ? ($attendance->early_out_reason ?: 'Approved early departure')
+                            : null,
                     ])->save();
                 }
             });

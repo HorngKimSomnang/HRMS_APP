@@ -68,6 +68,17 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             'latitude' => '11.5480',
             'longitude' => '104.9210',
         ]);
+        $lateAttendance = Attendance::create([
+            'employee_id' => $hengCamary->id,
+            'date' => '2026-07-23',
+            'clock_in' => Carbon::parse('2026-07-23 08:50:00', 'Asia/Phnom_Penh')->utc(),
+            'clock_out' => Carbon::parse('2026-07-23 16:58:00', 'Asia/Phnom_Penh')->utc(),
+            'status' => 'present',
+            'is_late' => false,
+            'address' => 'Khan Chamkar Mon, Phnom Penh, Cambodia',
+            'latitude' => '11.5480',
+            'longitude' => '104.9210',
+        ]);
 
         $existingEmployeeCount = Employee::count();
 
@@ -104,6 +115,9 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame('600.00', $hengPayslip->fresh()->basic_salary);
         $this->assertSame('620.00', $hengPayslip->fresh()->net_salary);
         $this->assertStringStartsWith('Norton University', $hengAttendance->fresh()->address);
+        $this->assertSame('late', $lateAttendance->fresh()->status);
+        $this->assertTrue($lateAttendance->fresh()->is_late);
+        $this->assertNotEmpty($lateAttendance->fresh()->late_reason);
         $this->assertSame('08:00:00', HrCatalog::findShiftById(1)['start_time']);
         $this->assertSame('16:55:00', HrCatalog::findShiftById(1)['end_time']);
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
