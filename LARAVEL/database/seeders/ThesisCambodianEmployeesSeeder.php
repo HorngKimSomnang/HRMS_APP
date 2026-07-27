@@ -204,8 +204,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     {
         $workdayIndex = 0;
         $joiningDate = Carbon::parse($employee->joining_date, self::TIMEZONE)->startOfDay();
-        $historyLimit = $today->copy()->subMonths(8)->startOfDay();
-        $startDate = $joiningDate->greaterThan($historyLimit) ? $joiningDate : $historyLimit;
+        $startDate = $joiningDate;
         $approvedLeaveDates = $this->approvedLeaveDates($employee);
 
         for ($date = $startDate->copy(); $date->lte($today); $date->addDay()) {
@@ -355,12 +354,19 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
     private function normalizeAttendanceRecords(array $demoEmployeeIds): void
     {
+        $demoEmployeeIdLookup = array_fill_keys(
+            array_map(static fn ($id): int => (int) $id, $demoEmployeeIds),
+            true
+        );
+
         Attendance::withTrashed()
             ->whereNotNull('clock_in')
-            ->chunkById(250, function ($attendances) use ($demoEmployeeIds): void {
+            ->chunkById(250, function ($attendances) use ($demoEmployeeIdLookup): void {
                 foreach ($attendances as $attendance) {
                     $coordinateOffset = ((int) $attendance->employee_id % 10) * 0.00001;
-                    $isDemoEmployee = in_array($attendance->employee_id, $demoEmployeeIds, true);
+                    $isDemoEmployee = isset(
+                        $demoEmployeeIdLookup[(int) $attendance->employee_id]
+                    );
                     $attendanceDate = Carbon::parse($attendance->date, self::TIMEZONE)->startOfDay();
 
                     if ($isDemoEmployee) {

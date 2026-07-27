@@ -131,6 +131,12 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             1000,
             Attendance::whereIn('employee_id', $employeeIds)->count()
         );
+        $this->assertSame(
+            10,
+            Attendance::whereIn('employee_id', $employeeIds)
+                ->whereDate('date', '2026-07-27')
+                ->count()
+        );
         $this->assertTrue(
             Attendance::whereIn('employee_id', $employeeIds)
                 ->whereIn('status', ['present', 'late', 'early_out', 'absent'])
@@ -246,6 +252,38 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                         )->endOfMonth()->lt($employee->joining_date);
                     })
                     ->count()
+            );
+
+            $approvedLeaveDates = [];
+            Leave::where('employee_id', $employee->id)
+                ->where('status', 'approved')
+                ->get()
+                ->each(function (Leave $leave) use (&$approvedLeaveDates): void {
+                    for (
+                        $date = Carbon::parse($leave->start_date)->startOfDay();
+                        $date->lte(Carbon::parse($leave->end_date)->startOfDay());
+                        $date->addDay()
+                    ) {
+                        if (!$date->isWeekend()) {
+                            $approvedLeaveDates[$date->toDateString()] = true;
+                        }
+                    }
+                });
+
+            $expectedAttendanceDays = 0;
+            for (
+                $date = Carbon::parse($employee->joining_date)->startOfDay();
+                $date->lte(Carbon::parse('2026-07-27')->startOfDay());
+                $date->addDay()
+            ) {
+                if (!$date->isWeekend() && !isset($approvedLeaveDates[$date->toDateString()])) {
+                    $expectedAttendanceDays++;
+                }
+            }
+
+            $this->assertSame(
+                $expectedAttendanceDays,
+                Attendance::where('employee_id', $employee->id)->count()
             );
         });
         $this->assertSame('2025-12-01', $employees->min('joining_date')->toDateString());
