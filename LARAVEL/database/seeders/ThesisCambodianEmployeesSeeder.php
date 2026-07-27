@@ -41,6 +41,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     private const WORKPLACE_ADDRESS = 'Norton University, St. Keo Chenda, Sangkat Chroy Changvar, Khan Chroy Changvar, Phnom Penh, Cambodia';
     private const WORKPLACE_LATITUDE = 11.58817;
     private const WORKPLACE_LONGITUDE = 104.93074;
+    private const SHIFT_START_TIME = '08:00:00';
     private const SHIFT_END_TIME = '16:55:00';
 
     public function run(): void
@@ -90,7 +91,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         $this->command?->newLine();
         $this->command?->info('Thesis dataset ready: 10 synthetic Cambodian employees.');
         $this->command?->line('Coverage: attendance, leave, overtime, payroll, tasks, contracts, lifecycle, and assets.');
-        $this->command?->line('Workplace: Norton University. Morning shift ends at 4:55 PM; clocked-in attendance locations normalized.');
+        $this->command?->line('Workplace: Norton University. Morning shift is 8:00 AM-4:55 PM; clocked-in attendance locations normalized.');
 
         if ($createdEmails !== []) {
             $this->command?->warn('Save these new demo credentials now:');
@@ -242,16 +243,22 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 ]);
             } else {
                 $clockInTime = $status === 'late'
-                    ? sprintf('09:%02d:00', 18 + ($employeeIndex % 15))
-                    : sprintf('08:%02d:00', 47 + ($employeeIndex % 10));
+                    ? $date->copy()
+                        ->setTime(8, 16)
+                        ->addMinutes(($workdayIndex + ($employeeIndex * 2)) % 10)
+                        ->format('H:i:s')
+                    : $date->copy()
+                        ->setTime(7, 55)
+                        ->addMinutes(($workdayIndex + ($employeeIndex * 2)) % 16)
+                        ->format('H:i:s');
                 $clockOutTime = $status === 'early_out'
                     ? $date->copy()
-                        ->setTime(16, 10)
-                        ->addMinutes(($workdayIndex + ($employeeIndex * 3)) % 26)
+                        ->setTime(16, 35)
+                        ->addMinutes(($workdayIndex + ($employeeIndex * 3)) % 16)
                         ->format('H:i:s')
                     : $date->copy()
                         ->setTime(16, 55)
-                        ->addMinutes(($workdayIndex + ($employeeIndex * 3)) % 16)
+                        ->addMinutes(($workdayIndex + ($employeeIndex * 3)) % 6)
                         ->format('H:i:s');
 
                 $attendance->fill([
@@ -280,6 +287,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     private function configureThesisWorkplace(): void
     {
         Setting::updateOrCreate(
+            ['key' => 'work_start_time'],
+            [
+                'value' => '08:00',
+                'type' => 'time',
+                'group' => 'attendance',
+            ]
+        );
+        Setting::updateOrCreate(
             ['key' => 'office_latitude'],
             [
                 'value' => (string) self::WORKPLACE_LATITUDE,
@@ -304,6 +319,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 continue;
             }
 
+            $shift['start_time'] = self::SHIFT_START_TIME;
             $shift['end_time'] = self::SHIFT_END_TIME;
             $morningShiftFound = true;
             break;
@@ -314,7 +330,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             $shifts[] = [
                 'id' => 1,
                 'name' => 'Morning Shift',
-                'start_time' => '09:00:00',
+                'start_time' => self::SHIFT_START_TIME,
                 'end_time' => self::SHIFT_END_TIME,
                 'grace_period_minutes' => 15,
             ];
