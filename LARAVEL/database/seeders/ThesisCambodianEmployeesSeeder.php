@@ -62,12 +62,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         $demoPassword = Str::password(16);
         $createdEmails = [];
         $demoEmployeeIndexes = [];
+        $attendanceIndexOffset = Employee::where('status', 'active')->count();
 
         DB::transaction(function () use (
             $approver,
             $profiles,
             $today,
             $demoPassword,
+            $attendanceIndexOffset,
             &$createdEmails,
             &$demoEmployeeIndexes
         ): void {
@@ -75,14 +77,19 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
             foreach ($profiles as $index => $profile) {
                 [$employee, $wasCreated] = $this->upsertEmployee($profile, $demoPassword);
-                $demoEmployeeIndexes[(int) $employee->id] = $index;
+                $globalAttendanceIndex = $attendanceIndexOffset + $index;
+                $demoEmployeeIndexes[(int) $employee->id] = $globalAttendanceIndex;
 
                 if ($wasCreated) {
                     $createdEmails[] = $profile['email'];
                 }
 
                 $this->seedLeaves($employee, $index, $today, $approver);
-                $this->seedAttendance($employee, $index, $today);
+                $this->seedAttendance(
+                    $employee,
+                    $globalAttendanceIndex,
+                    $today
+                );
                 $this->seedOvertime($employee, $index, $today, $approver);
                 $this->seedPayslips($employee, $index, $today);
                 $this->seedTasks($employee, $index, $today, $approver);
@@ -230,11 +237,11 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 continue;
             }
 
-            $pattern = ($date->dayOfYear + ($employeeIndex * 7)) % 20;
+            $pattern = ($date->dayOfYear + ($employeeIndex * 7)) % 30;
             $status = match (true) {
                 $pattern === 0 => 'absent',
-                in_array($pattern, [4, 13], true) => 'late',
-                $pattern === 9 => 'early_out',
+                in_array($pattern, [4, 17, 26], true) => 'late',
+                in_array($pattern, [9, 22], true) => 'early_out',
                 default => 'present',
             };
 
@@ -386,10 +393,12 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                             '%u',
                             crc32($attendance->employee_id . '|' . $attendanceDate->toDateString())
                         );
-                        $pattern = ($attendanceDate->dayOfYear + ($employeeIndex * 7)) % 20;
+                        $pattern = (
+                            $attendanceDate->dayOfYear + ($employeeIndex * 7)
+                        ) % 30;
                         $generatedStatus = match (true) {
-                            in_array($pattern, [4, 13], true) => 'late',
-                            $pattern === 9 => 'early_out',
+                            in_array($pattern, [4, 17, 26], true) => 'late',
+                            in_array($pattern, [9, 22], true) => 'early_out',
                             default => 'present',
                         };
                         $clockInTime = $generatedStatus === 'late'
@@ -559,7 +568,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                     $status = match (true) {
                         $pattern === 0 => 'absent',
                         in_array($pattern, [4, 17, 26], true) => 'late',
-                        in_array($pattern, [9, 23], true) => 'early_out',
+                        in_array($pattern, [9, 22], true) => 'early_out',
                         default => 'present',
                     };
 

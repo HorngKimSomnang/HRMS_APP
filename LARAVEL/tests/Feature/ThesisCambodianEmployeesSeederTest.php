@@ -158,6 +158,15 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             1,
             $july25OriginalEmployeeAttendance->where('status', 'absent')->count()
         );
+        $july25AllEmployeeAttendance = Attendance::whereIn(
+            'employee_id',
+            $originalTestEmployeeIds->merge($employeeIds)
+        )->whereDate('date', '2026-07-25')->get();
+        $this->assertCount(16, $july25AllEmployeeAttendance);
+        $this->assertLessThanOrEqual(
+            1,
+            $july25AllEmployeeAttendance->where('status', 'absent')->count()
+        );
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Overtime::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(53, Payslip::whereIn('employee_id', $employeeIds)->count());
