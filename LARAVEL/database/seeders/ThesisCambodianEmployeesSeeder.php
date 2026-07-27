@@ -66,8 +66,8 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                     $createdEmails[] = $profile['email'];
                 }
 
-                $this->seedAttendance($employee, $index, $today);
                 $this->seedLeaves($employee, $index, $today, $approver);
+                $this->seedAttendance($employee, $index, $today);
                 $this->seedOvertime($employee, $index, $today, $approver);
                 $this->seedPayslips($employee, $index, $today);
                 $this->seedTasks($employee, $index, $today, $approver);
@@ -187,10 +187,20 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     private function seedAttendance(Employee $employee, int $employeeIndex, Carbon $today): void
     {
         $workdayIndex = 0;
+        $joiningDate = Carbon::parse($employee->joining_date, self::TIMEZONE)->startOfDay();
+        $historyLimit = $today->copy()->subMonths(8)->startOfDay();
+        $startDate = $joiningDate->greaterThan($historyLimit) ? $joiningDate : $historyLimit;
+        $approvedLeaveDates = $this->approvedLeaveDates($employee);
 
-        for ($daysAgo = 69; $daysAgo >= 0; $daysAgo--) {
-            $date = $today->copy()->subDays($daysAgo);
+        for ($date = $startDate->copy(); $date->lte($today); $date->addDay()) {
             if ($date->isWeekend()) {
+                continue;
+            }
+
+            if (isset($approvedLeaveDates[$date->toDateString()])) {
+                Attendance::where('employee_id', $employee->id)
+                    ->whereDate('date', $date)
+                    ->delete();
                 continue;
             }
 
@@ -251,12 +261,37 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         }
     }
 
+    private function approvedLeaveDates(Employee $employee): array
+    {
+        $dates = [];
+
+        Leave::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->get()
+            ->each(function (Leave $leave) use (&$dates): void {
+                $date = Carbon::parse($leave->start_date)->startOfDay();
+                $endDate = Carbon::parse($leave->end_date)->startOfDay();
+
+                while ($date->lte($endDate)) {
+                    $dates[$date->toDateString()] = true;
+                    $date->addDay();
+                }
+            });
+
+        return $dates;
+    }
+
     private function seedLeaves(Employee $employee, int $index, Carbon $today, User $approver): void
     {
+        $joiningDate = Carbon::parse($employee->joining_date)->startOfDay();
         $approvedStart = $today->copy()
             ->subMonths(($index % 5) + 1)
             ->startOfMonth()
             ->addDays(3 + (($index * 2) % 15));
+        $earliestAnnualLeave = $joiningDate->copy()->addDays(30);
+        if ($approvedStart->lt($earliestAnnualLeave)) {
+            $approvedStart = $earliestAnnualLeave;
+        }
 
         $this->upsertLeave($employee, [
             'leave_type' => 'Annual Leave',
@@ -268,6 +303,10 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         ]);
 
         $sickStart = $today->copy()->subDays(18 + ($index * 3));
+        $earliestSickLeave = $joiningDate->copy()->addDays(14);
+        if ($sickStart->lt($earliestSickLeave)) {
+            $sickStart = $earliestSickLeave;
+        }
         $this->upsertLeave($employee, [
             'leave_type' => 'Sick Leave',
             'start_date' => $sickStart,
@@ -379,9 +418,30 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     private function seedPayslips(Employee $employee, int $index, Carbon $today): void
     {
         $basicSalary = (float) $employee->basic_salary;
+        $joiningDate = Carbon::parse($employee->joining_date)->startOfDay();
+
+        // Earlier seeder versions created six months for everyone. Archive any
+        // synthetic payslip whose pay period ended before employment started.
+        Payslip::where('employee_id', $employee->id)
+            ->get()
+            ->each(function (Payslip $payslip) use ($joiningDate): void {
+                $periodEnd = Carbon::create(
+                    (int) $payslip->year,
+                    (int) $payslip->month,
+                    1
+                )->endOfMonth();
+
+                if ($periodEnd->lt($joiningDate)) {
+                    $payslip->delete();
+                }
+            });
 
         for ($monthsAgo = 5; $monthsAgo >= 0; $monthsAgo--) {
             $period = $today->copy()->startOfMonth()->subMonths($monthsAgo);
+            if ($period->copy()->endOfMonth()->lt($joiningDate)) {
+                continue;
+            }
+
             $overtimeAmount = 15 + (($index * 5 + $monthsAgo * 7) % 30);
             $allowances = 25 + (($index % 4) * 5);
             $attendanceBonus = ($index + $monthsAgo) % 4 === 0 ? 15 : 0;
@@ -558,7 +618,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             [
                 'old_value' => number_format(max(0, (float) $employee->basic_salary - 50), 2, '.', ''),
                 'new_value' => number_format((float) $employee->basic_salary, 2, '.', ''),
-                'effective_date' => $today->copy()->subMonths(3)->startOfMonth()->toDateString(),
+                'effective_date' => $this->realisticSalaryReviewDate($joiningDate, $today),
                 'created_by' => $creator->id,
             ]
         );
@@ -594,17 +654,33 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         ]);
         $asset->save();
 
-        AssetAssignment::firstOrCreate(
+        $joiningDate = Carbon::parse($employee->joining_date)->startOfDay();
+        $assignedAt = $today->copy()->subDays(45 + ($index * 4));
+        if ($assignedAt->lt($joiningDate)) {
+            $assignedAt = $joiningDate->copy()->addDays(3);
+        }
+
+        AssetAssignment::updateOrCreate(
             [
                 'asset_id' => $asset->id,
                 'employee_id' => $employee->id,
                 'returned_at' => null,
             ],
             [
-                'assigned_at' => $today->copy()->subDays(45 + ($index * 4))->toDateString(),
+                'assigned_at' => $assignedAt->toDateString(),
                 'notes' => 'Issued for daily work',
             ]
         );
+    }
+
+    private function realisticSalaryReviewDate(Carbon $joiningDate, Carbon $today): string
+    {
+        $reviewDate = $joiningDate->copy()->addMonths(2)->startOfDay();
+        if ($reviewDate->gt($today)) {
+            $reviewDate = $today->copy();
+        }
+
+        return $reviewDate->toDateString();
     }
 
     private function localTimeToUtc(Carbon $date, string $time): string
@@ -630,7 +706,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '012410201',
                 'gender' => 'Male',
                 'dob' => '1994-03-12',
-                'joining_date' => '2022-02-14',
+                'joining_date' => '2025-12-01',
                 'department' => 'Human Resources',
                 'job_title' => 'HR Officer',
                 'basic_salary' => 500,
@@ -649,7 +725,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '015410202',
                 'gender' => 'Female',
                 'dob' => '1996-08-25',
-                'joining_date' => '2022-06-01',
+                'joining_date' => '2025-12-15',
                 'department' => 'Finance',
                 'job_title' => 'Senior Accountant',
                 'basic_salary' => 650,
@@ -668,7 +744,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '016410203',
                 'gender' => 'Male',
                 'dob' => '1993-11-04',
-                'joining_date' => '2023-01-09',
+                'joining_date' => '2026-01-05',
                 'department' => 'Information Technology',
                 'job_title' => 'Software Developer',
                 'basic_salary' => 750,
@@ -687,7 +763,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '017410204',
                 'gender' => 'Female',
                 'dob' => '1997-01-19',
-                'joining_date' => '2023-04-03',
+                'joining_date' => '2026-01-19',
                 'department' => 'Operations',
                 'job_title' => 'Operations Coordinator',
                 'basic_salary' => 500,
@@ -706,7 +782,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '018410205',
                 'gender' => 'Male',
                 'dob' => '1992-06-07',
-                'joining_date' => '2023-09-18',
+                'joining_date' => '2026-02-02',
                 'department' => 'Sales',
                 'job_title' => 'Sales Executive',
                 'basic_salary' => 550,
@@ -725,7 +801,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '060410206',
                 'gender' => 'Female',
                 'dob' => '1998-12-15',
-                'joining_date' => '2024-01-08',
+                'joining_date' => '2026-02-16',
                 'department' => 'Marketing',
                 'job_title' => 'Digital Marketing Officer',
                 'basic_salary' => 500,
@@ -744,7 +820,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '069410207',
                 'gender' => 'Male',
                 'dob' => '1995-05-30',
-                'joining_date' => '2024-05-20',
+                'joining_date' => '2026-03-02',
                 'department' => 'Procurement',
                 'job_title' => 'Procurement Officer',
                 'basic_salary' => 480,
@@ -763,7 +839,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '070410208',
                 'gender' => 'Female',
                 'dob' => '1999-02-10',
-                'joining_date' => '2025-01-06',
+                'joining_date' => '2026-03-23',
                 'department' => 'Administration',
                 'job_title' => 'Administrative Assistant',
                 'basic_salary' => 400,
@@ -782,7 +858,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '071410209',
                 'gender' => 'Female',
                 'dob' => '1997-09-22',
-                'joining_date' => '2025-04-21',
+                'joining_date' => '2026-04-06',
                 'department' => 'Customer Service',
                 'job_title' => 'Customer Service Officer',
                 'basic_salary' => 420,
@@ -801,7 +877,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'phone' => '076410210',
                 'gender' => 'Male',
                 'dob' => '2000-04-18',
-                'joining_date' => '2026-06-15',
+                'joining_date' => '2026-05-04',
                 'department' => 'Information Technology',
                 'job_title' => 'IT Support Technician',
                 'basic_salary' => 450,

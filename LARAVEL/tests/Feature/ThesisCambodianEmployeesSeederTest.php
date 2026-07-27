@@ -14,6 +14,7 @@ use App\Models\Task;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ThesisCambodianEmployeesSeeder;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -21,8 +22,15 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
 {
     use DatabaseTransactions;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_it_adds_complete_demo_employees_without_duplication(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-07-27 12:00:00', 'Asia/Phnom_Penh'));
         $this->seed(RolePermissionSeeder::class);
 
         $admin = User::factory()->create();
@@ -86,13 +94,13 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame('620.00', $hengPayslip->fresh()->net_salary);
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Overtime::whereIn('employee_id', $employeeIds)->count());
-        $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->count());
+        $this->assertSame(53, Payslip::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Task::whereIn('assigned_to', $employeeIds)->count());
         $this->assertSame(10, Contract::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(10, EmployeeEvent::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(10, AssetAssignment::whereIn('employee_id', $employeeIds)->count());
         $this->assertGreaterThanOrEqual(
-            490,
+            1000,
             Attendance::whereIn('employee_id', $employeeIds)->count()
         );
         $this->assertTrue(
@@ -107,9 +115,9 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame(20, Overtime::whereIn('employee_id', $employeeIds)->where('status', 'approved')->count());
         $this->assertSame(6, Overtime::whereIn('employee_id', $employeeIds)->where('status', 'pending')->count());
         $this->assertSame(4, Overtime::whereIn('employee_id', $employeeIds)->where('status', 'rejected')->count());
-        $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->where('status', 'paid')->count());
-        $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->where('requires_signature', true)->count());
-        $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->where('is_signed', true)->count());
+        $this->assertSame(53, Payslip::whereIn('employee_id', $employeeIds)->where('status', 'paid')->count());
+        $this->assertSame(53, Payslip::whereIn('employee_id', $employeeIds)->where('requires_signature', true)->count());
+        $this->assertSame(53, Payslip::whereIn('employee_id', $employeeIds)->where('is_signed', true)->count());
         $this->assertSame(0, Payslip::whereIn('employee_id', $employeeIds)->whereNull('signed_at')->count());
         $this->assertSame(10, Task::whereIn('assigned_to', $employeeIds)->where('status', 'completed')->count());
         $this->assertSame(10, Task::whereIn('assigned_to', $employeeIds)->where('status', 'in_progress')->count());
@@ -121,6 +129,27 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             $this->assertNotEmpty($employee->job_title);
             $this->assertNotEmpty($employee->basic_salary);
             $this->assertLessThanOrEqual(750, (float) $employee->basic_salary);
+            $this->assertSame(
+                0,
+                Attendance::where('employee_id', $employee->id)
+                    ->whereDate('date', '<', $employee->joining_date)
+                    ->count()
+            );
+            $this->assertSame(
+                0,
+                Payslip::where('employee_id', $employee->id)
+                    ->get()
+                    ->filter(function (Payslip $payslip) use ($employee): bool {
+                        return Carbon::create(
+                            (int) $payslip->year,
+                            (int) $payslip->month,
+                            1
+                        )->endOfMonth()->lt($employee->joining_date);
+                    })
+                    ->count()
+            );
         });
+        $this->assertSame('2025-12-01', $employees->min('joining_date')->toDateString());
+        $this->assertSame('2026-05-04', $employees->max('joining_date')->toDateString());
     }
 }
