@@ -115,6 +115,11 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame('600.00', $hengPayslip->fresh()->basic_salary);
         $this->assertSame('620.00', $hengPayslip->fresh()->net_salary);
         $this->assertStringStartsWith('Norton University', $hengAttendance->fresh()->address);
+        $this->assertSame('early_out', $hengAttendance->fresh()->status);
+        $this->assertStringContainsString(
+            'pending HR review',
+            $hengAttendance->fresh()->early_out_reason
+        );
         $this->assertSame('late', $lateAttendance->fresh()->status);
         $this->assertTrue($lateAttendance->fresh()->is_late);
         $this->assertNotEmpty($lateAttendance->fresh()->late_reason);
@@ -171,7 +176,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 )->setTimezone('Asia/Phnom_Penh');
                 $minutes = ($clockOut->hour * 60) + $clockOut->minute;
 
-                return $minutes < (16 * 60 + 50) || $minutes > (17 * 60 + 2);
+                return $minutes < (16 * 60 + 55) || $minutes > (17 * 60 + 5);
             });
         $this->assertSame(
             0,
@@ -213,6 +218,37 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 ->where('status', 'late')
                 ->distinct()
                 ->count('late_reason')
+        );
+        $currentDayAttendances = Attendance::whereIn('employee_id', $employeeIds)
+            ->whereDate('date', '2026-07-27')
+            ->get();
+        $this->assertGreaterThanOrEqual(
+            1,
+            $currentDayAttendances->where('status', 'early_out')->count()
+        );
+        $this->assertGreaterThanOrEqual(
+            1,
+            $currentDayAttendances
+                ->whereIn('status', ['present', 'late'])
+                ->filter(function (Attendance $attendance): bool {
+                    return Carbon::parse(
+                        $attendance->getRawOriginal('clock_out'),
+                        'UTC'
+                    )->setTimezone('Asia/Phnom_Penh')->format('H:i') === '16:55';
+                })
+                ->count()
+        );
+        $this->assertGreaterThanOrEqual(
+            1,
+            $currentDayAttendances
+                ->whereIn('status', ['present', 'late'])
+                ->filter(function (Attendance $attendance): bool {
+                    return Carbon::parse(
+                        $attendance->getRawOriginal('clock_out'),
+                        'UTC'
+                    )->setTimezone('Asia/Phnom_Penh')->format('H:i') > '16:55';
+                })
+                ->count()
         );
         $this->assertSame(20, Leave::whereIn('employee_id', $employeeIds)->where('status', 'approved')->count());
         $this->assertSame(10, Leave::whereIn('employee_id', $employeeIds)->where('status', 'pending')->count());

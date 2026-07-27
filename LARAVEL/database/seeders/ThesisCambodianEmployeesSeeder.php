@@ -45,7 +45,6 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     private const SHIFT_START_TIME = '08:00:00';
     private const SHIFT_END_TIME = '16:55:00';
     private const LATE_GRACE_MINUTES = 15;
-    private const EARLY_OUT_FLEX_MINUTES = 10;
 
     public function run(): void
     {
@@ -61,7 +60,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         $today = Carbon::today(self::TIMEZONE);
         $demoPassword = Str::password(16);
         $createdEmails = [];
-        $demoEmployeeIds = [];
+        $demoEmployeeIndexes = [];
 
         DB::transaction(function () use (
             $approver,
@@ -69,13 +68,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             $today,
             $demoPassword,
             &$createdEmails,
-            &$demoEmployeeIds
+            &$demoEmployeeIndexes
         ): void {
             $this->configureThesisWorkplace();
 
             foreach ($profiles as $index => $profile) {
                 [$employee, $wasCreated] = $this->upsertEmployee($profile, $demoPassword);
-                $demoEmployeeIds[] = $employee->id;
+                $demoEmployeeIndexes[(int) $employee->id] = $index;
 
                 if ($wasCreated) {
                     $createdEmails[] = $profile['email'];
@@ -90,7 +89,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 $this->seedAsset($employee, $index, $today);
             }
 
-            $this->normalizeAttendanceRecords($demoEmployeeIds);
+            $this->normalizeAttendanceRecords($demoEmployeeIndexes);
             $this->adjustHengCamarySalary();
         });
 
@@ -226,7 +225,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 continue;
             }
 
-            $pattern = ($workdayIndex + ($employeeIndex * 3)) % 20;
+            $pattern = ($date->dayOfYear + ($employeeIndex * 7)) % 20;
             $status = match (true) {
                 $pattern === 0 => 'absent',
                 in_array($pattern, [4, 13], true) => 'late',
@@ -359,29 +358,30 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         HrCatalog::saveShifts($shifts);
     }
 
-    private function normalizeAttendanceRecords(array $demoEmployeeIds): void
+    private function normalizeAttendanceRecords(array $demoEmployeeIndexes): void
     {
-        $demoEmployeeIdLookup = array_fill_keys(
-            array_map(static fn ($id): int => (int) $id, $demoEmployeeIds),
-            true
-        );
+        $normalizedEmployeeIndexes = [];
+        foreach ($demoEmployeeIndexes as $employeeId => $employeeIndex) {
+            $normalizedEmployeeIndexes[(int) $employeeId] = (int) $employeeIndex;
+        }
 
         Attendance::withTrashed()
             ->whereNotNull('clock_in')
-            ->chunkById(250, function ($attendances) use ($demoEmployeeIdLookup): void {
+            ->chunkById(250, function ($attendances) use ($normalizedEmployeeIndexes): void {
                 foreach ($attendances as $attendance) {
                     $coordinateOffset = ((int) $attendance->employee_id % 10) * 0.00001;
                     $isDemoEmployee = isset(
-                        $demoEmployeeIdLookup[(int) $attendance->employee_id]
+                        $normalizedEmployeeIndexes[(int) $attendance->employee_id]
                     );
                     $attendanceDate = Carbon::parse($attendance->date, self::TIMEZONE)->startOfDay();
 
                     if ($isDemoEmployee) {
+                        $employeeIndex = $normalizedEmployeeIndexes[(int) $attendance->employee_id];
                         $variationSeed = (int) sprintf(
                             '%u',
                             crc32($attendance->employee_id . '|' . $attendanceDate->toDateString())
                         );
-                        $pattern = $variationSeed % 20;
+                        $pattern = ($attendanceDate->dayOfYear + ($employeeIndex * 7)) % 20;
                         $generatedStatus = match (true) {
                             in_array($pattern, [4, 13], true) => 'late',
                             $pattern === 9 => 'early_out',
@@ -396,14 +396,20 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                                 ->setTime(7, 55)
                                 ->addMinutes(($variationSeed >> 4) % 14)
                                 ->format('H:i:s');
+                        $departureOffsets = [0, 2, 0, 4, 7, 0, 10, 3, 0, 5];
                         $clockOutTime = $generatedStatus === 'early_out'
                             ? $attendanceDate->copy()
-                                ->setTime(16, 30)
-                                ->addMinutes(($variationSeed >> 9) % 16)
+                                ->setTime(16, 42)
+                                ->addMinutes(($variationSeed >> 9) % 4)
                                 ->format('H:i:s')
                             : $attendanceDate->copy()
-                                ->setTime(16, 50)
-                                ->addMinutes(($variationSeed >> 9) % 13)
+                                ->setTimeFromTimeString(self::SHIFT_END_TIME)
+                                ->addMinutes(
+                                    $departureOffsets[
+                                        ($employeeIndex + $attendanceDate->dayOfYear)
+                                        % count($departureOffsets)
+                                    ]
+                                )
                                 ->format('H:i:s');
 
                         $attendance->forceFill([
@@ -438,11 +444,10 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                             $attendance->getRawOriginal('clock_out'),
                             'UTC'
                         )->setTimezone(self::TIMEZONE);
-                        $earliestFlexibleClockOut = $clockOut->copy()
+                        $shiftEnd = $clockOut->copy()
                             ->startOfDay()
-                            ->setTimeFromTimeString(self::SHIFT_END_TIME)
-                            ->subMinutes(self::EARLY_OUT_FLEX_MINUTES);
-                        $isEarlyOut = $clockOut->lt($earliestFlexibleClockOut);
+                            ->setTimeFromTimeString(self::SHIFT_END_TIME);
+                        $isEarlyOut = $clockOut->lt($shiftEnd);
                     }
 
                     $status = $attendance->status === 'warning'
@@ -460,7 +465,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                             ? ($attendance->late_reason ?: 'Traffic delay in Phnom Penh')
                             : null,
                         'early_out_reason' => $isEarlyOut
-                            ? ($attendance->early_out_reason ?: 'Approved early departure')
+                            ? ($attendance->early_out_reason ?: 'Clocked out before 4:55 PM - pending HR review')
                             : null,
                     ])->save();
                 }
@@ -483,10 +488,10 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     private function earlyOutReason(int $variationSeed): string
     {
         $reasons = [
-            'Approved personal appointment',
+            'Personal appointment request',
             'Medical appointment',
-            'Approved family commitment',
-            'Supervisor-approved early departure',
+            'Family commitment',
+            'Urgent personal matter',
         ];
 
         return $reasons[$variationSeed % count($reasons)];
