@@ -125,7 +125,8 @@ export default function PayrollAdmin() {
 
     const blankForm = { id: null, employee_id:"", month:"01", year: String(new Date().getFullYear()),
         basic_salary:"", overtime_amount:"0", commission:"0",
-        attendance_bonus:"0", allowances:"0", advance_deduction:"0", unpaid_leave_deduction:"0", deductions:"0", notes:"" };
+        attendance_bonus:"0", allowances:"0", advance_deduction:"0", unpaid_leave_deduction:"0", deductions:"0", notes:"",
+        skip_signature: false };
     const [form, setForm] = useState<any>(blankForm);
 
     const net = () => {
@@ -1208,9 +1209,14 @@ export default function PayrollAdmin() {
 
                             <div>
                                 <label className="block text-xs font-semibold text-gray-500 mb-1">Notes</label>
-                                <textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} rows={2} 
+                                <textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"/>
                             </div>
+
+                            <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                                <input type="checkbox" checked={!!form.skip_signature} onChange={e=>setForm({...form,skip_signature:e.target.checked})} className="mt-0.5"/>
+                                <span>One-off bonus/correction — skip the signature requirement and authorize directly.</span>
+                            </label>
                         </div>
                         <div className="p-6 border-t flex gap-3">
                             <button onClick={()=>setShowModal(false)} className="flex-1 px-4 py-2.5 text-sm font-semibold border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>

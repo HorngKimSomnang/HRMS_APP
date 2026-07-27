@@ -48,6 +48,7 @@ class PayslipController extends Controller
             'unpaid_leave_deduction' => 'nullable|numeric|min:0',
             'deductions'       => 'nullable|numeric|min:0',
             'notes'            => 'nullable|string',
+            'skip_signature'   => 'nullable|boolean',
         ]);
 
         $employeeId = $request->employee_id;
@@ -96,9 +97,10 @@ class PayslipController extends Controller
             'net_salary'             => $net_salary,
             'status'                 => $isSuperAdmin ? ($request->status ?? 'approved') : 'draft',
             'notes'                  => $request->notes,
-            // Individually-generated payslips (one-off bonuses/corrections) are created
-            // directly by an admin, not from a printed roster — no signed paper to scan.
-            'requires_signature'     => false,
+            // Individually-generated payslips require a signature by default, same as
+            // batch ones — an admin must explicitly mark it as a one-off bonus/correction
+            // (skip_signature) to bypass the signed-paper requirement.
+            'requires_signature'     => ! $request->boolean('skip_signature'),
         ]);
 
         AuditLogger::log($request, 'PAYSLIP_GENERATED', $payslip, [
