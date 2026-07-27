@@ -513,8 +513,9 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         Employee::where('status', 'active')
             ->whereNotNull('joining_date')
             ->whereNotIn('id', array_map('intval', $demoEmployeeIds))
+            ->orderBy('id')
             ->get()
-            ->each(function (Employee $employee) use (
+            ->each(function (Employee $employee, int $employeeIndex) use (
                 $lastCompletedDate,
                 $holidayDates,
                 $departureOffsets
@@ -552,7 +553,9 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                         '%u',
                         crc32('existing|' . $employee->id . '|' . $dateString)
                     );
-                    $pattern = $variationSeed % 30;
+                    $pattern = (
+                        $date->dayOfYear + ($employeeIndex * 7)
+                    ) % 30;
                     $status = match (true) {
                         $pattern === 0 => 'absent',
                         in_array($pattern, [4, 17, 26], true) => 'late',
