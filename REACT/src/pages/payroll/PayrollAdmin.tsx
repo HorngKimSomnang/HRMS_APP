@@ -416,7 +416,9 @@ export default function PayrollAdmin() {
                 return;
             }
 
-            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+            const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const contentRight = pageWidth - 14;
 
             if (companyLogo) {
                 doc.addImage(companyLogo, 'PNG', 14, 15, 18, 18);
@@ -444,12 +446,12 @@ export default function PayrollAdmin() {
             // Right-aligned meta: address + document info, like a real company form
             doc.setFontSize(8);
             doc.setTextColor(100, 116, 139);
-            doc.text("Phnom Penh, Kingdom of Cambodia", 196, 16, { align: 'right' });
-            doc.text(`Doc No: PR-${titleYearStr || ''}${filterMonth || ''}`, 196, 21, { align: 'right' });
-            doc.text(`Printed: ${new Date().toLocaleDateString()}`, 196, 26, { align: 'right' });
+            doc.text("Phnom Penh, Kingdom of Cambodia", contentRight, 16, { align: 'right' });
+            doc.text(`Doc No: PR-${titleYearStr || ''}${filterMonth || ''}`, contentRight, 21, { align: 'right' });
+            doc.text(`Printed: ${new Date().toLocaleDateString()}`, contentRight, 26, { align: 'right' });
 
             doc.setDrawColor(226, 232, 240);
-            doc.line(14, 35, 196, 35);
+            doc.line(14, 35, contentRight, 35);
 
             doc.setFontSize(10);
             doc.setTextColor(55, 65, 81);
@@ -487,21 +489,21 @@ export default function PayrollAdmin() {
                 foot: [["", "TOTAL", "", money(totBasic), money(totAllow), money(totDeduct), money(totNet), "", ""]],
                 showFoot: 'lastPage',
                 theme: 'grid',
-                styles: { fontSize: 10, cellPadding: { top: 6, bottom: 6, left: 2, right: 2 }, valign: 'middle', lineColor: [203, 213, 225], lineWidth: 0.1 },
+                styles: { fontSize: 9.5, cellPadding: { top: 4, bottom: 4, left: 2.5, right: 2.5 }, valign: 'middle', lineColor: [203, 213, 225], lineWidth: 0.1 },
                 headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, halign: 'left', valign: 'middle' },
                 footStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold', halign: 'right', fontSize: 9 },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
-                bodyStyles: { minCellHeight: 24 },
+                bodyStyles: { minCellHeight: 17 },
                 columnStyles: {
-                    0: { cellWidth: 10, halign: 'center' },
-                    1: { cellWidth: 25 },
-                    2: { cellWidth: 18 },
-                    3: { cellWidth: 18, halign: 'right' },
-                    4: { cellWidth: 15, halign: 'right' },
-                    5: { cellWidth: 15, halign: 'right', textColor: [220, 38, 38] },
-                    6: { cellWidth: 18, halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] },
-                    7: { cellWidth: 13 },
-                    8: { cellWidth: 50 }
+                    0: { cellWidth: 12, halign: 'center' },
+                    1: { cellWidth: 38 },
+                    2: { cellWidth: 35 },
+                    3: { cellWidth: 24, halign: 'right' },
+                    4: { cellWidth: 24, halign: 'right' },
+                    5: { cellWidth: 24, halign: 'right', textColor: [220, 38, 38] },
+                    6: { cellWidth: 26, halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] },
+                    7: { cellWidth: 22 },
+                    8: { cellWidth: 64 }
                 }
             });
 
@@ -516,24 +518,21 @@ export default function PayrollAdmin() {
                 sigY = pageHeight - 35;
             }
 
-            doc.setFontSize(10);
-            doc.setTextColor(31, 41, 55);
-            doc.text("_____________", 16, sigY);
-            doc.text("Prepared by", 24, sigY + 6);
-            doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text("HR / Admin", 26, sigY + 11);
+            const approvalColumns = [
+                { x: 32, label: "Prepared by", role: "HR / Admin" },
+                { x: 119, label: "Checked by", role: "Finance / Accounting" },
+                { x: 210, label: "Approved by", role: "Director / CEO" },
+            ];
 
-            doc.setFontSize(10); doc.setTextColor(31, 41, 55);
-            doc.text("_____________", 80, sigY);
-            doc.text("Checked by", 88, sigY + 6);
-            doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text("Finance / Accounting", 76, sigY + 11);
-
-            doc.setFontSize(10); doc.setTextColor(31, 41, 55);
-            doc.text("_____________", 144, sigY);
-            doc.text("Approved by", 152, sigY + 6);
-            doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text("Director / CEO", 150, sigY + 11);
+            approvalColumns.forEach(({ x, label, role }) => {
+                doc.setFontSize(10);
+                doc.setTextColor(31, 41, 55);
+                doc.text("____________________", x, sigY);
+                doc.text(label, x + 10, sigY + 6);
+                doc.setFontSize(8);
+                doc.setTextColor(100, 116, 139);
+                doc.text(role, x + 10, sigY + 11);
+            });
 
             doc.save("Monthly_Payroll_Roster.pdf");
         } catch (e: any) { toast.error("Download failed: " + e.message); console.error(e); }
