@@ -12,6 +12,7 @@ use App\Models\Overtime;
 use App\Models\Payslip;
 use App\Models\Task;
 use App\Models\User;
+use App\Support\HrCatalog;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\ThesisCambodianEmployeesSeeder;
 use Carbon\Carbon;
@@ -57,6 +58,16 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             'net_salary' => 20,
             'status' => 'paid',
         ]);
+        $hengAttendance = Attendance::create([
+            'employee_id' => $hengCamary->id,
+            'date' => '2026-07-24',
+            'clock_in' => Carbon::parse('2026-07-24 08:01:00', 'Asia/Phnom_Penh')->utc(),
+            'clock_out' => Carbon::parse('2026-07-24 16:49:00', 'Asia/Phnom_Penh')->utc(),
+            'status' => 'present',
+            'address' => 'Khan Chamkar Mon, Phnom Penh, Cambodia',
+            'latitude' => '11.5480',
+            'longitude' => '104.9210',
+        ]);
 
         $existingEmployeeCount = Employee::count();
 
@@ -92,6 +103,8 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame('600.00', $hengCamary->fresh()->basic_salary);
         $this->assertSame('600.00', $hengPayslip->fresh()->basic_salary);
         $this->assertSame('620.00', $hengPayslip->fresh()->net_salary);
+        $this->assertStringStartsWith('Norton University', $hengAttendance->fresh()->address);
+        $this->assertSame('16:55:00', HrCatalog::findShiftById(1)['end_time']);
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Overtime::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(53, Payslip::whereIn('employee_id', $employeeIds)->count());
@@ -126,6 +139,26 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             (clone $locatedAttendances)
                 ->whereNotBetween('longitude', [104.93050, 104.93110])
                 ->count()
+        );
+        $invalidClockOuts = Attendance::whereIn('employee_id', $employeeIds)
+            ->whereIn('status', ['present', 'late'])
+            ->get()
+            ->filter(function (Attendance $attendance): bool {
+                $clockOut = Carbon::parse(
+                    $attendance->getRawOriginal('clock_out'),
+                    'UTC'
+                )->setTimezone('Asia/Phnom_Penh');
+                $minutes = ($clockOut->hour * 60) + $clockOut->minute;
+
+                return $minutes < (16 * 60 + 55) || $minutes > (17 * 60 + 10);
+            });
+        $this->assertSame(
+            0,
+            $invalidClockOuts->count(),
+            $invalidClockOuts
+                ->take(3)
+                ->map(fn (Attendance $attendance) => $attendance->getRawOriginal('clock_out'))
+                ->implode(', ')
         );
         $this->assertSame(20, Leave::whereIn('employee_id', $employeeIds)->where('status', 'approved')->count());
         $this->assertSame(10, Leave::whereIn('employee_id', $employeeIds)->where('status', 'pending')->count());

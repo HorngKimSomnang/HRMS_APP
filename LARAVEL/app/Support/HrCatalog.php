@@ -24,7 +24,7 @@ class HrCatalog
                 'id' => 1,
                 'name' => 'Morning Shift',
                 'start_time' => '09:00:00',
-                'end_time' => '18:00:00',
+                'end_time' => '16:55:00',
                 'grace_period_minutes' => 15,
             ],
         ];

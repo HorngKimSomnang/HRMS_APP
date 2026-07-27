@@ -11,8 +11,10 @@ use App\Models\EmployeeEvent;
 use App\Models\Leave;
 use App\Models\Overtime;
 use App\Models\Payslip;
+use App\Models\Setting;
 use App\Models\Task;
 use App\Models\User;
+use App\Support\HrCatalog;
 use Carbon\Carbon;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -36,6 +38,10 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     use WithoutModelEvents;
 
     private const TIMEZONE = 'Asia/Phnom_Penh';
+    private const WORKPLACE_ADDRESS = 'Norton University, St. Keo Chenda, Sangkat Chroy Changvar, Khan Chroy Changvar, Phnom Penh, Cambodia';
+    private const WORKPLACE_LATITUDE = 11.58817;
+    private const WORKPLACE_LONGITUDE = 104.93074;
+    private const SHIFT_END_TIME = '16:55:00';
 
     public function run(): void
     {
@@ -59,6 +65,8 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             $demoPassword,
             &$createdEmails
         ): void {
+            $this->configureThesisWorkplace();
+
             foreach ($profiles as $index => $profile) {
                 [$employee, $wasCreated] = $this->upsertEmployee($profile, $demoPassword);
 
@@ -75,12 +83,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 $this->seedAsset($employee, $index, $today);
             }
 
+            $this->normalizeAttendanceLocations();
             $this->adjustHengCamarySalary();
         });
 
         $this->command?->newLine();
         $this->command?->info('Thesis dataset ready: 10 synthetic Cambodian employees.');
         $this->command?->line('Coverage: attendance, leave, overtime, payroll, tasks, contracts, lifecycle, and assets.');
+        $this->command?->line('Workplace: Norton University. Morning shift ends at 4:55 PM; clocked-in attendance locations normalized.');
 
         if ($createdEmails !== []) {
             $this->command?->warn('Save these new demo credentials now:');
@@ -235,8 +245,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                     ? sprintf('09:%02d:00', 18 + ($employeeIndex % 15))
                     : sprintf('08:%02d:00', 47 + ($employeeIndex % 10));
                 $clockOutTime = $status === 'early_out'
-                    ? sprintf('16:%02d:00', 10 + ($employeeIndex % 20))
-                    : sprintf('18:%02d:00', 2 + ($employeeIndex % 15));
+                    ? $date->copy()
+                        ->setTime(16, 10)
+                        ->addMinutes(($workdayIndex + ($employeeIndex * 3)) % 26)
+                        ->format('H:i:s')
+                    : $date->copy()
+                        ->setTime(16, 55)
+                        ->addMinutes(($workdayIndex + ($employeeIndex * 3)) % 16)
+                        ->format('H:i:s');
 
                 $attendance->fill([
                     'clock_in' => $this->localTimeToUtc($date, $clockInTime),
@@ -245,9 +261,9 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                     'is_late' => $status === 'late',
                     'late_reason' => $status === 'late' ? 'Heavy traffic in Phnom Penh' : null,
                     'early_out_reason' => $status === 'early_out' ? 'Approved personal appointment' : null,
-                    'address' => 'Norton University, St. Keo Chenda, Sangkat Chroy Changvar, Khan Chroy Changvar, Phnom Penh, Cambodia',
-                    'latitude' => (string) (11.58817 + ($employeeIndex * 0.00001)),
-                    'longitude' => (string) (104.93074 + ($employeeIndex * 0.00001)),
+                    'address' => self::WORKPLACE_ADDRESS,
+                    'latitude' => (string) (self::WORKPLACE_LATITUDE + ($employeeIndex * 0.00001)),
+                    'longitude' => (string) (self::WORKPLACE_LONGITUDE + ($employeeIndex * 0.00001)),
                     'location_accuracy' => (string) (5 + ($employeeIndex % 8)),
                 ]);
             }
@@ -259,6 +275,70 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
             $workdayIndex++;
         }
+    }
+
+    private function configureThesisWorkplace(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'office_latitude'],
+            [
+                'value' => (string) self::WORKPLACE_LATITUDE,
+                'type' => 'text',
+                'group' => 'attendance',
+            ]
+        );
+        Setting::updateOrCreate(
+            ['key' => 'office_longitude'],
+            [
+                'value' => (string) self::WORKPLACE_LONGITUDE,
+                'type' => 'text',
+                'group' => 'attendance',
+            ]
+        );
+
+        $shifts = HrCatalog::getShifts();
+        $morningShiftFound = false;
+
+        foreach ($shifts as &$shift) {
+            if ((int) ($shift['id'] ?? 0) !== 1) {
+                continue;
+            }
+
+            $shift['end_time'] = self::SHIFT_END_TIME;
+            $morningShiftFound = true;
+            break;
+        }
+        unset($shift);
+
+        if (!$morningShiftFound) {
+            $shifts[] = [
+                'id' => 1,
+                'name' => 'Morning Shift',
+                'start_time' => '09:00:00',
+                'end_time' => self::SHIFT_END_TIME,
+                'grace_period_minutes' => 15,
+            ];
+        }
+
+        HrCatalog::saveShifts($shifts);
+    }
+
+    private function normalizeAttendanceLocations(): void
+    {
+        Attendance::withTrashed()
+            ->whereNotNull('clock_in')
+            ->chunkById(250, function ($attendances): void {
+                foreach ($attendances as $attendance) {
+                    $coordinateOffset = ((int) $attendance->employee_id % 10) * 0.00001;
+
+                    $attendance->forceFill([
+                        'address' => self::WORKPLACE_ADDRESS,
+                        'latitude' => (string) (self::WORKPLACE_LATITUDE + $coordinateOffset),
+                        'longitude' => (string) (self::WORKPLACE_LONGITUDE + $coordinateOffset),
+                        'location_accuracy' => $attendance->location_accuracy ?: '8',
+                    ])->save();
+                }
+            });
     }
 
     private function approvedLeaveDates(Employee $employee): array
