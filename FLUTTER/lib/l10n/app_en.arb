@@ -79,6 +79,7 @@
     "submitReportsAndForms": "Submit reports & forms",
     "yourLeaveBalance": "Your Leave Balance",
     "daysUnit": "days",
+    "chooseFile": "Choose a file to attach",
 
     "gettingLocation": "Getting location...",
     "locationPermissionDeniedOrGpsDisabled": "Location permission denied or GPS disabled",

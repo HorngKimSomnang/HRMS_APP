@@ -572,6 +572,12 @@ abstract class AppLocalizations {
   /// **'days'**
   String get daysUnit;
 
+  /// No description provided for @chooseFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a file to attach'**
+  String get chooseFile;
+
   /// No description provided for @gettingLocation.
   ///
   /// In en, this message translates to:

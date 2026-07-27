@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -27,6 +30,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
   Map<String, dynamic>? _entity;
   final Map<String, dynamic> _values = {};
   final Map<String, TextEditingController> _controllers = {};
+  final Map<String, PlatformFile> _selectedFiles = {};
 
   @override
   void initState() {
@@ -42,11 +46,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
     super.dispose();
   }
 
-  List<dynamic> get _fields {
-    final fields = (_entity?['fields'] as List<dynamic>?) ?? [];
-    // File attachments aren't supported from the mobile app yet — only a web upload flow exists.
-    return fields.where((f) => f['type'] != 'file').toList();
-  }
+  List<dynamic> get _fields => (_entity?['fields'] as List<dynamic>?) ?? [];
 
   Future<void> _load() async {
     try {
@@ -60,7 +60,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
         final key = field['key'] as String;
         if (field['type'] == 'boolean') {
           _values[key] = false;
-        } else if (field['type'] != 'date') {
+        } else if (field['type'] != 'date' && field['type'] != 'file') {
           _controllers[key] = TextEditingController();
         }
       }
@@ -77,6 +77,16 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
     if (picked != null) setState(() => _values[key] = picked);
   }
 
+  Future<void> _pickFile(String key) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'xlsx', 'xls', 'csv', 'doc', 'docx'],
+    );
+    if (result != null && result.files.single.path != null) {
+      setState(() => _selectedFiles[key] = result.files.single);
+    }
+  }
+
   void _clearForm() {
     for (final c in _controllers.values) {
       c.clear();
@@ -86,11 +96,23 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
         final key = field['key'] as String;
         _values[key] = field['type'] == 'boolean' ? false : null;
       }
+      _selectedFiles.clear();
     });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final missingFile = _fields.firstWhere(
+      (f) => f['type'] == 'file' && f['is_required'] == true && _selectedFiles[f['key']] == null,
+      orElse: () => null,
+    );
+    if (missingFile != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${missingFile['label']} — ${AppLocalizations.of(context)!.required}')),
+      );
+      return;
+    }
 
     setState(() => _submitting = true);
     try {
@@ -98,6 +120,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
       for (final field in _fields) {
         final key = field['key'] as String;
         final type = field['type'] as String;
+        if (type == 'file') continue;
         if (type == 'date') {
           final date = _values[key] as DateTime?;
           payload[key] = date == null ? null : DateFormat('yyyy-MM-dd').format(date);
@@ -111,7 +134,13 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
         }
       }
 
-      await _service.submitRecord(widget.slug, payload);
+      final record = await _service.submitRecord(widget.slug, payload);
+      final recordId = record['id'] as int;
+
+      for (final entry in _selectedFiles.entries) {
+        await _service.uploadRecordFile(widget.slug, recordId, entry.key, File(entry.value.path!));
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.submittedSuccessfully)));
       _clearForm();
@@ -245,6 +274,39 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             ),
           ),
         );
+      case 'file':
+        final selected = _selectedFiles[key];
+        return Container(
+          decoration: _cardDecoration,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _pickFile(key),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.paperclip, size: 18, color: Colors.grey[500]),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        selected?.name ?? AppLocalizations.of(context)!.chooseFile,
+                        style: GoogleFonts.notoSansKhmer(fontSize: 13, color: selected == null ? Colors.grey[400] : Colors.black87),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (selected != null)
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedFiles.remove(key)),
+                        child: Icon(LucideIcons.x, size: 16, color: Colors.grey[400]),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
       default:
         return const SizedBox.shrink();
     }
@@ -366,6 +428,7 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
     final data = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
     for (final field in widget.fields) {
       final value = data[field['key']];
+      if (value is Map && value['name'] != null) return value['name'].toString();
       if (value != null && value.toString().isNotEmpty) return value.toString();
     }
     return AppLocalizations.of(context)!.submissionLabel;

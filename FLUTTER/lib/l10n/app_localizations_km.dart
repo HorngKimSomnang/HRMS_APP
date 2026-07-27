@@ -248,6 +248,9 @@ class AppLocalizationsKm extends AppLocalizations {
   String get daysUnit => 'ថ្ងៃ';
 
   @override
+  String get chooseFile => 'ជ្រើសរើសឯកសារដើម្បីភ្ជាប់';
+
+  @override
   String get gettingLocation => 'កំពុងទទួលទីតាំង...';
 
   @override

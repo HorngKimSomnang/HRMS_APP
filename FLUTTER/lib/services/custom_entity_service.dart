@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import '../core/error_utils.dart';
 import 'api_service.dart';
@@ -32,11 +33,23 @@ class CustomEntityService {
     }
   }
 
-  Future<void> submitRecord(String slug, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> submitRecord(String slug, Map<String, dynamic> data) async {
     try {
-      await _apiService.client.post('/my/entities/$slug/records', data: {'data': data});
+      final response = await _apiService.client.post('/my/entities/$slug/records', data: {'data': data});
+      return response.data['data'] as Map<String, dynamic>;
     } on DioException catch (e) {
       throw Exception(serverMessage(e, 'Failed to submit'));
+    }
+  }
+
+  Future<void> uploadRecordFile(String slug, int recordId, String fieldKey, File file) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
+      });
+      await _apiService.client.post('/my/entities/$slug/records/$recordId/files/$fieldKey', data: formData);
+    } on DioException catch (e) {
+      throw Exception(serverMessage(e, 'Failed to upload file'));
     }
   }
 

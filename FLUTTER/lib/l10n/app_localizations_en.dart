@@ -248,6 +248,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get daysUnit => 'days';
 
   @override
+  String get chooseFile => 'Choose a file to attach';
+
+  @override
   String get gettingLocation => 'Getting location...';
 
   @override
