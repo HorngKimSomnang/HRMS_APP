@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Asset;
 use App\Models\AssetAssignment;
+use App\Models\Announcement;
 use App\Models\Attendance;
 use App\Models\Contract;
 use App\Models\Employee;
@@ -90,6 +91,10 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             }
 
             $this->normalizeAttendanceRecords($demoEmployeeIndexes);
+            $this->seedExistingEmployeeAttendance(
+                array_keys($demoEmployeeIndexes),
+                $today
+            );
             $this->adjustHengCamarySalary();
         });
 
@@ -495,6 +500,157 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         ];
 
         return $reasons[$variationSeed % count($reasons)];
+    }
+
+    private function seedExistingEmployeeAttendance(
+        array $demoEmployeeIds,
+        Carbon $today
+    ): void {
+        $lastCompletedDate = $today->copy()->subDay()->startOfDay();
+        $holidayDates = $this->publishedHolidayDates($lastCompletedDate);
+        $departureOffsets = [0, 2, 0, 4, 7, 0, 10, 3, 0, 5];
+
+        Employee::where('status', 'active')
+            ->whereNotNull('joining_date')
+            ->whereNotIn('id', array_map('intval', $demoEmployeeIds))
+            ->get()
+            ->each(function (Employee $employee) use (
+                $lastCompletedDate,
+                $holidayDates,
+                $departureOffsets
+            ): void {
+                $joiningDate = Carbon::parse(
+                    $employee->joining_date,
+                    self::TIMEZONE
+                )->startOfDay();
+                $approvedLeaveDates = $this->approvedLeaveDates($employee);
+
+                for (
+                    $date = $joiningDate->copy();
+                    $date->lte($lastCompletedDate);
+                    $date->addDay()
+                ) {
+                    $dateString = $date->toDateString();
+
+                    if (
+                        $date->isSunday()
+                        || isset($holidayDates[$dateString])
+                        || isset($approvedLeaveDates[$dateString])
+                    ) {
+                        continue;
+                    }
+
+                    $attendance = Attendance::where('employee_id', $employee->id)
+                        ->whereDate('date', $dateString)
+                        ->first();
+
+                    if ($attendance && $attendance->status !== 'absent') {
+                        continue;
+                    }
+
+                    $variationSeed = (int) sprintf(
+                        '%u',
+                        crc32('existing|' . $employee->id . '|' . $dateString)
+                    );
+                    $pattern = $variationSeed % 30;
+                    $status = match (true) {
+                        $pattern === 0 => 'absent',
+                        in_array($pattern, [4, 17, 26], true) => 'late',
+                        in_array($pattern, [9, 23], true) => 'early_out',
+                        default => 'present',
+                    };
+
+                    $attendance ??= new Attendance([
+                        'employee_id' => $employee->id,
+                        'date' => $dateString,
+                    ]);
+
+                    if ($status === 'absent') {
+                        $attendance->fill([
+                            'clock_in' => null,
+                            'clock_out' => null,
+                            'status' => 'absent',
+                            'is_late' => false,
+                            'late_reason' => null,
+                            'early_out_reason' => null,
+                            'address' => null,
+                            'latitude' => null,
+                            'longitude' => null,
+                            'location_accuracy' => null,
+                        ])->save();
+                        continue;
+                    }
+
+                    $clockInTime = $status === 'late'
+                        ? $date->copy()
+                            ->setTime(8, 16)
+                            ->addMinutes(($variationSeed >> 4) % 15)
+                            ->format('H:i:s')
+                        : $date->copy()
+                            ->setTime(7, 54)
+                            ->addMinutes(($variationSeed >> 4) % 17)
+                            ->format('H:i:s');
+                    $clockOutTime = $status === 'early_out'
+                        ? $date->copy()
+                            ->setTime(16, 42)
+                            ->addMinutes(($variationSeed >> 9) % 4)
+                            ->format('H:i:s')
+                        : $date->copy()
+                            ->setTimeFromTimeString(self::SHIFT_END_TIME)
+                            ->addMinutes(
+                                $departureOffsets[
+                                    ($variationSeed >> 9) % count($departureOffsets)
+                                ]
+                            )
+                            ->format('H:i:s');
+                    $coordinateOffset = ((int) $employee->id % 10) * 0.00001;
+
+                    $attendance->fill([
+                        'clock_in' => $this->localTimeToUtc($date, $clockInTime),
+                        'clock_out' => $this->localTimeToUtc($date, $clockOutTime),
+                        'status' => $status,
+                        'is_late' => $status === 'late',
+                        'late_reason' => $status === 'late'
+                            ? $this->lateReason($variationSeed)
+                            : null,
+                        'early_out_reason' => $status === 'early_out'
+                            ? $this->earlyOutReason($variationSeed)
+                            : null,
+                        'address' => self::WORKPLACE_ADDRESS,
+                        'latitude' => (string) (
+                            self::WORKPLACE_LATITUDE + $coordinateOffset
+                        ),
+                        'longitude' => (string) (
+                            self::WORKPLACE_LONGITUDE + $coordinateOffset
+                        ),
+                        'location_accuracy' => (string) (5 + ($variationSeed % 8)),
+                    ])->save();
+                }
+            });
+    }
+
+    private function publishedHolidayDates(Carbon $throughDate): array
+    {
+        $dates = [];
+
+        Announcement::where('type', 'Holiday')
+            ->where('is_published', true)
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '<=', $throughDate)
+            ->get()
+            ->each(function (Announcement $holiday) use (&$dates): void {
+                $date = Carbon::parse($holiday->start_date)->startOfDay();
+                $endDate = Carbon::parse(
+                    $holiday->end_date ?? $holiday->start_date
+                )->startOfDay();
+
+                while ($date->lte($endDate)) {
+                    $dates[$date->toDateString()] = true;
+                    $date->addDay();
+                }
+            });
+
+        return $dates;
     }
 
     private function approvedLeaveDates(Employee $employee): array

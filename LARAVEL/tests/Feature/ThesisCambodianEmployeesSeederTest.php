@@ -46,6 +46,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             'first_name' => 'Heng',
             'last_name' => 'Camary',
             'job_title' => 'Administrator',
+            'joining_date' => '2026-01-05',
             'basic_salary' => 0,
         ]);
         $hengPayslip = Payslip::create([
@@ -79,6 +80,15 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             'latitude' => '11.5480',
             'longitude' => '104.9210',
         ]);
+        $otherExistingEmployees = Employee::factory()
+            ->count(5)
+            ->create([
+                'joining_date' => '2026-01-05',
+                'status' => 'active',
+            ]);
+        $originalTestEmployeeIds = $otherExistingEmployees
+            ->pluck('id')
+            ->push($hengCamary->id);
 
         $existingEmployeeCount = Employee::count();
 
@@ -125,6 +135,29 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertNotEmpty($lateAttendance->fresh()->late_reason);
         $this->assertSame('08:00:00', HrCatalog::findShiftById(1)['start_time']);
         $this->assertSame('16:55:00', HrCatalog::findShiftById(1)['end_time']);
+        $hengAttendanceHistory = Attendance::where(
+            'employee_id',
+            $hengCamary->id
+        )->get();
+        $this->assertGreaterThan(100, $hengAttendanceHistory->count());
+        $this->assertLessThan(
+            0.1,
+            $hengAttendanceHistory->where('status', 'absent')->count()
+                / $hengAttendanceHistory->count()
+        );
+        $this->assertDatabaseHas('attendances', [
+            'employee_id' => $hengCamary->id,
+            'date' => '2026-07-25',
+        ]);
+        $july25OriginalEmployeeAttendance = Attendance::whereIn(
+            'employee_id',
+            $originalTestEmployeeIds
+        )->whereDate('date', '2026-07-25')->get();
+        $this->assertCount(6, $july25OriginalEmployeeAttendance);
+        $this->assertLessThanOrEqual(
+            1,
+            $july25OriginalEmployeeAttendance->where('status', 'absent')->count()
+        );
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Overtime::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(53, Payslip::whereIn('employee_id', $employeeIds)->count());
