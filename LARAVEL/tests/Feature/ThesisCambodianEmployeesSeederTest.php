@@ -44,7 +44,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 'employee_code' => 'DEMO' . str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
             ]);
             $employee->user->update([
-                'email' => str_replace('@henchen.com.kh', '.demo@henchen.test', $employee->user->email),
+                'email' => str_replace('.henchen@gmail.com', '@henchen.com.kh', $employee->user->email),
             ]);
         });
 
@@ -58,7 +58,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertCount(10, $employees);
         $this->assertSame($originalIds, $employeeIds->all());
         $this->assertSame($existingEmployeeCount + 10, Employee::count());
-        $this->assertSame(10, User::where('email', 'like', '%@henchen.com.kh')->count());
+        $this->assertSame(10, User::where('email', 'like', '%.henchen@gmail.com')->count());
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Overtime::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->count());
