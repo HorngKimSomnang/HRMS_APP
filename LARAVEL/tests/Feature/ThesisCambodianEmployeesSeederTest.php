@@ -31,14 +31,34 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $existingEmployeeCount = Employee::count();
 
         $this->seed(ThesisCambodianEmployeesSeeder::class);
+
+        $originalEmployees = Employee::whereBetween('employee_code', ['EMP007', 'EMP016'])
+            ->orderBy('employee_code')
+            ->get();
+        $originalIds = $originalEmployees->pluck('id')->all();
+
+        // Recreate the identifiers used by the first deployed version, then
+        // confirm a rerun normalizes those same rows instead of duplicating them.
+        $originalEmployees->each(function (Employee $employee, int $index): void {
+            $employee->update([
+                'employee_code' => 'DEMO' . str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+            ]);
+            $employee->user->update([
+                'email' => str_replace('@henchen.com.kh', '.demo@henchen.test', $employee->user->email),
+            ]);
+        });
+
         $this->seed(ThesisCambodianEmployeesSeeder::class);
 
-        $employees = Employee::whereBetween('employee_code', ['DEMO001', 'DEMO010'])->get();
+        $employees = Employee::whereBetween('employee_code', ['EMP007', 'EMP016'])
+            ->orderBy('employee_code')
+            ->get();
         $employeeIds = $employees->pluck('id');
 
         $this->assertCount(10, $employees);
+        $this->assertSame($originalIds, $employeeIds->all());
         $this->assertSame($existingEmployeeCount + 10, Employee::count());
-        $this->assertSame(10, User::where('email', 'like', '%.demo@henchen.test')->count());
+        $this->assertSame(10, User::where('email', 'like', '%@henchen.com.kh')->count());
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Overtime::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->count());

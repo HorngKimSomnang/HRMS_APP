@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
  *
  *   php artisan db:seed --class=ThesisCambodianEmployeesSeeder
  *
- * Safe to re-run: DEMO employee codes/emails and natural record keys are reused.
+ * Safe to re-run: legacy thesis identifiers and natural record keys are reused.
  * Existing real employees and their records are never selected or modified.
  */
 class ThesisCambodianEmployeesSeeder extends Seeder
@@ -91,12 +91,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
     private function upsertEmployee(array $profile, string $demoPassword): array
     {
-        $user = User::withTrashed()->where('email', $profile['email'])->first();
+        $user = User::withTrashed()
+            ->whereIn('email', [$profile['email'], $profile['legacy_email']])
+            ->first();
         $wasCreated = $user === null;
 
         if (!$user) {
             $user = new User();
-            $user->email = $profile['email'];
             $user->password = Hash::make($demoPassword);
             $user->email_verified_at = now();
             $user->password_changed_at = now();
@@ -104,16 +105,24 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             $user->restore();
         }
 
+        $emailConflict = User::withTrashed()
+            ->where('email', $profile['email'])
+            ->when($user->exists, fn ($query) => $query->whereKeyNot($user->id))
+            ->exists();
+        if ($emailConflict) {
+            throw new \RuntimeException("Cannot use {$profile['email']}: that email already exists.");
+        }
+
         $user->name = $profile['last_name'] . ' ' . $profile['first_name'];
+        $user->email = $profile['email'];
         $user->save();
 
         if (!$user->hasRole('Employee')) {
             $user->assignRole('Employee');
         }
 
-        $employee = Employee::withTrashed()
-            ->where('employee_code', $profile['employee_code'])
-            ->first();
+        $employee = Employee::withTrashed()->where('user_id', $user->id)->first()
+            ?? Employee::withTrashed()->where('employee_code', $profile['legacy_code'])->first();
 
         if (!$employee) {
             $employee = new Employee();
@@ -123,7 +132,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
         $employee->fill([
             'user_id' => $user->id,
-            'employee_code' => $profile['employee_code'],
+            'employee_code' => $this->resolveEmployeeCode($profile, $employee),
             'first_name' => $profile['first_name'],
             'last_name' => $profile['last_name'],
             'job_title' => $profile['job_title'],
@@ -146,6 +155,31 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         $employee->save();
 
         return [$employee, $wasCreated];
+    }
+
+    private function resolveEmployeeCode(array $profile, Employee $employee): string
+    {
+        $desiredCode = $profile['employee_code'];
+        $hasConflict = Employee::withTrashed()
+            ->where('employee_code', $desiredCode)
+            ->when($employee->exists, fn ($query) => $query->whereKeyNot($employee->id))
+            ->exists();
+
+        if (!$hasConflict) {
+            return $desiredCode;
+        }
+
+        if ($employee->exists && str_starts_with($employee->employee_code, 'EMP')) {
+            return $employee->employee_code;
+        }
+
+        $highestNumber = Employee::withTrashed()
+            ->where('employee_code', 'like', 'EMP%')
+            ->get(['employee_code'])
+            ->map(fn (Employee $item) => (int) substr($item->employee_code, 3))
+            ->max() ?? 0;
+
+        return 'EMP' . str_pad((string) ($highestNumber + 1), 3, '0', STR_PAD_LEFT);
     }
 
     private function seedAttendance(Employee $employee, int $employeeIndex, Carbon $today): void
@@ -375,7 +409,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'deductions' => $deductions,
                 'net_salary' => $netSalary + ($index % 3 === 0 ? 20 : 0),
                 'status' => $status,
-                'notes' => 'Synthetic thesis demonstration payroll record',
+                'notes' => 'Monthly payroll processed and reviewed by Finance',
                 'requires_signature' => false,
                 'is_signed' => $status === 'paid',
                 'signed_at' => $status === 'paid'
@@ -467,7 +501,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'start_date' => $joiningDate->toDateString(),
                 'end_date' => $endDate,
                 'status' => 'active',
-                'notes' => 'Synthetic contract for thesis demonstration',
+                'notes' => 'Standard employment contract issued by Human Resources',
             ]
         );
 
@@ -475,7 +509,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             [
                 'employee_id' => $employee->id,
                 'type' => 'salary_change',
-                'notes' => 'Annual performance adjustment (synthetic thesis data)',
+                'notes' => 'Annual performance and salary review',
             ],
             [
                 'old_value' => number_format(max(0, (float) $employee->basic_salary - 50), 2, '.', ''),
@@ -490,9 +524,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     {
         $number = str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT);
         $isPhone = $index >= 8;
-        $assetCode = $isPhone ? "DEMO-PH-{$number}" : "DEMO-LT-{$number}";
+        $assetNumber = str_pad((string) (101 + $index), 3, '0', STR_PAD_LEFT);
+        $assetCode = $isPhone ? "HC-PH-{$assetNumber}" : "HC-LT-{$assetNumber}";
+        $legacyAssetCode = $isPhone ? "DEMO-PH-{$number}" : "DEMO-LT-{$number}";
 
-        $asset = Asset::withTrashed()->where('code', $assetCode)->first();
+        $asset = Asset::withTrashed()
+            ->whereIn('code', [$assetCode, $legacyAssetCode])
+            ->first();
         if (!$asset) {
             $asset = new Asset(['code' => $assetCode]);
         } elseif ($asset->trashed()) {
@@ -500,14 +538,15 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         }
 
         $asset->fill([
+            'code' => $assetCode,
             'name' => $isPhone ? 'Samsung Galaxy A55' : 'Dell Latitude 5440',
             'category' => $isPhone ? 'phone' : 'laptop',
-            'serial_no' => 'THESIS-' . $number . '-2026',
+            'serial_no' => 'HC-2026-' . $number,
             'purchase_date' => $today->copy()->subMonths(8 + $index)->toDateString(),
             'purchase_cost' => $isPhone ? 420 : 950,
             'status' => 'assigned',
             'condition' => $index % 4 === 0 ? 'new' : 'good',
-            'notes' => 'Synthetic asset used for thesis demonstration',
+            'notes' => 'Company equipment issued for operational use',
         ]);
         $asset->save();
 
@@ -519,7 +558,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             ],
             [
                 'assigned_at' => $today->copy()->subDays(45 + ($index * 4))->toDateString(),
-                'notes' => 'Issued for daily work (synthetic thesis data)',
+                'notes' => 'Issued for daily work',
             ]
         );
     }
@@ -537,11 +576,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
     {
         return [
             [
-                'employee_code' => 'DEMO001',
+                'employee_code' => 'EMP007',
+                'legacy_code' => 'DEMO001',
                 'first_name' => 'Dara',
                 'last_name' => 'Sok',
                 'name_kh' => 'សុខ ដារ៉ា',
-                'email' => 'dara.sok.demo@henchen.test',
+                'email' => 'dara.sok@henchen.com.kh',
+                'legacy_email' => 'dara.sok.demo@henchen.test',
                 'phone' => '+855 12 410 201',
                 'gender' => 'Male',
                 'dob' => '1994-03-12',
@@ -554,11 +595,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Sok Sopheak (+855 12 610 201)',
             ],
             [
-                'employee_code' => 'DEMO002',
+                'employee_code' => 'EMP008',
+                'legacy_code' => 'DEMO002',
                 'first_name' => 'Sreyneang',
                 'last_name' => 'Chan',
                 'name_kh' => 'ចាន់ ស្រីនាង',
-                'email' => 'sreyneang.chan.demo@henchen.test',
+                'email' => 'sreyneang.chan@henchen.com.kh',
+                'legacy_email' => 'sreyneang.chan.demo@henchen.test',
                 'phone' => '+855 15 410 202',
                 'gender' => 'Female',
                 'dob' => '1996-08-25',
@@ -571,11 +614,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Chan Sophal (+855 15 610 202)',
             ],
             [
-                'employee_code' => 'DEMO003',
+                'employee_code' => 'EMP009',
+                'legacy_code' => 'DEMO003',
                 'first_name' => 'Piseth',
                 'last_name' => 'Chea',
                 'name_kh' => 'ជា ពិសិដ្ឋ',
-                'email' => 'piseth.chea.demo@henchen.test',
+                'email' => 'piseth.chea@henchen.com.kh',
+                'legacy_email' => 'piseth.chea.demo@henchen.test',
                 'phone' => '+855 16 410 203',
                 'gender' => 'Male',
                 'dob' => '1993-11-04',
@@ -588,11 +633,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Chea Vicheka (+855 16 610 203)',
             ],
             [
-                'employee_code' => 'DEMO004',
+                'employee_code' => 'EMP010',
+                'legacy_code' => 'DEMO004',
                 'first_name' => 'Sophea',
                 'last_name' => 'Lim',
                 'name_kh' => 'លឹម សុភា',
-                'email' => 'sophea.lim.demo@henchen.test',
+                'email' => 'sophea.lim@henchen.com.kh',
+                'legacy_email' => 'sophea.lim.demo@henchen.test',
                 'phone' => '+855 17 410 204',
                 'gender' => 'Female',
                 'dob' => '1997-01-19',
@@ -605,11 +652,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Lim Sokun (+855 17 610 204)',
             ],
             [
-                'employee_code' => 'DEMO005',
+                'employee_code' => 'EMP011',
+                'legacy_code' => 'DEMO005',
                 'first_name' => 'Vannak',
                 'last_name' => 'Heng',
                 'name_kh' => 'ហេង វណ្ណៈ',
-                'email' => 'vannak.heng.demo@henchen.test',
+                'email' => 'vannak.heng@henchen.com.kh',
+                'legacy_email' => 'vannak.heng.demo@henchen.test',
                 'phone' => '+855 18 410 205',
                 'gender' => 'Male',
                 'dob' => '1992-06-07',
@@ -622,11 +671,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Heng Sreymao (+855 18 610 205)',
             ],
             [
-                'employee_code' => 'DEMO006',
+                'employee_code' => 'EMP012',
+                'legacy_code' => 'DEMO006',
                 'first_name' => 'Sreypov',
                 'last_name' => 'Touch',
                 'name_kh' => 'ទូច ស្រីពៅ',
-                'email' => 'sreypov.touch.demo@henchen.test',
+                'email' => 'sreypov.touch@henchen.com.kh',
+                'legacy_email' => 'sreypov.touch.demo@henchen.test',
                 'phone' => '+855 60 410 206',
                 'gender' => 'Female',
                 'dob' => '1998-12-15',
@@ -639,11 +690,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Touch Ravy (+855 60 610 206)',
             ],
             [
-                'employee_code' => 'DEMO007',
+                'employee_code' => 'EMP013',
+                'legacy_code' => 'DEMO007',
                 'first_name' => 'Ratha',
                 'last_name' => 'Yim',
                 'name_kh' => 'យឹម រដ្ឋា',
-                'email' => 'ratha.yim.demo@henchen.test',
+                'email' => 'ratha.yim@henchen.com.kh',
+                'legacy_email' => 'ratha.yim.demo@henchen.test',
                 'phone' => '+855 69 410 207',
                 'gender' => 'Male',
                 'dob' => '1995-05-30',
@@ -656,11 +709,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Yim Sovan (+855 69 610 207)',
             ],
             [
-                'employee_code' => 'DEMO008',
+                'employee_code' => 'EMP014',
+                'legacy_code' => 'DEMO008',
                 'first_name' => 'Sokha',
                 'last_name' => 'Keo',
                 'name_kh' => 'កែវ សុខា',
-                'email' => 'sokha.keo.demo@henchen.test',
+                'email' => 'sokha.keo@henchen.com.kh',
+                'legacy_email' => 'sokha.keo.demo@henchen.test',
                 'phone' => '+855 70 410 208',
                 'gender' => 'Female',
                 'dob' => '1999-02-10',
@@ -673,11 +728,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Keo Chantha (+855 70 610 208)',
             ],
             [
-                'employee_code' => 'DEMO009',
+                'employee_code' => 'EMP015',
+                'legacy_code' => 'DEMO009',
                 'first_name' => 'Bopha',
                 'last_name' => 'Meas',
                 'name_kh' => 'មាស បុប្ផា',
-                'email' => 'bopha.meas.demo@henchen.test',
+                'email' => 'bopha.meas@henchen.com.kh',
+                'legacy_email' => 'bopha.meas.demo@henchen.test',
                 'phone' => '+855 71 410 209',
                 'gender' => 'Female',
                 'dob' => '1997-09-22',
@@ -690,11 +747,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'emergency_contact' => 'Meas Sreymom (+855 71 610 209)',
             ],
             [
-                'employee_code' => 'DEMO010',
+                'employee_code' => 'EMP016',
+                'legacy_code' => 'DEMO010',
                 'first_name' => 'Visal',
                 'last_name' => 'Ouk',
                 'name_kh' => 'អ៊ុក វិសាល',
-                'email' => 'visal.ouk.demo@henchen.test',
+                'email' => 'visal.ouk@henchen.com.kh',
+                'legacy_email' => 'visal.ouk.demo@henchen.test',
                 'phone' => '+855 76 410 210',
                 'gender' => 'Male',
                 'dob' => '2000-04-18',
