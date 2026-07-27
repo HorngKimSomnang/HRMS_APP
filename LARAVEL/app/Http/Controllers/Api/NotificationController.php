@@ -35,6 +35,14 @@ class NotificationController extends Controller
         return $this->successResponse(null, 'Notifications marked as read');
     }
 
+    public function markOneAsRead(Request $request, string $id)
+    {
+        $notification = $request->user()->notifications()->findOrFail($id);
+        $notification->markAsRead();
+
+        return $this->successResponse(null, 'Notification marked as read');
+    }
+
     public function destroy(Request $request, $id)
     {
         $notification = $request->user()->notifications()->findOrFail($id);

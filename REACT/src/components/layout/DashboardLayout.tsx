@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Bell } from 'lucide-react';
 import api from '@/services/api';
@@ -7,9 +7,53 @@ import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
+interface NotificationItem {
+    id: string;
+    type?: string;
+    data?: {
+        type?: string;
+        message?: string;
+        action_url?: string;
+        entity_slug?: string;
+        [key: string]: unknown;
+    };
+    read_at: string | null;
+    created_at: string;
+}
+
+const getNotificationPath = (notification: NotificationItem): string => {
+    const actionUrl = notification.data?.action_url;
+    if (typeof actionUrl === 'string' && actionUrl.startsWith('/') && !actionUrl.startsWith('//')) {
+        return actionUrl;
+    }
+
+    const notificationType = (notification.data?.type || notification.type || '').toLowerCase();
+
+    if (notificationType.includes('custom_entity_record')) {
+        const slug = notification.data?.entity_slug;
+        return typeof slug === 'string' && slug ? `/entities/${encodeURIComponent(slug)}` : '/entities';
+    }
+
+    if (notificationType.includes('attendance') || notificationType.includes('clocked') || notificationType.includes('clock_out')) {
+        return '/attendance';
+    }
+
+    if (notificationType.includes('leave')) return '/leaves';
+    if (notificationType.includes('task')) return '/tasks';
+    if (notificationType.includes('document')) return '/documents';
+    if (notificationType.includes('announcement') || notificationType.includes('holiday')) return '/notices';
+    if (notificationType.includes('overtime')) return '/overtime';
+    if (notificationType.includes('payslip') || notificationType.includes('payroll')) return '/payroll';
+    if (notificationType.includes('contract')) return '/lifecycle';
+    if (notificationType.includes('report')) return '/reports';
+
+    return '/dashboard';
+};
+
 export default function DashboardLayout() {
     const { i18n } = useTranslation();
-    const [notifications, setNotifications] = useState<any[]>([]);
+    const navigate = useNavigate();
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -39,7 +83,7 @@ export default function DashboardLayout() {
 
             // Update the set of known IDs so we don't trigger again for these
             const currentIds = new Set<string>();
-            incomingData.forEach((item: any) => currentIds.add(item.id));
+            incomingData.forEach((item: NotificationItem) => currentIds.add(item.id));
             knownNotificationIds.current = currentIds;
 
             setNotifications(incomingData);
@@ -88,6 +132,28 @@ export default function DashboardLayout() {
         } catch (error) {
             console.error("Failed to mark as read", error);
         }
+    };
+
+    const openNotification = (notification: NotificationItem) => {
+        const wasUnread = !notification.read_at;
+
+        setShowNotifications(false);
+
+        if (wasUnread) {
+            setNotifications(prev => prev.map(item => (
+                item.id === notification.id
+                    ? { ...item, read_at: new Date().toISOString() }
+                    : item
+            )));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+
+            void api.post(`/notifications/${notification.id}/mark-read`).catch((error) => {
+                console.error("Failed to mark notification as read", error);
+                void fetchNotifications();
+            });
+        }
+
+        navigate(getNotificationPath(notification));
     };
 
     const toggleLanguage = () => {
@@ -150,7 +216,13 @@ export default function DashboardLayout() {
                                                 {notifications.map((n) => {
                                                     const isUnread = !n.read_at;
                                                     return (
-                                                        <div key={n.id} className={`p-4 hover:bg-muted/50 transition-colors ${isUnread ? 'bg-blue-50/60 dark:bg-blue-900/10' : ''}`}>
+                                                        <button
+                                                            key={n.id}
+                                                            type="button"
+                                                            onClick={() => openNotification(n)}
+                                                            className={`block w-full p-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary transition-colors cursor-pointer ${isUnread ? 'bg-blue-50/60 dark:bg-blue-900/10' : ''}`}
+                                                            aria-label={`Open notification: ${n.data?.message || 'Notification'}`}
+                                                        >
                                                             <div className="flex items-start gap-3">
                                                                 {isUnread && (
                                                                     <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
@@ -163,7 +235,7 @@ export default function DashboardLayout() {
                                                                     <p className="text-xs text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()}</p>
                                                                 </div>
                                                             </div>
-                                                        </div>
+                                                        </button>
                                                     );
                                                 })}
                                             </div>
