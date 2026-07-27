@@ -300,7 +300,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                         $date->lte(Carbon::parse($leave->end_date)->startOfDay());
                         $date->addDay()
                     ) {
-                        if (!$date->isWeekend()) {
+                        if (!$date->isSunday()) {
                             $approvedLeaveDates[$date->toDateString()] = true;
                         }
                     }
@@ -312,7 +312,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 $date->lte(Carbon::parse('2026-07-27')->startOfDay());
                 $date->addDay()
             ) {
-                if (!$date->isWeekend() && !isset($approvedLeaveDates[$date->toDateString()])) {
+                if (!$date->isSunday() && !isset($approvedLeaveDates[$date->toDateString()])) {
                     $expectedAttendanceDays++;
                 }
             }

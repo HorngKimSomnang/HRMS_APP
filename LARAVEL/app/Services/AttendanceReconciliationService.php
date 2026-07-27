@@ -24,7 +24,7 @@ class AttendanceReconciliationService
             ->whereNotIn('status', ['absent', 'warning'])
             ->update(['status' => 'warning']);
 
-        if ($workDate->isWeekend() || $this->isPublishedHoliday($workDate)) {
+        if ($workDate->isSunday() || $this->isPublishedHoliday($workDate)) {
             return [
                 'warnings_marked' => $warningsMarked,
                 'absences_created' => 0,
@@ -104,13 +104,20 @@ class AttendanceReconciliationService
             return ['warnings_marked' => 0, 'absences_created' => 0];
         }
 
+        return $this->reconcileRange($earliestJoiningDate, $endDate);
+    }
+
+    public function reconcileRange(Carbon|string $startDate, Carbon|string $endDate): array
+    {
+        $start = $startDate instanceof Carbon
+            ? $startDate->copy()->setTimezone(self::BUSINESS_TIMEZONE)->startOfDay()
+            : Carbon::parse($startDate, self::BUSINESS_TIMEZONE)->startOfDay();
+        $end = $endDate instanceof Carbon
+            ? $endDate->copy()->setTimezone(self::BUSINESS_TIMEZONE)->startOfDay()
+            : Carbon::parse($endDate, self::BUSINESS_TIMEZONE)->startOfDay();
         $totals = ['warnings_marked' => 0, 'absences_created' => 0];
 
-        for (
-            $date = Carbon::parse($earliestJoiningDate, self::BUSINESS_TIMEZONE)->startOfDay();
-            $date->lte($endDate);
-            $date->addDay()
-        ) {
+        for ($date = $start; $date->lte($end); $date->addDay()) {
             $result = $this->reconcileDate($date);
             $totals['warnings_marked'] += $result['warnings_marked'];
             $totals['absences_created'] += $result['absences_created'];

@@ -214,7 +214,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         $approvedLeaveDates = $this->approvedLeaveDates($employee);
 
         for ($date = $startDate->copy(); $date->lte($today); $date->addDay()) {
-            if ($date->isWeekend()) {
+            if ($date->isSunday()) {
                 continue;
             }
 

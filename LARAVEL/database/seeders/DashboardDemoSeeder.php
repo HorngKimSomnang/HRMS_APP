@@ -70,7 +70,7 @@ class DashboardDemoSeeder extends Seeder
         $day = 0;
         for ($i = 14; $i >= 1; $i--) {
             $date = $today->copy()->subDays($i);
-            if ($date->isWeekend()) continue;
+            if ($date->isSunday()) continue;
 
             $statuses = $statusSets[$day % count($statusSets)];
             $day++;

@@ -24,7 +24,7 @@ class DemoDataSeeder extends Seeder
                 $date = $today->copy()->subDays($i);
                 
                 // Skip weekends roughly (if Saturday or Sunday)
-                if ($date->isWeekend()) {
+                if ($date->isSunday()) {
                     continue;
                 }
                 

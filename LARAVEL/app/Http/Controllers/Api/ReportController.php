@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Services\AttendanceReconciliationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -18,7 +19,10 @@ class ReportController extends Controller
             abort(403, 'Unauthorized. Only Admin or Super Admin can access reports.');
         }
     }
-    public function attendanceReport(Request $request)
+    public function attendanceReport(
+        Request $request,
+        AttendanceReconciliationService $reconciliation
+    )
     {
         $this->authorizeAdmin();
 
@@ -27,6 +31,17 @@ class ReportController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'employee_id' => 'nullable|exists:employees,id'
         ]);
+
+        $startDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
+        $lastCompletedDate = Carbon::yesterday('Asia/Phnom_Penh')->startOfDay();
+        $requestedEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->startOfDay();
+        $reconciliationEndDate = $requestedEndDate->lt($lastCompletedDate)
+            ? $requestedEndDate
+            : $lastCompletedDate;
+
+        if ($startDate->lte($reconciliationEndDate)) {
+            $reconciliation->reconcileRange($startDate, $reconciliationEndDate);
+        }
 
         $query = Attendance::with(['employee.user'])
                     ->whereBetween('date', [$request->start_date, $request->end_date]);

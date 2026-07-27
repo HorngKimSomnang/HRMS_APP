@@ -9,6 +9,7 @@ use App\Models\Leave;
 use App\Models\User;
 use App\Services\AttendanceReconciliationService;
 use Carbon\Carbon;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -68,7 +69,7 @@ class AttendanceReconciliationTest extends TestCase
         $result = app(AttendanceReconciliationService::class)
             ->backfillActiveEmployeesThrough('2026-07-26');
 
-        $this->assertSame(2, $result['absences_created']);
+        $this->assertSame(4, $result['absences_created']);
         $this->assertDatabaseHas('attendances', [
             'employee_id' => $employee->id,
             'date' => '2026-07-20',
@@ -77,6 +78,11 @@ class AttendanceReconciliationTest extends TestCase
         $this->assertDatabaseHas('attendances', [
             'employee_id' => $employee->id,
             'date' => '2026-07-24',
+            'status' => 'absent',
+        ]);
+        $this->assertDatabaseHas('attendances', [
+            'employee_id' => $employee->id,
+            'date' => '2026-07-25',
             'status' => 'absent',
         ]);
         $this->assertDatabaseMissing('attendances', [
@@ -93,10 +99,15 @@ class AttendanceReconciliationTest extends TestCase
                 ->whereDate('date', '2026-07-21')
                 ->value('status')
         );
-        $this->assertSame(
-            0,
-            Attendance::where('employee_id', $futureEmployee->id)->count()
-        );
+        $this->assertDatabaseHas('attendances', [
+            'employee_id' => $futureEmployee->id,
+            'date' => '2026-07-25',
+            'status' => 'absent',
+        ]);
+        $this->assertDatabaseMissing('attendances', [
+            'employee_id' => $employee->id,
+            'date' => '2026-07-26',
+        ]);
     }
 
     public function test_command_marks_missing_checkouts_and_missing_checkins(): void
@@ -128,5 +139,29 @@ class AttendanceReconciliationTest extends TestCase
             'date' => '2026-07-24',
             'status' => 'absent',
         ]);
+    }
+
+    public function test_attendance_report_materializes_a_missing_past_record_as_absent(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-27 12:00:00', 'Asia/Phnom_Penh'));
+        $this->seed(RolePermissionSeeder::class);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+        $employee = Employee::factory()->create([
+            'joining_date' => '2026-07-01',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson(
+                '/api/reports/attendance?start_date=2026-07-24'
+                . '&end_date=2026-07-24'
+                . "&employee_id={$employee->id}"
+            )
+            ->assertOk()
+            ->assertJsonPath('summary.total_records', 1)
+            ->assertJsonPath('summary.absent', 1)
+            ->assertJsonPath('data.0.status', 'absent');
     }
 }

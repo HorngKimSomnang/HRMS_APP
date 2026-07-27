@@ -106,7 +106,7 @@ class DashboardController extends Controller
             $businessDays = 0;
             $cursor = $periodStart->copy();
             while ($cursor->lte($periodEnd)) {
-                if (!$cursor->isWeekend()) $businessDays++;
+                if (!$cursor->isSunday()) $businessDays++;
                 $cursor->addDay();
             }
             $presentDays = Attendance::whereBetween('date', [$periodStart, $periodEnd])
