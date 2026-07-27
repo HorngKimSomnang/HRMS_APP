@@ -14,6 +14,7 @@ use App\Models\Payslip;
 use App\Models\Setting;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\AttendanceReconciliationService;
 use App\Support\HrCatalog;
 use Carbon\Carbon;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -93,10 +94,16 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             $this->adjustHengCamarySalary();
         });
 
+        $attendanceBackfill = app(AttendanceReconciliationService::class)
+            ->backfillActiveEmployeesThrough($today->copy()->subDay());
+
         $this->command?->newLine();
         $this->command?->info('Thesis dataset ready: 10 synthetic Cambodian employees.');
         $this->command?->line('Coverage: attendance, leave, overtime, payroll, tasks, contracts, lifecycle, and assets.');
         $this->command?->line('Workplace: Norton University. Morning shift is 8:00 AM-4:55 PM; attendance locations and status labels normalized.');
+        $this->command?->line(
+            "Past attendance reconciled: {$attendanceBackfill['absences_created']} missing check-in(s) marked Absent."
+        );
 
         if ($createdEmails !== []) {
             $this->command?->warn('Save these new demo credentials now:');

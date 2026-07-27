@@ -49,6 +49,7 @@ Artisan::command('inspire', function () {
 // At midnight, mark any still-unchecked-out attendance from the day as Warning
 \Illuminate\Support\Facades\Schedule::command('attendance:mark-missing-checkouts')
     ->dailyAt('00:00')
+    ->timezone('Asia/Phnom_Penh')
     ->withoutOverlapping()
     ->runInBackground();
 
