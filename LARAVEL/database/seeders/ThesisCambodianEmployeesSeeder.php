@@ -385,7 +385,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             $attendanceBonus = ($index + $monthsAgo) % 4 === 0 ? 25 : 0;
             $deductions = 12 + ($index % 5);
             $advanceDeduction = ($index + $monthsAgo) % 7 === 0 ? 30 : 0;
-            $status = $monthsAgo === 0 && $index % 4 === 0 ? 'pending' : 'paid';
+            $status = 'paid';
             $netSalary = $basicSalary
                 + $overtimeAmount
                 + $allowances
@@ -410,11 +410,9 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'net_salary' => $netSalary + ($index % 3 === 0 ? 20 : 0),
                 'status' => $status,
                 'notes' => 'Monthly payroll processed and reviewed by Finance',
-                'requires_signature' => false,
-                'is_signed' => $status === 'paid',
-                'signed_at' => $status === 'paid'
-                    ? $period->copy()->day(min(25, $period->daysInMonth))->endOfDay()
-                    : null,
+                'requires_signature' => true,
+                'is_signed' => true,
+                'signed_at' => $period->copy()->day(min(24, $period->daysInMonth))->endOfDay(),
             ]);
 
             $createdAt = $period->copy()->day(min(25, $period->daysInMonth))->endOfDay();

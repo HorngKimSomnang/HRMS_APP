@@ -82,8 +82,10 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame(20, Overtime::whereIn('employee_id', $employeeIds)->where('status', 'approved')->count());
         $this->assertSame(6, Overtime::whereIn('employee_id', $employeeIds)->where('status', 'pending')->count());
         $this->assertSame(4, Overtime::whereIn('employee_id', $employeeIds)->where('status', 'rejected')->count());
-        $this->assertSame(57, Payslip::whereIn('employee_id', $employeeIds)->where('status', 'paid')->count());
-        $this->assertSame(3, Payslip::whereIn('employee_id', $employeeIds)->where('status', 'pending')->count());
+        $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->where('status', 'paid')->count());
+        $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->where('requires_signature', true)->count());
+        $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->where('is_signed', true)->count());
+        $this->assertSame(0, Payslip::whereIn('employee_id', $employeeIds)->whereNull('signed_at')->count());
         $this->assertSame(10, Task::whereIn('assigned_to', $employeeIds)->where('status', 'completed')->count());
         $this->assertSame(10, Task::whereIn('assigned_to', $employeeIds)->where('status', 'in_progress')->count());
         $this->assertSame(10, Task::whereIn('assigned_to', $employeeIds)->where('status', 'pending')->count());
