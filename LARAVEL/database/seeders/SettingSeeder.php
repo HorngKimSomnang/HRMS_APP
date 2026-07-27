@@ -41,13 +41,13 @@ class SettingSeeder extends Seeder
             ],
             [
                 'key' => 'office_latitude',
-                'value' => '11.5564', // Phnom Penh Default
+                'value' => '11.58817',
                 'type' => 'text',
                 'group' => 'attendance',
             ],
             [
                 'key' => 'office_longitude',
-                'value' => '104.9282',
+                'value' => '104.93074',
                 'type' => 'text',
                 'group' => 'attendance',
             ],

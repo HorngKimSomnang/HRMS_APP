@@ -33,7 +33,8 @@ use Illuminate\Support\Str;
  *   php artisan db:seed --class=ThesisCambodianEmployeesSeeder
  *
  * Safe to re-run: legacy thesis identifiers and natural record keys are reused.
- * Existing real employees and their records are never selected or modified.
+ * Existing employee profiles are preserved while their thesis attendance history
+ * is normalized and backfilled for complete reporting.
  */
 class ThesisCambodianEmployeesSeeder extends Seeder
 {
