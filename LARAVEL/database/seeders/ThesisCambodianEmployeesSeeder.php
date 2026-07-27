@@ -74,6 +74,8 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 $this->seedLifecycle($employee, $index, $today, $approver);
                 $this->seedAsset($employee, $index, $today);
             }
+
+            $this->adjustHengCamarySalary();
         });
 
         $this->command?->newLine();
@@ -380,11 +382,11 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
         for ($monthsAgo = 5; $monthsAgo >= 0; $monthsAgo--) {
             $period = $today->copy()->startOfMonth()->subMonths($monthsAgo);
-            $overtimeAmount = 35 + (($index * 7 + $monthsAgo * 11) % 55);
-            $allowances = 45 + (($index % 4) * 10);
-            $attendanceBonus = ($index + $monthsAgo) % 4 === 0 ? 25 : 0;
-            $deductions = 12 + ($index % 5);
-            $advanceDeduction = ($index + $monthsAgo) % 7 === 0 ? 30 : 0;
+            $overtimeAmount = 15 + (($index * 5 + $monthsAgo * 7) % 30);
+            $allowances = 25 + (($index % 4) * 5);
+            $attendanceBonus = ($index + $monthsAgo) % 4 === 0 ? 15 : 0;
+            $deductions = 10 + ($index % 5);
+            $advanceDeduction = ($index + $monthsAgo) % 7 === 0 ? 20 : 0;
             $status = 'paid';
             $netSalary = $basicSalary
                 + $overtimeAmount
@@ -401,13 +403,13 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             $payslip->fill([
                 'basic_salary' => $basicSalary,
                 'overtime_amount' => $overtimeAmount,
-                'commission' => $index % 3 === 0 ? 20 : 0,
+                'commission' => $index % 3 === 0 ? 15 : 0,
                 'attendance_bonus' => $attendanceBonus,
                 'allowances' => $allowances,
                 'advance_deduction' => $advanceDeduction,
                 'unpaid_leave_deduction' => 0,
                 'deductions' => $deductions,
-                'net_salary' => $netSalary + ($index % 3 === 0 ? 20 : 0),
+                'net_salary' => $netSalary + ($index % 3 === 0 ? 15 : 0),
                 'status' => $status,
                 'notes' => 'Monthly payroll processed and reviewed by Finance',
                 'requires_signature' => true,
@@ -426,6 +428,50 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 $payslip->restore();
             }
         }
+    }
+
+    private function adjustHengCamarySalary(): void
+    {
+        $employee = Employee::with('user')
+            ->get()
+            ->first(function (Employee $candidate): bool {
+                $names = [
+                    strtolower(trim($candidate->first_name . ' ' . $candidate->last_name)),
+                    strtolower(trim($candidate->last_name . ' ' . $candidate->first_name)),
+                    strtolower(trim((string) $candidate->user?->name)),
+                ];
+
+                return in_array('heng camary', $names, true)
+                    || in_array('camary heng', $names, true);
+            });
+
+        if (!$employee) {
+            $this->command?->warn('Heng Camary was not found; no existing employee salary was changed.');
+            return;
+        }
+
+        $employee->update(['basic_salary' => 600]);
+
+        Payslip::where('employee_id', $employee->id)
+            ->where('basic_salary', 0)
+            ->each(function (Payslip $payslip): void {
+                $basicSalary = 600;
+                $netSalary = $basicSalary
+                    + (float) $payslip->overtime_amount
+                    + (float) $payslip->commission
+                    + (float) $payslip->attendance_bonus
+                    + (float) $payslip->allowances
+                    - (float) $payslip->advance_deduction
+                    - (float) $payslip->unpaid_leave_deduction
+                    - (float) $payslip->deductions;
+
+                $payslip->update([
+                    'basic_salary' => $basicSalary,
+                    'net_salary' => max(0, $netSalary),
+                ]);
+            });
+
+        $this->command?->line('Heng Camary salary normalized to $600; zero-value payslips recalculated.');
     }
 
     private function seedTasks(Employee $employee, int $index, Carbon $today, User $assigner): void
@@ -587,7 +633,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2022-02-14',
                 'department' => 'Human Resources',
                 'job_title' => 'HR Officer',
-                'basic_salary' => 750,
+                'basic_salary' => 500,
                 'address' => 'Boeung Keng Kang, Phnom Penh, Cambodia',
                 'marital_status' => 'Married',
                 'emergency_contact' => 'Sok Sopheak (+855 12 610 201)',
@@ -606,7 +652,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2022-06-01',
                 'department' => 'Finance',
                 'job_title' => 'Senior Accountant',
-                'basic_salary' => 900,
+                'basic_salary' => 650,
                 'address' => 'Tuol Kork, Phnom Penh, Cambodia',
                 'marital_status' => 'Single',
                 'emergency_contact' => 'Chan Sophal (+855 15 610 202)',
@@ -625,7 +671,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2023-01-09',
                 'department' => 'Information Technology',
                 'job_title' => 'Software Developer',
-                'basic_salary' => 1100,
+                'basic_salary' => 750,
                 'address' => 'Sen Sok, Phnom Penh, Cambodia',
                 'marital_status' => 'Married',
                 'emergency_contact' => 'Chea Vicheka (+855 16 610 203)',
@@ -644,7 +690,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2023-04-03',
                 'department' => 'Operations',
                 'job_title' => 'Operations Coordinator',
-                'basic_salary' => 720,
+                'basic_salary' => 500,
                 'address' => 'Chbar Ampov, Phnom Penh, Cambodia',
                 'marital_status' => 'Single',
                 'emergency_contact' => 'Lim Sokun (+855 17 610 204)',
@@ -663,7 +709,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2023-09-18',
                 'department' => 'Sales',
                 'job_title' => 'Sales Executive',
-                'basic_salary' => 800,
+                'basic_salary' => 550,
                 'address' => 'Daun Penh, Phnom Penh, Cambodia',
                 'marital_status' => 'Married',
                 'emergency_contact' => 'Heng Sreymao (+855 18 610 205)',
@@ -682,7 +728,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2024-01-08',
                 'department' => 'Marketing',
                 'job_title' => 'Digital Marketing Officer',
-                'basic_salary' => 700,
+                'basic_salary' => 500,
                 'address' => 'Mean Chey, Phnom Penh, Cambodia',
                 'marital_status' => 'Single',
                 'emergency_contact' => 'Touch Ravy (+855 60 610 206)',
@@ -701,7 +747,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2024-05-20',
                 'department' => 'Procurement',
                 'job_title' => 'Procurement Officer',
-                'basic_salary' => 680,
+                'basic_salary' => 480,
                 'address' => 'Por Sen Chey, Phnom Penh, Cambodia',
                 'marital_status' => 'Married',
                 'emergency_contact' => 'Yim Sovan (+855 69 610 207)',
@@ -720,7 +766,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2025-01-06',
                 'department' => 'Administration',
                 'job_title' => 'Administrative Assistant',
-                'basic_salary' => 550,
+                'basic_salary' => 400,
                 'address' => 'Russey Keo, Phnom Penh, Cambodia',
                 'marital_status' => 'Single',
                 'emergency_contact' => 'Keo Chantha (+855 70 610 208)',
@@ -739,7 +785,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2025-04-21',
                 'department' => 'Customer Service',
                 'job_title' => 'Customer Service Officer',
-                'basic_salary' => 600,
+                'basic_salary' => 420,
                 'address' => 'Kamboul, Phnom Penh, Cambodia',
                 'marital_status' => 'Single',
                 'emergency_contact' => 'Meas Sreymom (+855 71 610 209)',
@@ -758,7 +804,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'joining_date' => '2026-06-15',
                 'department' => 'Information Technology',
                 'job_title' => 'IT Support Technician',
-                'basic_salary' => 520,
+                'basic_salary' => 450,
                 'address' => 'Dangkao, Phnom Penh, Cambodia',
                 'marital_status' => 'Single',
                 'emergency_contact' => 'Ouk Kimsan (+855 76 610 210)',

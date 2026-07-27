@@ -28,6 +28,28 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole('Super Admin');
 
+        $hengUser = User::factory()->create([
+            'name' => 'Heng Camary',
+            'email' => 'heng.camary@gmail.com',
+        ]);
+        $hengUser->assignRole('Employee');
+        $hengCamary = Employee::factory()->for($hengUser)->create([
+            'first_name' => 'Heng',
+            'last_name' => 'Camary',
+            'job_title' => 'Administrator',
+            'basic_salary' => 0,
+        ]);
+        $hengPayslip = Payslip::create([
+            'employee_id' => $hengCamary->id,
+            'month' => now()->format('m'),
+            'year' => now()->format('Y'),
+            'basic_salary' => 0,
+            'allowances' => 25,
+            'deductions' => 5,
+            'net_salary' => 20,
+            'status' => 'paid',
+        ]);
+
         $existingEmployeeCount = Employee::count();
 
         $this->seed(ThesisCambodianEmployeesSeeder::class);
@@ -59,6 +81,9 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame($originalIds, $employeeIds->all());
         $this->assertSame($existingEmployeeCount + 10, Employee::count());
         $this->assertSame(10, User::where('email', 'like', '%.henchen@gmail.com')->count());
+        $this->assertSame('600.00', $hengCamary->fresh()->basic_salary);
+        $this->assertSame('600.00', $hengPayslip->fresh()->basic_salary);
+        $this->assertSame('620.00', $hengPayslip->fresh()->net_salary);
         $this->assertSame(40, Leave::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(30, Overtime::whereIn('employee_id', $employeeIds)->count());
         $this->assertSame(60, Payslip::whereIn('employee_id', $employeeIds)->count());
@@ -95,6 +120,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             $this->assertNotEmpty($employee->department);
             $this->assertNotEmpty($employee->job_title);
             $this->assertNotEmpty($employee->basic_salary);
+            $this->assertLessThanOrEqual(750, (float) $employee->basic_salary);
         });
     }
 }
