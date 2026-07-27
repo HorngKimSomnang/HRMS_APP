@@ -40,6 +40,7 @@ const StatusBadge = ({ status, suspicious, lateReason, earlyOutReason }: { statu
         early_out: { label: 'Early Out',  className: 'bg-yellow-100 text-yellow-700', reasonBox: 'bg-yellow-50 border-yellow-200', reasonIcon: 'text-yellow-600', reasonText: 'text-yellow-800' },
         warning:   { label: 'Warning',    className: 'bg-red-100 text-red-600',       reasonBox: 'bg-red-50 border-red-200',       reasonIcon: 'text-red-500',     reasonText: 'text-red-800' },
         absent:    { label: 'Absent',     className: 'bg-red-100 text-red-700',       reasonBox: 'bg-red-50 border-red-200',       reasonIcon: 'text-red-500',     reasonText: 'text-red-800' },
+        on_leave:  { label: 'On Leave',   className: 'bg-blue-100 text-blue-700',     reasonBox: 'bg-blue-50 border-blue-200',     reasonIcon: 'text-blue-500',    reasonText: 'text-blue-800' },
     };
     const c = cfg[status] ?? { label: status ?? '—', className: 'bg-gray-100 text-gray-500', reasonBox: 'bg-gray-50 border-gray-200', reasonIcon: 'text-gray-400', reasonText: 'text-gray-700' };
     const reason = status === 'late' ? lateReason : status === 'early_out' ? earlyOutReason : null;
@@ -250,7 +251,8 @@ export default function AttendanceList() {
                             ) : (
                                 attendances.map((record: any) => {
                                     const isSuspicious = record.hours_worked === '—';
-                                    const isMissingCheckout = !record.clock_out;
+                                    const isNonAttendanceStatus = ['absent', 'on_leave'].includes(record.status);
+                                    const isMissingCheckout = !record.clock_out && !isNonAttendanceStatus;
                                     return (
                                         <tr
                                             key={record.id}
@@ -273,7 +275,9 @@ export default function AttendanceList() {
                                                 {formatTime(record.clock_in)}
                                             </td>
                                             <td className="px-6 py-4 font-mono">
-                                                {isMissingCheckout ? (
+                                                {isNonAttendanceStatus ? (
+                                                    <span className="text-gray-400">—</span>
+                                                ) : isMissingCheckout ? (
                                                     <div>
                                                         <span className="text-orange-400 text-xs font-sans font-medium">Not clocked out</span>
                                                         <div className="text-[10px] text-amber-500 mt-0.5">
@@ -301,7 +305,9 @@ export default function AttendanceList() {
                                             <td className="px-6 py-4 text-gray-600">
                                                 <div className="flex items-center gap-1.5">
                                                     <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                                    <span className="truncate max-w-[180px]">{record.address || "GPS Verified"}</span>
+                                                    <span className="truncate max-w-[180px]">
+                                                        {isNonAttendanceStatus ? "Not applicable" : (record.address || "GPS Verified")}
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
@@ -310,7 +316,7 @@ export default function AttendanceList() {
                                                         <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded">Removed</span>
                                                     ) : (
                                                         <>
-                                                            {(() => {
+                                                            {!isNonAttendanceStatus && (() => {
                                                                 const isToday = record.date?.startsWith(new Date().toISOString().split('T')[0]);
                                                                 const openFixModal = (e: React.MouseEvent) => {
                                                                     e.stopPropagation();

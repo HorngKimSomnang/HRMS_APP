@@ -85,9 +85,16 @@ class AttendanceReconciliationTest extends TestCase
             'date' => '2026-07-25',
             'status' => 'absent',
         ]);
-        $this->assertDatabaseMissing('attendances', [
+        $this->assertDatabaseHas('attendances', [
             'employee_id' => $employee->id,
             'date' => '2026-07-22',
+            'status' => 'on_leave',
+        ]);
+        app(AttendanceReconciliationService::class)->reconcileDate('2026-07-22');
+        $this->assertDatabaseHas('attendances', [
+            'employee_id' => $employee->id,
+            'date' => '2026-07-22',
+            'status' => 'on_leave',
         ]);
         $this->assertDatabaseMissing('attendances', [
             'employee_id' => $employee->id,
@@ -152,6 +159,20 @@ class AttendanceReconciliationTest extends TestCase
             'joining_date' => '2026-07-01',
             'status' => 'active',
         ]);
+        $removedAttendance = Attendance::create([
+            'employee_id' => $employee->id,
+            'date' => '2026-07-24',
+            'clock_in' => Carbon::parse(
+                '2026-07-24 08:04',
+                'Asia/Phnom_Penh'
+            )->utc(),
+            'clock_out' => Carbon::parse(
+                '2026-07-24 16:56',
+                'Asia/Phnom_Penh'
+            )->utc(),
+            'status' => 'present',
+        ]);
+        $removedAttendance->delete();
 
         $this->actingAs($admin, 'sanctum')
             ->getJson(

@@ -332,29 +332,13 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                     ->count()
             );
 
-            $approvedLeaveDates = [];
-            Leave::where('employee_id', $employee->id)
-                ->where('status', 'approved')
-                ->get()
-                ->each(function (Leave $leave) use (&$approvedLeaveDates): void {
-                    for (
-                        $date = Carbon::parse($leave->start_date)->startOfDay();
-                        $date->lte(Carbon::parse($leave->end_date)->startOfDay());
-                        $date->addDay()
-                    ) {
-                        if (!$date->isSunday()) {
-                            $approvedLeaveDates[$date->toDateString()] = true;
-                        }
-                    }
-                });
-
             $expectedAttendanceDays = 0;
             for (
                 $date = Carbon::parse($employee->joining_date)->startOfDay();
                 $date->lte(Carbon::parse('2026-07-27')->startOfDay());
                 $date->addDay()
             ) {
-                if (!$date->isSunday() && !isset($approvedLeaveDates[$date->toDateString()])) {
+                if (!$date->isSunday()) {
                     $expectedAttendanceDays++;
                 }
             }

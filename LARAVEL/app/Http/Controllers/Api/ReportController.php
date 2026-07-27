@@ -56,6 +56,7 @@ class ReportController extends Controller
         $totalPresent = $records->where('status', 'present')->count();
         $totalLate    = $records->where('status', 'late')->count();
         $totalAbsent  = $records->where('status', 'absent')->count();
+        $totalOnLeave = $records->where('status', 'on_leave')->count();
 
         return response()->json([
             'summary' => [
@@ -63,6 +64,7 @@ class ReportController extends Controller
                 'present' => $totalPresent,
                 'late'    => $totalLate,
                 'absent'  => $totalAbsent,
+                'on_leave' => $totalOnLeave,
             ],
             'data' => $records
         ]);
