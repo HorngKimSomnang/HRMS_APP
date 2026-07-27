@@ -104,6 +104,7 @@ export default function Reports() {
                         absent: 'Absent',
                         warning: 'Warning',
                         on_leave: 'On Leave',
+                        day_off: 'Day Off',
                     } as Record<string, string>)[row.status] || row.status,
                     row.clock_in ? new Date(row.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
                     row.clock_out ? new Date(row.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
@@ -570,7 +571,7 @@ export default function Reports() {
                                                 {cfg.mapRow(row).map((val: any, j: number) => (
                                                     <TableCell key={j}>
                                                         {j === 2 && type === "attendance" ? (
-                                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${val === 'Present' ? 'bg-green-50 text-green-700' : val === 'Absent' ? 'bg-red-50 text-red-700' : val === 'On Leave' ? 'bg-blue-50 text-blue-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${val === 'Present' ? 'bg-green-50 text-green-700' : val === 'Absent' ? 'bg-red-50 text-red-700' : val === 'On Leave' ? 'bg-blue-50 text-blue-700' : val === 'Day Off' ? 'bg-purple-50 text-purple-700' : 'bg-yellow-50 text-yellow-700'}`}>
                                                                 {val}
                                                             </span>
                                                         ) : (j === 6 && type === "payroll") || (j === 5 && type === "leaves") || (j === 5 && type === "employees") || (j === 5 && type === "overtime") ? (

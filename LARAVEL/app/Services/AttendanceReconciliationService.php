@@ -21,7 +21,7 @@ class AttendanceReconciliationService
 
         $warningsMarked = Attendance::whereDate('date', $workDate)
             ->whereNull('clock_out')
-            ->whereNotIn('status', ['absent', 'on_leave', 'warning'])
+            ->whereNotIn('status', ['absent', 'day_off', 'on_leave', 'warning'])
             ->update(['status' => 'warning']);
 
         if ($workDate->isSunday() || $this->isPublishedHoliday($workDate)) {
@@ -39,25 +39,29 @@ class AttendanceReconciliationService
                 ->map(static fn ($id): int => (int) $id)
                 ->all();
 
-            $approvedLeaveEmployeeIdLookup = array_fill_keys(
-                Leave::where('status', 'approved')
+            $approvedLeaveStatusLookup = Leave::where('status', 'approved')
                 ->whereDate('start_date', '<=', $workDate)
                 ->whereDate('end_date', '>=', $workDate)
-                ->pluck('employee_id')
-                ->map(static fn ($id): int => (int) $id)
-                ->all(),
-                true
-            );
+                ->get(['employee_id', 'leave_type'])
+                ->mapWithKeys(static function (Leave $leave): array {
+                    $status = strcasecmp(
+                        $leave->leave_type,
+                        'Scheduled Day Off'
+                    ) === 0 ? 'day_off' : 'on_leave';
+
+                    return [(int) $leave->employee_id => $status];
+                })
+                ->all();
             $approvedLeaveEmployeeIds = array_keys(
-                $approvedLeaveEmployeeIdLookup
+                $approvedLeaveStatusLookup
             );
 
-            if ($approvedLeaveEmployeeIds !== []) {
+            foreach ($approvedLeaveStatusLookup as $employeeId => $status) {
                 Attendance::whereDate('date', $workDate)
-                    ->whereIn('employee_id', $approvedLeaveEmployeeIds)
+                    ->where('employee_id', $employeeId)
                     ->whereNull('clock_in')
                     ->update([
-                        'status' => 'on_leave',
+                        'status' => $status,
                         'is_late' => false,
                         'late_reason' => null,
                         'early_out_reason' => null,
@@ -74,9 +78,9 @@ class AttendanceReconciliationService
                 ->get(['id']);
 
             foreach ($employees as $employee) {
-                $status = isset(
-                    $approvedLeaveEmployeeIdLookup[(int) $employee->id]
-                ) ? 'on_leave' : 'absent';
+                $status = $approvedLeaveStatusLookup[
+                    (int) $employee->id
+                ] ?? 'absent';
 
                 Attendance::firstOrCreate(
                     [
@@ -101,7 +105,7 @@ class AttendanceReconciliationService
             return $employees
                 ->reject(
                     fn (Employee $employee): bool => isset(
-                        $approvedLeaveEmployeeIdLookup[(int) $employee->id]
+                        $approvedLeaveStatusLookup[(int) $employee->id]
                     )
                 )
                 ->count();

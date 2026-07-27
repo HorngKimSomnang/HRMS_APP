@@ -41,6 +41,7 @@ const StatusBadge = ({ status, suspicious, lateReason, earlyOutReason }: { statu
         warning:   { label: 'Warning',    className: 'bg-red-100 text-red-600',       reasonBox: 'bg-red-50 border-red-200',       reasonIcon: 'text-red-500',     reasonText: 'text-red-800' },
         absent:    { label: 'Absent',     className: 'bg-red-100 text-red-700',       reasonBox: 'bg-red-50 border-red-200',       reasonIcon: 'text-red-500',     reasonText: 'text-red-800' },
         on_leave:  { label: 'On Leave',   className: 'bg-blue-100 text-blue-700',     reasonBox: 'bg-blue-50 border-blue-200',     reasonIcon: 'text-blue-500',    reasonText: 'text-blue-800' },
+        day_off:   { label: 'Day Off',    className: 'bg-purple-100 text-purple-700', reasonBox: 'bg-purple-50 border-purple-200', reasonIcon: 'text-purple-500',  reasonText: 'text-purple-800' },
     };
     const c = cfg[status] ?? { label: status ?? '—', className: 'bg-gray-100 text-gray-500', reasonBox: 'bg-gray-50 border-gray-200', reasonIcon: 'text-gray-400', reasonText: 'text-gray-700' };
     const reason = status === 'late' ? lateReason : status === 'early_out' ? earlyOutReason : null;
@@ -251,7 +252,7 @@ export default function AttendanceList() {
                             ) : (
                                 attendances.map((record: any) => {
                                     const isSuspicious = record.hours_worked === '—';
-                                    const isNonAttendanceStatus = ['absent', 'on_leave'].includes(record.status);
+                                    const isNonAttendanceStatus = ['absent', 'day_off', 'on_leave'].includes(record.status);
                                     const isMissingCheckout = !record.clock_out && !isNonAttendanceStatus;
                                     return (
                                         <tr

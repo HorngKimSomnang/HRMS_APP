@@ -24,7 +24,7 @@ class MarkMissingCheckouts extends Command
         // enter the correct time manually by asking the employee.
         $affected = Attendance::where('date', $date)
             ->whereNull('clock_out')
-            ->whereNotIn('status', ['absent', 'on_leave', 'warning'])
+            ->whereNotIn('status', ['absent', 'day_off', 'on_leave', 'warning'])
             ->update(['status' => 'warning']);
 
         $this->info("Marked {$affected} attendance record(s) on {$date} as 'warning' — HR review required.");

@@ -185,4 +185,38 @@ class AttendanceReconciliationTest extends TestCase
             ->assertJsonPath('summary.absent', 1)
             ->assertJsonPath('data.0.status', 'absent');
     }
+
+    public function test_attendance_report_shows_an_admin_assigned_day_off(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-27 12:00:00', 'Asia/Phnom_Penh'));
+        $this->seed(RolePermissionSeeder::class);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+        $employee = Employee::factory()->create([
+            'joining_date' => '2026-07-01',
+            'status' => 'active',
+        ]);
+        Leave::create([
+            'employee_id' => $employee->id,
+            'leave_type' => 'Scheduled Day Off',
+            'start_date' => '2026-07-24',
+            'end_date' => '2026-07-24',
+            'days_count' => 1,
+            'reason' => 'Assigned Day Off by Admin',
+            'status' => 'approved',
+            'approved_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson(
+                '/api/reports/attendance?start_date=2026-07-24'
+                . '&end_date=2026-07-24'
+                . "&employee_id={$employee->id}"
+            )
+            ->assertOk()
+            ->assertJsonPath('summary.total_records', 1)
+            ->assertJsonPath('summary.day_off', 1)
+            ->assertJsonPath('data.0.status', 'day_off');
+    }
 }
