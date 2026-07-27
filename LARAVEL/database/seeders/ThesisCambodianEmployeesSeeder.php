@@ -225,7 +225,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                     'is_late' => false,
                     'late_reason' => null,
                     'early_out_reason' => null,
-                    'address' => 'Phnom Penh, Cambodia',
+                    'address' => null,
                     'latitude' => null,
                     'longitude' => null,
                     'location_accuracy' => null,
@@ -245,10 +245,10 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                     'is_late' => $status === 'late',
                     'late_reason' => $status === 'late' ? 'Heavy traffic in Phnom Penh' : null,
                     'early_out_reason' => $status === 'early_out' ? 'Approved personal appointment' : null,
-                    'address' => 'Khan Chamkar Mon, Phnom Penh, Cambodia',
-                    'latitude' => (string) (11.5480 + ($employeeIndex * 0.0004)),
-                    'longitude' => (string) (104.9210 + ($employeeIndex * 0.0004)),
-                    'location_accuracy' => (string) (7 + ($employeeIndex % 6)),
+                    'address' => 'Norton University, St. Keo Chenda, Sangkat Chroy Changvar, Khan Chroy Changvar, Phnom Penh, Cambodia',
+                    'latitude' => (string) (11.58817 + ($employeeIndex * 0.00001)),
+                    'longitude' => (string) (104.93074 + ($employeeIndex * 0.00001)),
+                    'location_accuracy' => (string) (5 + ($employeeIndex % 8)),
                 ]);
             }
 

@@ -109,6 +109,24 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 ->distinct()
                 ->count('status') === 4
         );
+        $locatedAttendances = Attendance::whereIn('employee_id', $employeeIds)
+            ->whereIn('status', ['present', 'late', 'early_out']);
+        $this->assertSame(
+            (clone $locatedAttendances)->count(),
+            (clone $locatedAttendances)->where('address', 'like', 'Norton University%')->count()
+        );
+        $this->assertSame(
+            0,
+            (clone $locatedAttendances)
+                ->whereNotBetween('latitude', [11.58800, 11.58850])
+                ->count()
+        );
+        $this->assertSame(
+            0,
+            (clone $locatedAttendances)
+                ->whereNotBetween('longitude', [104.93050, 104.93110])
+                ->count()
+        );
         $this->assertSame(20, Leave::whereIn('employee_id', $employeeIds)->where('status', 'approved')->count());
         $this->assertSame(10, Leave::whereIn('employee_id', $employeeIds)->where('status', 'pending')->count());
         $this->assertSame(10, Leave::whereIn('employee_id', $employeeIds)->where('status', 'rejected')->count());
