@@ -485,6 +485,7 @@ export default function PayrollAdmin() {
                 head: [["No.", "Employee Name", "Position", "Basic", "Allow.", "Deduct.", "Net Pay", "Date", "Signature"]],
                 body: tableData,
                 foot: [["", "TOTAL", "", money(totBasic), money(totAllow), money(totDeduct), money(totNet), "", ""]],
+                showFoot: 'lastPage',
                 theme: 'grid',
                 styles: { fontSize: 10, cellPadding: { top: 6, bottom: 6, left: 2, right: 2 }, valign: 'middle', lineColor: [203, 213, 225], lineWidth: 0.1 },
                 headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, halign: 'left', valign: 'middle' },
