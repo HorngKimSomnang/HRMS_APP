@@ -60,18 +60,21 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         $today = Carbon::today(self::TIMEZONE);
         $demoPassword = Str::password(16);
         $createdEmails = [];
+        $demoEmployeeIds = [];
 
         DB::transaction(function () use (
             $approver,
             $profiles,
             $today,
             $demoPassword,
-            &$createdEmails
+            &$createdEmails,
+            &$demoEmployeeIds
         ): void {
             $this->configureThesisWorkplace();
 
             foreach ($profiles as $index => $profile) {
                 [$employee, $wasCreated] = $this->upsertEmployee($profile, $demoPassword);
+                $demoEmployeeIds[] = $employee->id;
 
                 if ($wasCreated) {
                     $createdEmails[] = $profile['email'];
@@ -86,7 +89,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 $this->seedAsset($employee, $index, $today);
             }
 
-            $this->normalizeAttendanceRecords();
+            $this->normalizeAttendanceRecords($demoEmployeeIds);
             $this->adjustHengCamarySalary();
         });
 
@@ -350,13 +353,60 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         HrCatalog::saveShifts($shifts);
     }
 
-    private function normalizeAttendanceRecords(): void
+    private function normalizeAttendanceRecords(array $demoEmployeeIds): void
     {
         Attendance::withTrashed()
             ->whereNotNull('clock_in')
-            ->chunkById(250, function ($attendances): void {
+            ->chunkById(250, function ($attendances) use ($demoEmployeeIds): void {
                 foreach ($attendances as $attendance) {
                     $coordinateOffset = ((int) $attendance->employee_id % 10) * 0.00001;
+                    $isDemoEmployee = in_array($attendance->employee_id, $demoEmployeeIds, true);
+                    $attendanceDate = Carbon::parse($attendance->date, self::TIMEZONE)->startOfDay();
+
+                    if ($isDemoEmployee) {
+                        $variationSeed = (int) sprintf(
+                            '%u',
+                            crc32($attendance->employee_id . '|' . $attendanceDate->toDateString())
+                        );
+                        $pattern = $variationSeed % 20;
+                        $generatedStatus = match (true) {
+                            in_array($pattern, [4, 13], true) => 'late',
+                            $pattern === 9 => 'early_out',
+                            default => 'present',
+                        };
+                        $clockInTime = $generatedStatus === 'late'
+                            ? $attendanceDate->copy()
+                                ->setTime(8, 16)
+                                ->addMinutes(($variationSeed >> 4) % 13)
+                                ->format('H:i:s')
+                            : $attendanceDate->copy()
+                                ->setTime(7, 55)
+                                ->addMinutes(($variationSeed >> 4) % 14)
+                                ->format('H:i:s');
+                        $clockOutTime = $generatedStatus === 'early_out'
+                            ? $attendanceDate->copy()
+                                ->setTime(16, 30)
+                                ->addMinutes(($variationSeed >> 9) % 16)
+                                ->format('H:i:s')
+                            : $attendanceDate->copy()
+                                ->setTime(16, 50)
+                                ->addMinutes(($variationSeed >> 9) % 13)
+                                ->format('H:i:s');
+
+                        $attendance->forceFill([
+                            'clock_in' => $this->localTimeToUtc($attendanceDate, $clockInTime),
+                            'clock_out' => $this->localTimeToUtc($attendanceDate, $clockOutTime),
+                            'status' => $generatedStatus,
+                            'is_late' => $generatedStatus === 'late',
+                            'late_reason' => $generatedStatus === 'late'
+                                ? $this->lateReason($variationSeed)
+                                : null,
+                            'early_out_reason' => $generatedStatus === 'early_out'
+                                ? $this->earlyOutReason($variationSeed)
+                                : null,
+                        ]);
+                    }
+
                     $clockIn = Carbon::parse(
                         $attendance->getRawOriginal('clock_in'),
                         'UTC'
@@ -365,10 +415,12 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                         ->startOfDay()
                         ->setTimeFromTimeString(self::SHIFT_START_TIME)
                         ->addMinutes(self::LATE_GRACE_MINUTES);
-                    $isLate = $clockIn->gt($lateThreshold);
+                    $isLate = $isDemoEmployee
+                        ? $attendance->status === 'late'
+                        : $clockIn->gt($lateThreshold);
                     $isEarlyOut = $attendance->status === 'early_out';
 
-                    if (!$isEarlyOut && $attendance->clock_out) {
+                    if (!$isDemoEmployee && !$isEarlyOut && $attendance->clock_out) {
                         $clockOut = Carbon::parse(
                             $attendance->getRawOriginal('clock_out'),
                             'UTC'
@@ -400,6 +452,31 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                     ])->save();
                 }
             });
+    }
+
+    private function lateReason(int $variationSeed): string
+    {
+        $reasons = [
+            'Heavy traffic near Chroy Changvar',
+            'Motorbike issue on the way to work',
+            'Unexpected road congestion',
+            'Rain caused slower traffic',
+            'Family matter delayed departure',
+        ];
+
+        return $reasons[$variationSeed % count($reasons)];
+    }
+
+    private function earlyOutReason(int $variationSeed): string
+    {
+        $reasons = [
+            'Approved personal appointment',
+            'Medical appointment',
+            'Approved family commitment',
+            'Supervisor-approved early departure',
+        ];
+
+        return $reasons[$variationSeed % count($reasons)];
     }
 
     private function approvedLeaveDates(Employee $employee): array

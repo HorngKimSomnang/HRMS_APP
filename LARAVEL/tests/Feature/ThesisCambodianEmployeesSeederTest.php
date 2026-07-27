@@ -165,7 +165,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 )->setTimezone('Asia/Phnom_Penh');
                 $minutes = ($clockOut->hour * 60) + $clockOut->minute;
 
-                return $minutes < (16 * 60 + 55) || $minutes > (17 * 60);
+                return $minutes < (16 * 60 + 50) || $minutes > (17 * 60 + 2);
             });
         $this->assertSame(
             0,
@@ -185,7 +185,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 )->setTimezone('Asia/Phnom_Penh');
                 $minutes = ($clockIn->hour * 60) + $clockIn->minute;
 
-                return $minutes < (7 * 60 + 55) || $minutes > (8 * 60 + 10);
+                return $minutes < (7 * 60 + 55) || $minutes > (8 * 60 + 8);
             });
         $this->assertSame(0, $invalidNormalClockIns->count());
         $invalidLateClockIns = Attendance::whereIn('employee_id', $employeeIds)
@@ -198,9 +198,16 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
                 )->setTimezone('Asia/Phnom_Penh');
                 $minutes = ($clockIn->hour * 60) + $clockIn->minute;
 
-                return $minutes < (8 * 60 + 16) || $minutes > (8 * 60 + 25);
+                return $minutes < (8 * 60 + 16) || $minutes > (8 * 60 + 28);
             });
         $this->assertSame(0, $invalidLateClockIns->count());
+        $this->assertGreaterThan(
+            1,
+            Attendance::whereIn('employee_id', $employeeIds)
+                ->where('status', 'late')
+                ->distinct()
+                ->count('late_reason')
+        );
         $this->assertSame(20, Leave::whereIn('employee_id', $employeeIds)->where('status', 'approved')->count());
         $this->assertSame(10, Leave::whereIn('employee_id', $employeeIds)->where('status', 'pending')->count());
         $this->assertSame(10, Leave::whereIn('employee_id', $employeeIds)->where('status', 'rejected')->count());
