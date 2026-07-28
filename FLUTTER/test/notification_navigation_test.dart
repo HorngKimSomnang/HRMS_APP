@@ -16,6 +16,10 @@ void main() {
       notificationRouteForPayload({'type': 'clock_out_reminder'}),
       '/attendance',
     );
+    expect(
+      notificationRouteForPayload({'type': 'contract_expiring'}),
+      '/my-contract',
+    );
   });
 
   test('routes a custom entity reply to the matching employee form', () {

@@ -53,27 +53,10 @@ Artisan::command('inspire', function () {
     ->withoutOverlapping()
     ->runInBackground();
 
-// Each morning, warn admins about contracts/probations ending in 14, 7 or 1 day(s).
+// Each morning, warn employees and admins about contracts/probations ending
+// in 14, 7 or 1 day(s).
 // Exact-day triggers keep it to three notifications per contract, not daily spam.
-\Illuminate\Support\Facades\Schedule::call(function () {
-    $today = \Carbon\Carbon::today();
-
-    foreach ([14, 7, 1] as $daysLeft) {
-        $contracts = \App\Models\Contract::with('employee')
-            ->where('status', 'active')
-            ->whereDate('end_date', $today->copy()->addDays($daysLeft))
-            ->get();
-
-        if ($contracts->isEmpty()) {
-            continue;
-        }
-
-        $admins = \App\Models\User::role(['Admin', 'Super Admin'])->get();
-
-        foreach ($contracts as $contract) {
-            foreach ($admins as $admin) {
-                $admin->notify(new \App\Notifications\ContractExpiring($contract, $daysLeft));
-            }
-        }
-    }
-})->dailyAt('08:00');
+\Illuminate\Support\Facades\Schedule::command('contracts:send-expiry-reminders')
+    ->dailyAt('08:00')
+    ->timezone('Asia/Phnom_Penh')
+    ->withoutOverlapping();

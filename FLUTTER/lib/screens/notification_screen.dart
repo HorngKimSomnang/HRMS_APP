@@ -44,6 +44,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return LucideIcons.wallet;
       case 'clock_out_reminder':
         return LucideIcons.logOut;
+      case 'contract_expiring':
+        return LucideIcons.fileSignature;
       case 'task_completed':
         return LucideIcons.checkSquare;
       case 'task_assigned':
@@ -76,6 +78,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return const Color(0xFF059669); // emerald
       case 'clock_out_reminder':
         return const Color(0xFFF59E0B); // amber
+      case 'contract_expiring':
+        return const Color(0xFF8B5CF6); // purple
       case 'task_completed':
         return const Color(0xFF10B981); // green
       case 'task_assigned':
@@ -410,6 +414,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return 'Payslip Update';
       case 'clock_out_reminder':
         return 'Clock-Out Reminder';
+      case 'contract_expiring':
+        return 'Contract Reminder';
       case 'task_completed':
         return l10n.notifTaskCompleted;
       case 'task_assigned':
