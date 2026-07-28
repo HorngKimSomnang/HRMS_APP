@@ -9,7 +9,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Download, Send } from "lucide-react";
+import { Download } from "lucide-react";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 
@@ -117,25 +117,6 @@ export default function Reports() {
             setReportDataMap(newMap);
         } catch (error) {
             console.error("Failed to fetch report", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const sendToSuperAdmin = async () => {
-        const start = dateRange.start || new Date().toISOString().split('T')[0];
-        const end = dateRange.end || new Date().toISOString().split('T')[0];
-        
-        setLoading(true);
-        try {
-            await api.post("/reports/send-to-superadmin", {
-                start_date: start,
-                end_date: end,
-                report_type: reportTypes.join(', ')
-            });
-            toast.success("Report successfully sent to Super Admin!");
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Failed to send report");
         } finally {
             setLoading(false);
         }
@@ -534,11 +515,6 @@ export default function Reports() {
                     <p className="text-muted-foreground mt-1">{isSuperAdmin ? "Review reports submitted by the HR Manager." : "Generate and export system reports."}</p>
                 </div>
                 <div className="flex gap-2">
-                    {!isSuperAdmin && (
-                        <Button variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100" onClick={sendToSuperAdmin} disabled={!hasData || loading}>
-                            <Send className="mr-2 h-4 w-4" /> Send to CEO
-                        </Button>
-                    )}
                     <Button variant="outline" onClick={exportToExcel} disabled={!hasData}>
                         <Download className="mr-2 h-4 w-4" /> Export Excel
                     </Button>

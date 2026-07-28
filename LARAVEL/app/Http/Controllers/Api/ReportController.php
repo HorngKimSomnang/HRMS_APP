@@ -344,33 +344,4 @@ class ReportController extends Controller
         ]);
     }
 
-    public function sendToSuperAdmin(Request $request)
-    {
-        // Whoever can view/generate these reports can dispatch them upward too —
-        // Super Admin should never be MORE restricted than Admin on the same feature.
-        if (!Auth::user()->hasRole(['Admin', 'Super Admin'])) {
-            return response()->json(['message' => 'Unauthorized. Only Admin or Super Admin can dispatch reports to Super Admin.'], 403);
-        }
-
-        $request->validate([
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-        ]);
-
-        $superAdmins = \App\Models\User::role('Super Admin')->get();
-        if ($superAdmins->isEmpty()) {
-            return response()->json(['message' => 'No Super Admin found'], 404);
-        }
-
-        $senderName = $request->user()->name;
-        $period = $request->start_date . ' to ' . $request->end_date;
-        $reportType = $request->report_type ?? 'attendance';
-
-        foreach ($superAdmins as $superAdmin) {
-            $superAdmin->notify(new \App\Notifications\ReportSentNotification($senderName, $period, $reportType));
-        }
-
-        return response()->json(['message' => 'Report successfully sent to Super Admin']);
-    }
-
 }
