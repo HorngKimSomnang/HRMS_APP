@@ -17,6 +17,12 @@ class ContractExpiryNotificationTest extends TestCase
 {
     use DatabaseTransactions;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_contract_expiry_alert_is_sent_to_employee_and_admin(): void
     {
         $this->seed(RolePermissionSeeder::class);
@@ -65,5 +71,73 @@ class ContractExpiryNotificationTest extends TestCase
         $this->assertSame('contract_expiring', $employeePayload['type']);
         $this->assertSame('Contract Expiry Reminder', $employeePayload['title']);
         $this->assertStringStartsWith('Your contract ends', $employeePayload['message']);
+    }
+
+    public function test_updating_a_contract_with_eleven_days_left_alerts_the_employee(): void
+    {
+        Carbon::setTestNow(
+            Carbon::parse('2026-07-28 10:00:00', 'Asia/Phnom_Penh')
+        );
+        $this->seed(RolePermissionSeeder::class);
+        Notification::fake();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+
+        $employeeUser = User::factory()->create(['name' => 'Sophal Soreachpooh']);
+        $employeeUser->assignRole('Employee');
+        $employee = Employee::factory()->for($employeeUser)->create();
+        $contract = Contract::create([
+            'employee_id' => $employee->id,
+            'type' => 'fixed_term',
+            'start_date' => '2026-07-26',
+            'end_date' => '2026-08-20',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/lifecycle/contracts/{$contract->id}", [
+                'end_date' => '2026-08-08',
+            ])
+            ->assertOk()
+            ->assertJsonPath('employee_alert_sent', true);
+
+        Notification::assertSentTo(
+            $employeeUser,
+            ContractExpiring::class,
+            fn (ContractExpiring $notification): bool =>
+                $notification->toArray($employeeUser)['days_left'] === 11
+                && $notification->toArray($employeeUser)['action_url']
+                    === '/my-contract'
+        );
+    }
+
+    public function test_near_expiry_scan_alerts_an_existing_eleven_day_contract(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        Notification::fake();
+
+        $employeeUser = User::factory()->create(['name' => 'Sophal Soreachpooh']);
+        $employeeUser->assignRole('Employee');
+        $employee = Employee::factory()->for($employeeUser)->create();
+        Contract::create([
+            'employee_id' => $employee->id,
+            'type' => 'fixed_term',
+            'start_date' => '2026-07-26',
+            'end_date' => '2026-08-08',
+            'status' => 'active',
+        ]);
+
+        $result = app(ContractExpiryNotificationService::class)
+            ->notifyEmployeesWithNearExpiryContracts(
+                Carbon::parse('2026-07-28', 'Asia/Phnom_Penh')
+            );
+
+        $this->assertSame(1, $result['contracts_found']);
+        $this->assertSame(1, $result['notifications_sent']);
+        Notification::assertSentTo(
+            $employeeUser,
+            ContractExpiring::class
+        );
     }
 }

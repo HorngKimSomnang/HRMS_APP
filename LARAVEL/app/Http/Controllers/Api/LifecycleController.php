@@ -8,6 +8,7 @@ use App\Models\EmployeeEvent;
 use App\Models\Offboarding;
 use App\Models\Employee;
 use App\Services\AuditLogger;
+use App\Services\ContractExpiryNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -93,7 +94,10 @@ class LifecycleController extends Controller
         return response()->json(['data' => $query->get()]);
     }
 
-    public function contractsStore(Request $request)
+    public function contractsStore(
+        Request $request,
+        ContractExpiryNotificationService $contractAlerts
+    )
     {
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
@@ -109,13 +113,23 @@ class LifecycleController extends Controller
             ->update(['status' => 'expired']);
 
         $contract = Contract::create($validated + ['status' => 'active']);
+        $employeeAlertSent = $contractAlerts
+            ->notifyEmployeeForSavedContract($contract);
 
         AuditLogger::log($request, 'CONTRACT_CREATED', $contract, ['type' => $contract->type, 'employee_id' => $contract->employee_id]);
 
-        return response()->json(['data' => $contract->load('employee:id,first_name,last_name,job_title,department'), 'message' => 'Contract created.'], 201);
+        return response()->json([
+            'data' => $contract->load('employee:id,first_name,last_name,job_title,department'),
+            'message' => 'Contract created.',
+            'employee_alert_sent' => $employeeAlertSent,
+        ], 201);
     }
 
-    public function contractsUpdate(Request $request, Contract $contract)
+    public function contractsUpdate(
+        Request $request,
+        Contract $contract,
+        ContractExpiryNotificationService $contractAlerts
+    )
     {
         $validated = $request->validate([
             'type' => 'sometimes|in:probation,fixed_term,permanent',
@@ -126,10 +140,16 @@ class LifecycleController extends Controller
         ]);
 
         $contract->update($validated);
+        $employeeAlertSent = $contractAlerts
+            ->notifyEmployeeForSavedContract($contract->fresh());
 
         AuditLogger::log($request, 'CONTRACT_UPDATED', $contract, $validated);
 
-        return response()->json(['data' => $contract->fresh()->load('employee:id,first_name,last_name,job_title,department'), 'message' => 'Contract updated.']);
+        return response()->json([
+            'data' => $contract->fresh()->load('employee:id,first_name,last_name,job_title,department'),
+            'message' => 'Contract updated.',
+            'employee_alert_sent' => $employeeAlertSent,
+        ]);
     }
 
     public function contractsDestroy(Request $request, Contract $contract)

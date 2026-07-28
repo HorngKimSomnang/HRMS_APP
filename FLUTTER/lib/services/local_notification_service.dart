@@ -39,6 +39,12 @@ class LocalNotificationService {
       },
     );
 
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
+
     final launchDetails = await flutterLocalNotificationsPlugin
         .getNotificationAppLaunchDetails();
     if (launchDetails?.didNotificationLaunchApp ?? false) {

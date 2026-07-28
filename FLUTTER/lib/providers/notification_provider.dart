@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/notification_service.dart';
 import '../services/local_notification_service.dart';
 import '../core/notification_navigation.dart';
@@ -7,12 +8,16 @@ import '../core/notification_navigation.dart';
 import 'package:flutter/services.dart';
 
 class NotificationProvider with ChangeNotifier {
+  static const _lastAlertedNotificationKey =
+      'last_alerted_hrms_notification_id';
+
   final NotificationService _service = NotificationService();
 
   List<dynamic> _notifications = [];
   int _unreadCount = 0;
   bool _loading = false;
   String? _lastSeenId;
+  bool _lastSeenIdLoaded = false;
   Timer? _pollingTimer;
 
   List<dynamic> get notifications => _notifications;
@@ -40,31 +45,41 @@ class NotificationProvider with ChangeNotifier {
       notifyListeners();
     }
     try {
+      if (!_lastSeenIdLoaded) {
+        final preferences = await SharedPreferences.getInstance();
+        _lastSeenId = preferences.getString(_lastAlertedNotificationKey);
+        _lastSeenIdLoaded = true;
+      }
+
       final responseData = await _service.fetchNotifications();
       final data = responseData['data'] ?? responseData;
       _notifications = data['notifications'] ?? [];
       _unreadCount = data['unread_count'] ?? 0;
 
       if (_notifications.isNotEmpty) {
-        final latestId = _notifications.first['id'].toString();
-        // If we found a new notification and we have initialized _lastSeenId
-        if (_lastSeenId != null && _lastSeenId != latestId) {
-          // Trigger local in-app notification!
-          final latestData = _notifications.first['data'] ?? {};
+        final latestNotification = _notifications.first;
+        final latestId = latestNotification['id'].toString();
+        final isUnread = latestNotification['read_at'] == null;
 
-          // Trigger physical vibration
+        if (isUnread && _lastSeenId != latestId) {
+          final rawData = latestNotification['data'];
+          final latestData = rawData is Map
+              ? Map<String, dynamic>.from(rawData)
+              : <String, dynamic>{};
+
           HapticFeedback.vibrate();
 
-          LocalNotificationService().showNotification(
+          await LocalNotificationService().showNotification(
             id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
             title: 'New HRMS Alert',
             body: latestData['message'] ?? 'You have a new notification',
-            payload: latestData is Map<String, dynamic>
-                ? notificationRouteForPayload(latestData)
-                : null,
+            payload: notificationRouteForPayload(latestData),
           );
         }
+
         _lastSeenId = latestId;
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(_lastAlertedNotificationKey, latestId);
       }
     } catch (e) {
       debugPrint('NotificationProvider: fetch error: $e');
