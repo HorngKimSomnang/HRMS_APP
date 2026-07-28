@@ -29,7 +29,11 @@ class NewHoliday extends Notification
             'id' => $this->holiday->id,
             'title' => 'New ' . $this->holiday->type . ' Announced: ' . $this->holiday->title,
             'message' => $this->holiday->content,
-            'type' => 'announcement'
+            'type' => 'announcement',
+            'announcement_type' => $this->holiday->type,
+            'action_url' => strtolower($this->holiday->type) === 'holiday'
+                ? '/holidays'
+                : '/notices?notice=' . $this->holiday->id,
         ];
     }
 }

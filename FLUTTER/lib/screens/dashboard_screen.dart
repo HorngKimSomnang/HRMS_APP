@@ -114,7 +114,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               context,
             )!.newAnnouncementNotifTitle(latestNotice['title']),
             body: latestNotice['content'],
-            payload: '/holidays',
+            payload: latestNotice['type']?.toString().toLowerCase() == 'holiday'
+                ? '/holidays'
+                : '/notices?notice=$latestNoticeId',
           );
           await _storage.write(
             key: 'last_seen_notice_id',
@@ -1260,6 +1262,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: Colors.grey,
                         ),
                       ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  child: InkWell(
+                    onTap: () => context.push('/notices'),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(
+                            0xFF7C3AED,
+                          ).withValues(alpha: 0.18),
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF7C3AED,
+                              ).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              LucideIcons.megaphone,
+                              color: Color(0xFF7C3AED),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppLocalizations.of(context)!.noticeBoard,
+                                  style: GoogleFonts.notoSansKhmer(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF1E293B),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.viewCompanyNotices,
+                                  style: GoogleFonts.notoSansKhmer(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            LucideIcons.chevronRight,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -75,6 +75,15 @@ class AppLocalizationsKm extends AppLocalizations {
   String get viewHolidays => 'មើលថ្ងៃឈប់សម្រាកខាងមុខ';
 
   @override
+  String get noticeBoard => 'ក្តារជូនដំណឹង';
+
+  @override
+  String get viewCompanyNotices => 'មើលសេចក្តីជូនដំណឹងរបស់ក្រុមហ៊ុន';
+
+  @override
+  String get noNoticesFound => 'មិនមានសេចក្តីជូនដំណឹងដែលបានផ្សព្វផ្សាយទេ។';
+
+  @override
   String get language => 'Language / ភាសា';
 
   @override

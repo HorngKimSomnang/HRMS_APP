@@ -20,6 +20,18 @@ void main() {
       notificationRouteForPayload({'type': 'contract_expiring'}),
       '/my-contract',
     );
+    expect(
+      notificationRouteForPayload({'type': 'announcement', 'id': 25}),
+      '/notices?notice=25',
+    );
+    expect(
+      notificationRouteForPayload({
+        'type': 'announcement',
+        'announcement_type': 'Holiday',
+        'id': 26,
+      }),
+      '/holidays',
+    );
   });
 
   test('routes a custom entity reply to the matching employee form', () {

@@ -230,6 +230,24 @@ abstract class AppLocalizations {
   /// **'View upcoming holidays'**
   String get viewHolidays;
 
+  /// No description provided for @noticeBoard.
+  ///
+  /// In en, this message translates to:
+  /// **'Notice Board'**
+  String get noticeBoard;
+
+  /// No description provided for @viewCompanyNotices.
+  ///
+  /// In en, this message translates to:
+  /// **'View company announcements'**
+  String get viewCompanyNotices;
+
+  /// No description provided for @noNoticesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No published notices found.'**
+  String get noNoticesFound;
+
   /// No description provided for @language.
   ///
   /// In en, this message translates to:

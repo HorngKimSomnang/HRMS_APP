@@ -18,9 +18,16 @@ String? notificationRouteForPayload(Map<String, dynamic> payload) {
       return '/tasks';
     case 'document_uploaded':
       return '/documents';
-    case 'announcement':
     case 'holiday':
       return '/holidays';
+    case 'announcement':
+      if (payload['announcement_type']?.toString().toLowerCase() == 'holiday') {
+        return '/holidays';
+      }
+      final noticeId = payload['id']?.toString();
+      return noticeId == null || noticeId.isEmpty
+          ? '/notices'
+          : '/notices?notice=${Uri.encodeQueryComponent(noticeId)}';
     case 'contract_expiring':
       return '/my-contract';
     case 'custom_entity_record_replied':
@@ -42,6 +49,7 @@ String? notificationRouteForPayload(Map<String, dynamic> payload) {
     '/tasks',
     '/documents',
     '/holidays',
+    '/notices',
     '/my-contract',
     '/my-forms',
   };

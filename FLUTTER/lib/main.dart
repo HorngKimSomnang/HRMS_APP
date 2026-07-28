@@ -21,6 +21,7 @@ import 'screens/overtime_screen.dart';
 import 'screens/payslip_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/my_contract_screen.dart';
+import 'screens/notice_board_screen.dart';
 import 'screens/my_forms_screen.dart';
 import 'screens/entity_form_screen.dart';
 import 'providers/notification_provider.dart';
@@ -87,6 +88,12 @@ final _router = GoRouter(
         GoRoute(
           path: '/holidays',
           builder: (context, state) => const HolidayScreen(),
+        ),
+        GoRoute(
+          path: '/notices',
+          builder: (context, state) => NoticeBoardScreen(
+            noticeId: int.tryParse(state.uri.queryParameters['notice'] ?? ''),
+          ),
         ),
         GoRoute(
           path: '/overtime',

@@ -75,6 +75,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewHolidays => 'View upcoming holidays';
 
   @override
+  String get noticeBoard => 'Notice Board';
+
+  @override
+  String get viewCompanyNotices => 'View company announcements';
+
+  @override
+  String get noNoticesFound => 'No published notices found.';
+
+  @override
   String get language => 'Language / ភាសា';
 
   @override
