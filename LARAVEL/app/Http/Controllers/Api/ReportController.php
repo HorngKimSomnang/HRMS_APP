@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
+use App\Models\CustomEntity;
+use App\Models\CustomEntityRecord;
 use App\Models\Employee;
 use App\Services\AttendanceReconciliationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ReportController extends Controller
 {
@@ -188,6 +192,99 @@ class ReportController extends Controller
                 'total_hours' => $records->where('status', 'approved')->sum('hours'),
             ],
             'data' => $records
+        ]);
+    }
+
+    public function customEntityReport(Request $request)
+    {
+        $this->authorizeAdmin();
+
+        $validated = $request->validate([
+            'entity_slug' => 'required|string|exists:custom_entities,slug',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'employee_id' => 'nullable|exists:employees,id',
+            'field_key' => 'nullable|string|max:100',
+            'field_value' => 'nullable|string|max:500',
+        ]);
+
+        $entity = CustomEntity::where('slug', $validated['entity_slug'])
+            ->with('fields')
+            ->firstOrFail();
+
+        $field = null;
+        if (!empty($validated['field_key'])) {
+            $field = $entity->fields->firstWhere('key', $validated['field_key']);
+            if (!$field) {
+                throw ValidationException::withMessages([
+                    'field_key' => 'The selected filter field does not belong to this custom entity.',
+                ]);
+            }
+        }
+
+        $query = $entity->records()
+            ->with('creator:id,name,email')
+            ->whereBetween('created_at', [
+                Carbon::parse($validated['start_date'])->startOfDay(),
+                Carbon::parse($validated['end_date'])->endOfDay(),
+            ])
+            ->latest();
+
+        if (!empty($validated['employee_id'])) {
+            $employee = Employee::findOrFail($validated['employee_id']);
+            $query->where('created_by', $employee->user_id);
+        }
+
+        $records = $query->get();
+        $filterValue = trim((string) ($validated['field_value'] ?? ''));
+
+        if ($field && $filterValue !== '') {
+            $records = $records
+                ->filter(function (CustomEntityRecord $record) use ($field, $filterValue): bool {
+                    $value = $record->data[$field->key] ?? null;
+
+                    if ($field->type === 'file' && is_array($value)) {
+                        $value = $value['name'] ?? '';
+                    }
+
+                    if ($field->type === 'boolean') {
+                        if ($value === null) {
+                            return false;
+                        }
+
+                        $expected = in_array(
+                            Str::lower($filterValue),
+                            ['1', 'true', 'yes'],
+                            true
+                        );
+
+                        return (bool) $value === $expected;
+                    }
+
+                    if (in_array($field->type, ['number', 'date', 'dropdown'], true)) {
+                        return Str::lower((string) $value) === Str::lower($filterValue);
+                    }
+
+                    return Str::contains(
+                        Str::lower((string) $value),
+                        Str::lower($filterValue)
+                    );
+                })
+                ->values();
+        }
+
+        return response()->json([
+            'summary' => [
+                'total_records' => $records->count(),
+                'entity' => $entity->name,
+            ],
+            'entity' => [
+                'id' => $entity->id,
+                'name' => $entity->name,
+                'slug' => $entity->slug,
+            ],
+            'fields' => $entity->fields,
+            'data' => $records,
         ]);
     }
 

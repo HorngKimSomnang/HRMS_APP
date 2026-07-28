@@ -11,10 +11,14 @@ import 'screens/login_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/attendance_screen.dart';
+import 'screens/attendance_history_screen.dart';
 import 'screens/leave_screen.dart';
 import 'screens/task_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/document_screen.dart';
+import 'screens/holiday_screen.dart';
+import 'screens/overtime_screen.dart';
+import 'screens/payslip_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/my_contract_screen.dart';
 import 'screens/my_forms_screen.dart';
@@ -27,21 +31,19 @@ import 'services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await LocalNotificationService().init();
+  final localNotifications = LocalNotificationService();
+  await localNotifications.init(onNotificationTap: _openNotificationRoute);
   runApp(const MyApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    localNotifications.openInitialNotification();
+  });
 }
 
 final _router = GoRouter(
   initialLocation: '/',
   routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const SplashScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
+    GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(
       path: '/forgot-password',
       builder: (context, state) => const ForgotPasswordScreen(),
@@ -60,6 +62,10 @@ final _router = GoRouter(
           builder: (context, state) => const AttendanceScreen(),
         ),
         GoRoute(
+          path: '/attendance-history',
+          builder: (context, state) => const AttendanceHistoryScreen(),
+        ),
+        GoRoute(
           path: '/tasks',
           builder: (context, state) => const TaskScreen(),
         ),
@@ -70,12 +76,25 @@ final _router = GoRouter(
         GoRoute(
           path: '/profile',
           builder: (context, state) => ProfileScreen(
-            openChangePassword: state.uri.queryParameters['openPassword'] == 'true',
+            openChangePassword:
+                state.uri.queryParameters['openPassword'] == 'true',
           ),
         ),
         GoRoute(
           path: '/documents',
           builder: (context, state) => const DocumentScreen(),
+        ),
+        GoRoute(
+          path: '/holidays',
+          builder: (context, state) => const HolidayScreen(),
+        ),
+        GoRoute(
+          path: '/overtime',
+          builder: (context, state) => const OvertimeScreen(),
+        ),
+        GoRoute(
+          path: '/payslips',
+          builder: (context, state) => const PayslipScreen(),
         ),
         GoRoute(
           path: '/notifications',
@@ -91,12 +110,20 @@ final _router = GoRouter(
         ),
         GoRoute(
           path: '/my-forms/:slug',
-          builder: (context, state) => EntityFormScreen(slug: state.pathParameters['slug']!),
+          builder: (context, state) => EntityFormScreen(
+            slug: state.pathParameters['slug']!,
+            recordId: int.tryParse(state.uri.queryParameters['record'] ?? ''),
+          ),
         ),
       ],
     ),
   ],
 );
+
+void _openNotificationRoute(String? route) {
+  if (route == null || !route.startsWith('/')) return;
+  _router.go(route);
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

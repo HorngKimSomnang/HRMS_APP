@@ -107,6 +107,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/reports/employees', [\App\Http\Controllers\Api\ReportController::class, 'employeesReport']);
         Route::get('/reports/payroll', [\App\Http\Controllers\Api\ReportController::class, 'payrollReport']);
         Route::get('/reports/overtime', [\App\Http\Controllers\Api\ReportController::class, 'overtimeReport']);
+        Route::get('/reports/custom-entities', [\App\Http\Controllers\Api\ReportController::class, 'customEntityReport']);
         Route::post('/reports/send-to-superadmin', [\App\Http\Controllers\Api\ReportController::class, 'sendToSuperAdmin']);
 
         // Employee Lifecycle (contracts, events, offboarding)

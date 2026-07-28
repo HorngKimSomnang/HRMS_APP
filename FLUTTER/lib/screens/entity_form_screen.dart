@@ -15,7 +15,8 @@ import '../l10n/app_localizations.dart';
 
 class EntityFormScreen extends StatefulWidget {
   final String slug;
-  const EntityFormScreen({super.key, required this.slug});
+  final int? recordId;
+  const EntityFormScreen({super.key, required this.slug, this.recordId});
 
   @override
   State<EntityFormScreen> createState() => _EntityFormScreenState();
@@ -64,23 +65,43 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           _controllers[key] = TextEditingController();
         }
       }
+      if (widget.recordId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showHistory(focusRecordId: widget.recordId);
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
       }
     }
   }
 
   Future<void> _pickDate(String key) async {
-    final picked = await showAppDatePicker(context, initialDate: _values[key] as DateTime? ?? DateTime.now());
+    final picked = await showAppDatePicker(
+      context,
+      initialDate: _values[key] as DateTime? ?? DateTime.now(),
+    );
     if (picked != null) setState(() => _values[key] = picked);
   }
 
   Future<void> _pickFile(String key) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'xlsx', 'xls', 'csv', 'doc', 'docx'],
+      allowedExtensions: [
+        'jpg',
+        'jpeg',
+        'png',
+        'pdf',
+        'xlsx',
+        'xls',
+        'csv',
+        'doc',
+        'docx',
+      ],
     );
     if (result != null && result.files.single.path != null) {
       setState(() => _selectedFiles[key] = result.files.single);
@@ -104,12 +125,19 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final missingFile = _fields.firstWhere(
-      (f) => f['type'] == 'file' && f['is_required'] == true && _selectedFiles[f['key']] == null,
+      (f) =>
+          f['type'] == 'file' &&
+          f['is_required'] == true &&
+          _selectedFiles[f['key']] == null,
       orElse: () => null,
     );
     if (missingFile != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${missingFile['label']} — ${AppLocalizations.of(context)!.required}')),
+        SnackBar(
+          content: Text(
+            '${missingFile['label']} — ${AppLocalizations.of(context)!.required}',
+          ),
+        ),
       );
       return;
     }
@@ -123,7 +151,9 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
         if (type == 'file') continue;
         if (type == 'date') {
           final date = _values[key] as DateTime?;
-          payload[key] = date == null ? null : DateFormat('yyyy-MM-dd').format(date);
+          payload[key] = date == null
+              ? null
+              : DateFormat('yyyy-MM-dd').format(date);
         } else if (type == 'boolean') {
           payload[key] = _values[key] ?? false;
         } else if (type == 'number') {
@@ -138,43 +168,68 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
       final recordId = record['id'] as int;
 
       for (final entry in _selectedFiles.entries) {
-        await _service.uploadRecordFile(widget.slug, recordId, entry.key, File(entry.value.path!));
+        await _service.uploadRecordFile(
+          widget.slug,
+          recordId,
+          entry.key,
+          File(entry.value.path!),
+        );
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.submittedSuccessfully)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.submittedSuccessfully),
+        ),
+      );
       _clearForm();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
-  void _showHistory() {
+  void _showHistory({int? focusRecordId}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _RecordHistorySheet(slug: widget.slug, fields: _fields),
+      builder: (_) => _RecordHistorySheet(
+        slug: widget.slug,
+        fields: _fields,
+        focusRecordId: focusRecordId,
+      ),
     );
   }
 
   Widget _fieldLabel(Map field) {
     return Text(
       '${field['label']}${field['is_required'] == true ? ' *' : ''}',
-      style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500),
+      style: GoogleFonts.notoSansKhmer(
+        fontSize: 14,
+        color: Colors.grey[600],
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 
   BoxDecoration get _cardDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-        border: Border.all(color: Colors.grey.shade100),
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ],
+    border: Border.all(color: Colors.grey.shade100),
+  );
 
   /// Shown while the entity/fields are still loading — mirrors the real
   /// form's shape (label + input-box, repeated, then a submit button) so
@@ -186,7 +241,14 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = 0; i < 3; i++) ...[
-            Text('Field label', style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+            Text(
+              'Field label',
+              style: GoogleFonts.notoSansKhmer(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 8),
             Container(height: 52, decoration: _cardDecoration),
             const SizedBox(height: 20),
@@ -195,7 +257,10 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           Container(
             width: double.infinity,
             height: 56,
-            decoration: BoxDecoration(color: const Color(0xFF2563EB), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB),
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         ],
       ),
@@ -212,9 +277,14 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           decoration: _cardDecoration,
           child: TextFormField(
             controller: _controllers[key],
-            decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16)),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.all(16),
+            ),
             style: GoogleFonts.notoSansKhmer(),
-            validator: (v) => isRequired && (v == null || v.isEmpty) ? AppLocalizations.of(context)!.required : null,
+            validator: (v) => isRequired && (v == null || v.isEmpty)
+                ? AppLocalizations.of(context)!.required
+                : null,
           ),
         );
       case 'textarea':
@@ -223,9 +293,14 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           child: TextFormField(
             controller: _controllers[key],
             maxLines: 4,
-            decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16)),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.all(16),
+            ),
             style: GoogleFonts.notoSansKhmer(),
-            validator: (v) => isRequired && (v == null || v.isEmpty) ? AppLocalizations.of(context)!.required : null,
+            validator: (v) => isRequired && (v == null || v.isEmpty)
+                ? AppLocalizations.of(context)!.required
+                : null,
           ),
         );
       case 'number':
@@ -234,18 +309,31 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           child: TextFormField(
             controller: _controllers[key],
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
-            decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16)),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.all(16),
+            ),
             style: GoogleFonts.notoSansKhmer(),
             validator: (v) {
-              if (isRequired && (v == null || v.isEmpty)) return AppLocalizations.of(context)!.required;
-              if (v != null && v.isNotEmpty && double.tryParse(v) == null) return AppLocalizations.of(context)!.enterValidNumber;
+              if (isRequired && (v == null || v.isEmpty)) {
+                return AppLocalizations.of(context)!.required;
+              }
+              if (v != null && v.isNotEmpty && double.tryParse(v) == null) {
+                return AppLocalizations.of(context)!.enterValidNumber;
+              }
               return null;
             },
           ),
         );
       case 'date':
-        return DateSelector(date: _values[key] as DateTime?, onTap: () => _pickDate(key), placeholder: AppLocalizations.of(context)!.selectDate);
+        return DateSelector(
+          date: _values[key] as DateTime?,
+          onTap: () => _pickDate(key),
+          placeholder: AppLocalizations.of(context)!.selectDate,
+        );
       case 'boolean':
         return Container(
           decoration: _cardDecoration,
@@ -253,7 +341,10 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             value: (_values[key] as bool?) ?? false,
             onChanged: (v) => setState(() => _values[key] = v),
             activeColor: const Color(0xFF2563EB),
-            title: Text(AppLocalizations.of(context)!.yes, style: GoogleFonts.notoSansKhmer(fontSize: 13)),
+            title: Text(
+              AppLocalizations.of(context)!.yes,
+              style: GoogleFonts.notoSansKhmer(fontSize: 13),
+            ),
           ),
         );
       case 'dropdown':
@@ -264,13 +355,28 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           child: DropdownButtonHideUnderline(
             child: DropdownButtonFormField<String>(
               value: _values[key] as String?,
-              decoration: const InputDecoration(border: InputBorder.none, icon: Icon(LucideIcons.list, size: 18, color: Color(0xFF2563EB))),
-              hint: Text(AppLocalizations.of(context)!.select, style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                icon: Icon(
+                  LucideIcons.list,
+                  size: 18,
+                  color: Color(0xFF2563EB),
+                ),
+              ),
+              hint: Text(
+                AppLocalizations.of(context)!.select,
+                style: GoogleFonts.notoSansKhmer(color: Colors.grey[400]),
+              ),
               items: options.map<DropdownMenuItem<String>>((opt) {
-                return DropdownMenuItem<String>(value: opt as String, child: Text(opt, style: GoogleFonts.notoSansKhmer()));
+                return DropdownMenuItem<String>(
+                  value: opt as String,
+                  child: Text(opt, style: GoogleFonts.notoSansKhmer()),
+                );
               }).toList(),
               onChanged: (v) => setState(() => _values[key] = v),
-              validator: (v) => isRequired && v == null ? AppLocalizations.of(context)!.required : null,
+              validator: (v) => isRequired && v == null
+                  ? AppLocalizations.of(context)!.required
+                  : null,
             ),
           ),
         );
@@ -287,19 +393,33 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(LucideIcons.paperclip, size: 18, color: Colors.grey[500]),
+                    Icon(
+                      LucideIcons.paperclip,
+                      size: 18,
+                      color: Colors.grey[500],
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        selected?.name ?? AppLocalizations.of(context)!.chooseFile,
-                        style: GoogleFonts.notoSansKhmer(fontSize: 13, color: selected == null ? Colors.grey[400] : Colors.black87),
+                        selected?.name ??
+                            AppLocalizations.of(context)!.chooseFile,
+                        style: GoogleFonts.notoSansKhmer(
+                          fontSize: 13,
+                          color: selected == null
+                              ? Colors.grey[400]
+                              : Colors.black87,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (selected != null)
                       GestureDetector(
                         onTap: () => setState(() => _selectedFiles.remove(key)),
-                        child: Icon(LucideIcons.x, size: 16, color: Colors.grey[400]),
+                        child: Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Colors.grey[400],
+                        ),
                       ),
                   ],
                 ),
@@ -317,7 +437,10 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(_entity?['name'] ?? '', style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+        title: Text(
+          _entity?['name'] ?? '',
+          style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600),
+        ),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -341,8 +464,16 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if ((_entity?['description'] ?? '').toString().isNotEmpty) ...[
-                        Text(_entity!['description'], style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.grey[600])),
+                      if ((_entity?['description'] ?? '')
+                          .toString()
+                          .isNotEmpty) ...[
+                        Text(
+                          _entity!['description'],
+                          style: GoogleFonts.notoSansKhmer(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
                         const SizedBox(height: 20),
                       ],
                       for (final field in _fields) ...[
@@ -360,18 +491,30 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2563EB),
                             foregroundColor: Colors.white,
-                            shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                            shadowColor: const Color(
+                              0xFF2563EB,
+                            ).withValues(alpha: 0.4),
                             elevation: 8,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
                           child: _submitting
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
                               : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     const Icon(LucideIcons.send, size: 20),
                                     const SizedBox(width: 8),
-                                    Text(AppLocalizations.of(context)!.submit, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w700)),
+                                    Text(
+                                      AppLocalizations.of(context)!.submit,
+                                      style: GoogleFonts.notoSansKhmer(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ],
                                 ),
                         ),
@@ -388,7 +531,12 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
 class _RecordHistorySheet extends StatefulWidget {
   final String slug;
   final List<dynamic> fields;
-  const _RecordHistorySheet({required this.slug, required this.fields});
+  final int? focusRecordId;
+  const _RecordHistorySheet({
+    required this.slug,
+    required this.fields,
+    this.focusRecordId,
+  });
 
   @override
   State<_RecordHistorySheet> createState() => _RecordHistorySheetState();
@@ -407,8 +555,25 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
 
   Future<void> _fetch() async {
     try {
-      final records = await _service.fetchMyRecords(widget.slug);
-      if (mounted) setState(() { _records = records; _loading = false; });
+      final records = List<dynamic>.from(
+        await _service.fetchMyRecords(widget.slug),
+      );
+      if (widget.focusRecordId != null) {
+        final focusedIndex = records.indexWhere(
+          (record) =>
+              record['id']?.toString() == widget.focusRecordId.toString(),
+        );
+        if (focusedIndex > 0) {
+          final focused = records.removeAt(focusedIndex);
+          records.insert(0, focused);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _records = records;
+          _loading = false;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -425,10 +590,14 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
 
   String _summaryFor(Map record) {
     final rawData = record['data'];
-    final data = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
+    final data = rawData is Map
+        ? Map<String, dynamic>.from(rawData)
+        : <String, dynamic>{};
     for (final field in widget.fields) {
       final value = data[field['key']];
-      if (value is Map && value['name'] != null) return value['name'].toString();
+      if (value is Map && value['name'] != null) {
+        return value['name'].toString();
+      }
       if (value != null && value.toString().isNotEmpty) return value.toString();
     }
     return AppLocalizations.of(context)!.submissionLabel;
@@ -450,33 +619,62 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
             children: [
               const SizedBox(height: 16),
               Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text(AppLocalizations.of(context)!.mySubmissions, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text(
+                  AppLocalizations.of(context)!.mySubmissions,
+                  style: GoogleFonts.notoSansKhmer(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               Expanded(
                 child: Skeletonizer(
                   enabled: _loading,
                   child: (_records.isEmpty && !_loading)
-                      ? Center(child: Text(AppLocalizations.of(context)!.noSubmissionsYet, style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
+                      ? Center(
+                          child: Text(
+                            AppLocalizations.of(context)!.noSubmissionsYet,
+                            style: GoogleFonts.notoSansKhmer(
+                              color: Colors.grey,
+                            ),
+                          ),
+                        )
                       : ListView.builder(
                           controller: controller,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           itemCount: _loading ? 3 : _records.length,
                           itemBuilder: (context, index) {
                             final record = _loading
-                                ? <String, dynamic>{'data': <String, dynamic>{}, 'created_at': '2026-01-01'}
+                                ? <String, dynamic>{
+                                    'data': <String, dynamic>{},
+                                    'created_at': '2026-01-01',
+                                  }
                                 : _records[index] as Map<String, dynamic>;
-                            final adminReply = record['admin_reply'] as Map<String, dynamic>?;
+                            final adminReply =
+                                record['admin_reply'] as Map<String, dynamic>?;
+                            final isFocused =
+                                record['id']?.toString() ==
+                                widget.focusRecordId?.toString();
                             return Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
                                 color: Colors.grey[50],
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
+                                border: Border.all(
+                                  color: isFocused
+                                      ? const Color(0xFF14B8A6)
+                                      : Colors.grey.shade200,
+                                  width: isFocused ? 2 : 1,
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,33 +682,93 @@ class _RecordHistorySheetState extends State<_RecordHistorySheet> {
                                   ListTile(
                                     leading: Container(
                                       padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(color: const Color(0xFF2563EB).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                                      child: const Icon(LucideIcons.fileText, color: Color(0xFF2563EB), size: 20),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFF2563EB,
+                                        ).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        LucideIcons.fileText,
+                                        color: Color(0xFF2563EB),
+                                        size: 20,
+                                      ),
                                     ),
-                                    title: Text(_summaryFor(record), style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                    subtitle: Text(_formatDate(record['created_at']), style: GoogleFonts.notoSansKhmer(fontSize: 12, color: Colors.grey[600])),
+                                    title: Text(
+                                      _summaryFor(record),
+                                      style: GoogleFonts.notoSansKhmer(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text(
+                                      _formatDate(record['created_at']),
+                                      style: GoogleFonts.notoSansKhmer(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
                                   ),
                                   if (adminReply != null)
                                     Container(
-                                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                      margin: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        12,
+                                      ),
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF14B8A6).withValues(alpha: 0.08),
+                                        color: const Color(
+                                          0xFF14B8A6,
+                                        ).withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.25)),
+                                        border: Border.all(
+                                          color: const Color(
+                                            0xFF14B8A6,
+                                          ).withValues(alpha: 0.25),
+                                        ),
                                       ),
                                       child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          const Icon(LucideIcons.messageSquare, size: 14, color: Color(0xFF14B8A6)),
+                                          const Icon(
+                                            LucideIcons.messageSquare,
+                                            size: 14,
+                                            color: Color(0xFF14B8A6),
+                                          ),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Text(adminReply['message']?.toString() ?? '', style: GoogleFonts.notoSansKhmer(fontSize: 13, color: Colors.black87)),
+                                                Text(
+                                                  adminReply['message']
+                                                          ?.toString() ??
+                                                      '',
+                                                  style:
+                                                      GoogleFonts.notoSansKhmer(
+                                                        fontSize: 13,
+                                                        color: Colors.black87,
+                                                      ),
+                                                ),
                                                 const SizedBox(height: 2),
-                                                Text(adminReply['replied_by']?.toString() ?? AppLocalizations.of(context)!.adminFallback, style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[600])),
+                                                Text(
+                                                  adminReply['replied_by']
+                                                          ?.toString() ??
+                                                      AppLocalizations.of(
+                                                        context,
+                                                      )!.adminFallback,
+                                                  style:
+                                                      GoogleFonts.notoSansKhmer(
+                                                        fontSize: 11,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                ),
                                               ],
                                             ),
                                           ),

@@ -18,6 +18,19 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
+interface CustomEntitySummary {
+    id: number;
+    name: string;
+    slug: string;
+}
+
+interface CustomEntityField {
+    key: string;
+    label: string;
+    type: 'text' | 'number' | 'date' | 'boolean' | 'dropdown' | 'textarea' | 'file';
+    options?: string[] | null;
+}
+
 export default function Reports() {
     const { user } = useAuth();
     const isSuperAdmin = user?.roles?.some((role: any) => role.name === 'Super Admin');
@@ -36,27 +49,66 @@ export default function Reports() {
     // Employee filter
     const [employees, setEmployees] = useState<any[]>([]);
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+    const [customEntities, setCustomEntities] = useState<CustomEntitySummary[]>([]);
+    const [selectedEntitySlug, setSelectedEntitySlug] = useState("");
+    const [customEntityFields, setCustomEntityFields] = useState<CustomEntityField[]>([]);
+    const [customFieldKey, setCustomFieldKey] = useState("");
+    const [customFieldValue, setCustomFieldValue] = useState("");
 
-    // Fetch employees for dropdown
+    // Fetch employees and custom report sources.
     useEffect(() => {
         api.get('/employees?status=active&all=true').then(res => {
             const data = res.data.data;
             setEmployees(Array.isArray(data) ? data : (data?.data || []));
         }).catch(err => console.error(err));
+
+        api.get('/entities').then(res => {
+            const data = Array.isArray(res.data?.data) ? res.data.data : [];
+            setCustomEntities(data);
+            setSelectedEntitySlug(current => current || data[0]?.slug || "");
+        }).catch(err => console.error(err));
     }, []);
+
+    useEffect(() => {
+        if (!selectedEntitySlug) {
+            setCustomEntityFields([]);
+            return;
+        }
+
+        api.get(`/entities/${selectedEntitySlug}`).then(res => {
+            setCustomEntityFields(res.data?.data?.fields || []);
+            setCustomFieldKey("");
+            setCustomFieldValue("");
+        }).catch(err => {
+            console.error(err);
+            setCustomEntityFields([]);
+        });
+    }, [selectedEntitySlug]);
 
     const generateReport = async () => {
         if (reportTypes.length === 0) return toast("Please select at least one report type.");
+        if (reportTypes.includes("custom_entities") && !selectedEntitySlug) {
+            return toast("Please select a custom entity.");
+        }
         setLoading(true);
         try {
             const params: any = { start_date: dateRange.start || new Date().toISOString().split('T')[0], end_date: dateRange.end || new Date().toISOString().split('T')[0] };
             
             const newMap: Record<string, any[]> = {};
             await Promise.all(reportTypes.map(async (type) => {
-                const endpoint = `/reports/${type}`;
+                const endpoint = type === "custom_entities"
+                    ? "/reports/custom-entities"
+                    : `/reports/${type}`;
                 const typeParams = { ...params };
                 if (selectedEmployeeId && type !== "employees") {
                     typeParams.employee_id = selectedEmployeeId;
+                }
+                if (type === "custom_entities") {
+                    typeParams.entity_slug = selectedEntitySlug;
+                    if (customFieldKey && customFieldValue.trim()) {
+                        typeParams.field_key = customFieldKey;
+                        typeParams.field_value = customFieldValue.trim();
+                    }
                 }
                 const res = await api.get(endpoint, { params: typeParams });
                 newMap[type] = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
@@ -87,6 +139,19 @@ export default function Reports() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const formatCustomValue = (field: CustomEntityField, value: any): string => {
+        if (value === null || value === undefined || value === "") return "-";
+        if (field.type === "boolean") return value ? "Yes" : "No";
+        if (field.type === "date") {
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString();
+        }
+        if (field.type === "file" && typeof value === "object") {
+            return value?.name || "Attached file";
+        }
+        return String(value);
     };
 
     const getReportConfig = (type: string) => {
@@ -149,6 +214,17 @@ export default function Reports() {
                     row.end_time,
                     row.hours,
                     row.status
+                ]
+            };
+        } else if (type === "custom_entities") {
+            const selectedEntity = customEntities.find(entity => entity.slug === selectedEntitySlug);
+            return {
+                title: `${selectedEntity?.name || "Custom Entity"} Report`,
+                headers: ["Submitted", "Submitted By", ...customEntityFields.map(field => field.label)],
+                mapRow: (row: any) => [
+                    row.created_at ? new Date(row.created_at).toLocaleString() : "-",
+                    row.creator?.name || "Admin / System",
+                    ...customEntityFields.map(field => formatCustomValue(field, row.data?.[field.key]))
                 ]
             };
         } else {
@@ -356,7 +432,9 @@ export default function Reports() {
                 }
 
                 // Accent color for this section
-                const accent = sectionColors[cfg.title] || navyMid;
+                const accent = type === 'custom_entities'
+                    ? [14, 165, 164] as [number, number, number]
+                    : (sectionColors[cfg.title] || navyMid);
 
                 // ── Section header band ──────────────────────────────────────
                 doc.setFillColor(...accent);
@@ -476,7 +554,8 @@ export default function Reports() {
                     { id: "leaves", label: "Leaves" },
                     { id: "overtime", label: "Overtime" },
                     { id: "payroll", label: "Payroll" },
-                    { id: "employees", label: "Employees" }
+                    { id: "employees", label: "Employees" },
+                    { id: "custom_entities", label: "Custom Data" }
                 ].map(tab => {
                     const isSelected = reportTypes.includes(tab.id);
                     return (
@@ -525,6 +604,81 @@ export default function Reports() {
                         </select>
                     </div>
                 )}
+                {reportTypes.includes("custom_entities") && (
+                    <>
+                        <div className="grid gap-2 min-w-[220px]">
+                            <label className="text-sm font-medium">Custom Entity</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                value={selectedEntitySlug}
+                                onChange={(e) => {
+                                    setSelectedEntitySlug(e.target.value);
+                                    setReportDataMap({});
+                                }}
+                            >
+                                {customEntities.length === 0 && <option value="">No custom entities</option>}
+                                {customEntities.map(entity => (
+                                    <option key={entity.id} value={entity.slug}>{entity.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="grid gap-2 min-w-[200px]">
+                            <label className="text-sm font-medium">Filter by Field</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                value={customFieldKey}
+                                onChange={(e) => {
+                                    setCustomFieldKey(e.target.value);
+                                    setCustomFieldValue("");
+                                }}
+                            >
+                                <option value="">All Records</option>
+                                {customEntityFields.map(field => (
+                                    <option key={field.key} value={field.key}>{field.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {customFieldKey && (() => {
+                            const field = customEntityFields.find(item => item.key === customFieldKey);
+                            if (!field) return null;
+
+                            return (
+                                <div className="grid gap-2 min-w-[200px]">
+                                    <label className="text-sm font-medium">Filter Value</label>
+                                    {field.type === "dropdown" ? (
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            value={customFieldValue}
+                                            onChange={(e) => setCustomFieldValue(e.target.value)}
+                                        >
+                                            <option value="">All Values</option>
+                                            {(field.options || []).map(option => (
+                                                <option key={option} value={option}>{option}</option>
+                                            ))}
+                                        </select>
+                                    ) : field.type === "boolean" ? (
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            value={customFieldValue}
+                                            onChange={(e) => setCustomFieldValue(e.target.value)}
+                                        >
+                                            <option value="">All Values</option>
+                                            <option value="true">Yes</option>
+                                            <option value="false">No</option>
+                                        </select>
+                                    ) : (
+                                        <Input
+                                            type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
+                                            value={customFieldValue}
+                                            placeholder={`Enter ${field.label.toLowerCase()}`}
+                                            onChange={(e) => setCustomFieldValue(e.target.value)}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </>
+                )}
                 <Button onClick={generateReport} disabled={loading}>
                     {loading ? "Loading..." : (isSuperAdmin ? "View Report" : "Generate Report")}
                 </Button>
@@ -541,6 +695,7 @@ export default function Reports() {
                         overtime: 'border-cyan-100 from-cyan-50/40',
                         payroll: 'border-violet-100 from-violet-50/40',
                         employees: 'border-blue-100 from-blue-50/40',
+                        custom_entities: 'border-teal-100 from-teal-50/40',
                     }[type] ?? 'border-border from-transparent';
 
                     return (
@@ -548,44 +703,46 @@ export default function Reports() {
                             <div className="bg-muted/30 px-4 py-3 border-b">
                                 <h3 className="font-semibold text-lg">{cfg.title}</h3>
                             </div>
-                            <Table>
-                                <TableHeader className="bg-muted/10">
-                                    <TableRow>
-                                        {cfg.headers.map(h => <TableHead key={h}>{h}</TableHead>)}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader className="bg-muted/10">
                                         <TableRow>
-                                            <TableCell colSpan={cfg.headers.length} className="text-center h-32 text-muted-foreground">Fetching data...</TableCell>
+                                            {cfg.headers.map(h => <TableHead key={h}>{h}</TableHead>)}
                                         </TableRow>
-                                    ) : !data || data.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={cfg.headers.length} className="text-center h-32 text-muted-foreground">
-                                                No records found.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        data.map((row: any, i) => (
-                                            <TableRow key={i} className="hover:bg-muted/50">
-                                                {cfg.mapRow(row).map((val: any, j: number) => (
-                                                    <TableCell key={j}>
-                                                        {j === 2 && type === "attendance" ? (
-                                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${val === 'Present' ? 'bg-green-50 text-green-700' : val === 'Absent' ? 'bg-red-50 text-red-700' : val === 'On Leave' ? 'bg-blue-50 text-blue-700' : val === 'Day Off' ? 'bg-purple-50 text-purple-700' : 'bg-yellow-50 text-yellow-700'}`}>
-                                                                {val}
-                                                            </span>
-                                                        ) : (j === 6 && type === "payroll") || (j === 5 && type === "leaves") || (j === 5 && type === "employees") || (j === 5 && type === "overtime") ? (
-                                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wider ${val === 'approved' || val === 'active' || val === 'paid' ? 'bg-green-50 text-green-700' : val === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
-                                                                {val}
-                                                            </span>
-                                                        ) : val}
-                                                    </TableCell>
-                                                ))}
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={cfg.headers.length} className="text-center h-32 text-muted-foreground">Fetching data...</TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                                        ) : !data || data.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={cfg.headers.length} className="text-center h-32 text-muted-foreground">
+                                                    No records found.
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            data.map((row: any, i) => (
+                                                <TableRow key={i} className="hover:bg-muted/50">
+                                                    {cfg.mapRow(row).map((val: any, j: number) => (
+                                                        <TableCell key={j}>
+                                                            {j === 2 && type === "attendance" ? (
+                                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${val === 'Present' ? 'bg-green-50 text-green-700' : val === 'Absent' ? 'bg-red-50 text-red-700' : val === 'On Leave' ? 'bg-blue-50 text-blue-700' : val === 'Day Off' ? 'bg-purple-50 text-purple-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                                                                    {val}
+                                                                </span>
+                                                            ) : (j === 6 && type === "payroll") || (j === 5 && type === "leaves") || (j === 5 && type === "employees") || (j === 5 && type === "overtime") ? (
+                                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wider ${val === 'approved' || val === 'active' || val === 'paid' ? 'bg-green-50 text-green-700' : val === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
+                                                                    {val}
+                                                                </span>
+                                                            ) : val}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </div>
                     );
                 })}

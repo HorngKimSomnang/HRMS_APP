@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import '../core/notification_navigation.dart';
 import '../providers/notification_provider.dart';
 import '../l10n/app_localizations.dart';
 
@@ -33,7 +35,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'attendance':
         return LucideIcons.clock;
       case 'holiday':
+      case 'announcement':
         return LucideIcons.calendar;
+      case 'overtime_status':
+        return LucideIcons.timer;
+      case 'payslip_generated':
+      case 'payslip_status':
+        return LucideIcons.wallet;
+      case 'clock_out_reminder':
+        return LucideIcons.logOut;
       case 'task_completed':
         return LucideIcons.checkSquare;
       case 'task_assigned':
@@ -41,6 +51,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'document_uploaded':
         return LucideIcons.fileArchive;
       case 'custom_entity_record_submitted':
+      case 'custom_entity_record_replied':
         return LucideIcons.clipboardCheck;
       default:
         return LucideIcons.bell;
@@ -56,7 +67,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'attendance':
         return const Color(0xFFF59E0B); // amber
       case 'holiday':
+      case 'announcement':
         return const Color(0xFF3B82F6); // blue
+      case 'overtime_status':
+        return const Color(0xFFF97316); // orange
+      case 'payslip_generated':
+      case 'payslip_status':
+        return const Color(0xFF059669); // emerald
+      case 'clock_out_reminder':
+        return const Color(0xFFF59E0B); // amber
       case 'task_completed':
         return const Color(0xFF10B981); // green
       case 'task_assigned':
@@ -64,6 +83,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'document_uploaded':
         return const Color(0xFF06B6D4); // cyan
       case 'custom_entity_record_submitted':
+      case 'custom_entity_record_replied':
         return const Color(0xFF14B8A6); // teal
       default:
         return const Color(0xFF6B7280); // gray
@@ -89,16 +109,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.clearAll, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
-        content: Text(AppLocalizations.of(context)!.confirmClearAllNotifications, style: GoogleFonts.notoSansKhmer()),
+        title: Text(
+          AppLocalizations.of(context)!.clearAll,
+          style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          AppLocalizations.of(context)!.confirmClearAllNotifications,
+          style: GoogleFonts.notoSansKhmer(),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(AppLocalizations.of(context)!.cancel, style: GoogleFonts.notoSansKhmer(color: Colors.grey)),
+            child: Text(
+              AppLocalizations.of(context)!.cancel,
+              style: GoogleFonts.notoSansKhmer(color: Colors.grey),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(AppLocalizations.of(context)!.clearAll, style: GoogleFonts.notoSansKhmer(color: Colors.red, fontWeight: FontWeight.bold)),
+            child: Text(
+              AppLocalizations.of(context)!.clearAll,
+              style: GoogleFonts.notoSansKhmer(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -158,7 +193,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       color: Colors.blue.shade50,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(LucideIcons.bellOff, size: 44, color: Colors.blue.shade200),
+                    child: Icon(
+                      LucideIcons.bellOff,
+                      size: 44,
+                      color: Colors.blue.shade200,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Text(
@@ -172,7 +211,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   const SizedBox(height: 8),
                   Text(
                     AppLocalizations.of(context)!.noNewNotifications,
-                    style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[500]),
+                    style: GoogleFonts.notoSansKhmer(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
                   ),
                 ],
               ),
@@ -188,7 +230,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               itemBuilder: (context, index) {
                 final n = provider.notifications[index];
                 final notificationId = n['id']?.toString() ?? index.toString();
-                
+
                 return Dismissible(
                   key: Key(notificationId),
                   direction: DismissDirection.endToStart,
@@ -196,7 +238,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     provider.deleteNotification(notificationId);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(AppLocalizations.of(context)!.notificationDeleted),
+                        content: Text(
+                          AppLocalizations.of(context)!.notificationDeleted,
+                        ),
                         duration: const Duration(seconds: 2),
                       ),
                     );
@@ -224,18 +268,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final Map<String, dynamic> nData = n is Map<String, dynamic> ? n : {};
 
     // Laravel stores notification payload inside 'data' field
-    final Map<String, dynamic> payload =
-        (nData['data'] is Map<String, dynamic>) ? nData['data'] : {};
+    final Map<String, dynamic> payload = (nData['data'] is Map<String, dynamic>)
+        ? nData['data']
+        : {};
 
     final String? type = payload['type'] as String?;
     final String title = (payload['title'] as String?) ?? _labelForType(type);
     final String message =
-        (payload['message'] as String?) ?? AppLocalizations.of(context)!.defaultNotificationMessage;
+        (payload['message'] as String?) ??
+        AppLocalizations.of(context)!.defaultNotificationMessage;
     final bool isRead = nData['read_at'] != null;
     final String time = _timeAgo(nData['created_at'] as String?);
 
     final color = _colorForType(type);
     final icon = _iconForType(type);
+    final destination = notificationRouteForPayload(payload);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -253,82 +300,92 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   color: color.withValues(alpha: 0.08),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
-                )
+                ),
               ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Icon bubble
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: destination == null ? null : () => context.push(destination),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Icon bubble
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 22, color: color),
               ),
-              child: Icon(icon, size: 22, color: color),
-            ),
-            const SizedBox(width: 14),
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: GoogleFonts.notoSansKhmer(
-                            fontSize: 14,
-                            fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
-                            color: isRead ? Colors.grey[700] : Colors.black87,
-                          ),
-                        ),
-                      ),
-                      if (!isRead)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: GoogleFonts.notoSansKhmer(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                      height: 1.4,
-                    ),
-                  ),
-                  if (time.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+              const SizedBox(width: 14),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Row(
                       children: [
-                        Icon(LucideIcons.clock, size: 12, color: Colors.grey[400]),
-                        const SizedBox(width: 4),
-                        Text(
-                          time,
-                          style: GoogleFonts.notoSansKhmer(
-                            fontSize: 11,
-                            color: Colors.grey[400],
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: GoogleFonts.notoSansKhmer(
+                              fontSize: 14,
+                              fontWeight: isRead
+                                  ? FontWeight.w500
+                                  : FontWeight.w700,
+                              color: isRead ? Colors.grey[700] : Colors.black87,
+                            ),
                           ),
                         ),
+                        if (!isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      message,
+                      style: GoogleFonts.notoSansKhmer(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        height: 1.4,
+                      ),
+                    ),
+                    if (time.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            LucideIcons.clock,
+                            size: 12,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            time,
+                            style: GoogleFonts.notoSansKhmer(
+                              fontSize: 11,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -344,7 +401,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'attendance':
         return l10n.notifAttendanceUpdate;
       case 'holiday':
+      case 'announcement':
         return l10n.notifNewHoliday;
+      case 'overtime_status':
+        return 'Overtime Update';
+      case 'payslip_generated':
+      case 'payslip_status':
+        return 'Payslip Update';
+      case 'clock_out_reminder':
+        return 'Clock-Out Reminder';
       case 'task_completed':
         return l10n.notifTaskCompleted;
       case 'task_assigned':
@@ -353,6 +418,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return l10n.notifDocumentReceived;
       case 'custom_entity_record_submitted':
         return l10n.notifFormSubmission;
+      case 'custom_entity_record_replied':
+        return 'Form Reply';
       default:
         return l10n.notificationLabel;
     }
