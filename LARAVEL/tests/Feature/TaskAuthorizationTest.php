@@ -114,4 +114,31 @@ class TaskAuthorizationTest extends TestCase
 
         $this->assertSoftDeleted('tasks', ['id' => $task->id]);
     }
+
+    public function test_admin_can_request_all_tasks_for_separate_task_views()
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        $ownerUser = User::factory()->create();
+        $ownerUser->assignRole('Employee');
+        $owner = Employee::factory()->create(['user_id' => $ownerUser->id]);
+
+        foreach (range(1, 25) as $index) {
+            Task::create([
+                'title' => "Task {$index}",
+                'assigned_to' => $owner->id,
+                'assigned_by' => $admin->id,
+                'priority' => 'low',
+                'due_date' => now()->addDays($index),
+                'status' => $index <= 5 ? 'completed' : 'pending',
+            ]);
+        }
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/tasks?all=true')
+            ->assertOk();
+
+        $this->assertCount(25, $response->json('data'));
+    }
 }

@@ -28,6 +28,7 @@ export default function TaskList() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
     const [editTaskId, setEditTaskId] = useState<number | null>(null);
+    const [taskView, setTaskView] = useState<'active' | 'completed'>('active');
 
     const [newTask, setNewTask] = useState({
         title: "",
@@ -40,7 +41,7 @@ export default function TaskList() {
 
     const fetchTasks = useCallback(async () => {
         try {
-            const res = await api.get('/tasks');
+            const res = await api.get('/tasks?all=true');
             const payload = res.data.data;
             if (Array.isArray(payload)) {
                 setTasks(payload);
@@ -172,6 +173,10 @@ export default function TaskList() {
         }
     };
 
+    const activeTasks = tasks.filter((task) => task.status !== 'completed');
+    const completedTasks = tasks.filter((task) => task.status === 'completed');
+    const visibleTasks = taskView === 'active' ? activeTasks : completedTasks;
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -186,7 +191,48 @@ export default function TaskList() {
                 )}
             </div>
 
+            <div className="flex w-fit items-center gap-1 rounded-xl border bg-muted/40 p-1">
+                <button
+                    type="button"
+                    onClick={() => setTaskView('active')}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                        taskView === 'active'
+                            ? 'bg-white text-blue-700 shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    Active Tasks
+                    <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+                        {activeTasks.length}
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setTaskView('completed')}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                        taskView === 'completed'
+                            ? 'bg-white text-green-700 shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    Completed Tasks
+                    <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
+                        {completedTasks.length}
+                    </span>
+                </button>
+            </div>
+
             <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/50 via-card to-card shadow-sm overflow-hidden mt-6">
+                <div className="border-b px-6 py-4">
+                    <h2 className="font-semibold">
+                        {taskView === 'active' ? 'Active Tasks' : 'Completed Tasks'}
+                    </h2>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                        {taskView === 'active'
+                            ? 'Pending and in-progress assignments.'
+                            : 'Finished assignments and employee submissions.'}
+                    </p>
+                </div>
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
@@ -198,10 +244,14 @@ export default function TaskList() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {tasks.length === 0 ? (
-                            <TableRow><TableCell colSpan={5} className="text-center h-32 text-muted-foreground">No tasks found.</TableCell></TableRow>
+                        {visibleTasks.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">
+                                    {taskView === 'active' ? 'No active tasks found.' : 'No completed tasks found.'}
+                                </TableCell>
+                            </TableRow>
                         ) : (
-                            tasks.map((task: any) => (
+                            visibleTasks.map((task: any) => (
                                 <TableRow key={task.id} className="hover:bg-muted/50">
                                     <TableCell className="pl-6">
                                         <div className="font-medium text-base mb-1">{task.title}</div>

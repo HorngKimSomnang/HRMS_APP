@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 
 class TaskController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
@@ -33,10 +33,22 @@ class TaskController extends Controller
             return $this->successResponse($tasks, 'Tasks retrieved successfully');
         }
         
-        // Super Admin / Admin see all
-        $tasks = Task::with(['employee', 'creator'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        // Super Admin / Admin may request the complete task collection so the
+        // task board can separate active and completed work without older tasks
+        // silently disappearing behind the first pagination page.
+        $query = Task::with(['employee', 'creator'])
+            ->orderBy('created_at', 'desc');
+
+        if ($request->filled('status')) {
+            $request->validate([
+                'status' => 'in:pending,in_progress,completed',
+            ]);
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        $tasks = $request->boolean('all')
+            ? $query->get()
+            : $query->paginate(20);
             
         return $this->successResponse($tasks, 'All tasks retrieved successfully');
     }
