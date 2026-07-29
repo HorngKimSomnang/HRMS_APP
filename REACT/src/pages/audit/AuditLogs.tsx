@@ -7,6 +7,7 @@ import {
     MapPin, LogIn, LogOut, UserPlus, UserMinus, UserCog,
     KeyRound, Download, Monitor,
 } from "lucide-react";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 // ── Action config ─────────────────────────────────────────────────────────────
 const ACTION_CFG: Record<string, { label: string; color: string; icon: any }> = {
@@ -163,8 +164,8 @@ export default function AuditLogs() {
     const [actionFilter, setActionFilter] = useState("");
     const [agentModal, setAgentModal]   = useState<string | null>(null);
 
-    const fetchLogs = useCallback(async () => {
-        setLoading(true);
+    const fetchLogs = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const params: any = { page };
             if (search)       params.action     = search;
@@ -176,11 +177,12 @@ export default function AuditLogs() {
         } catch (e) {
             console.error(e);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [page, search, roleFilter, actionFilter]);
 
     useEffect(() => { fetchLogs(); }, [fetchLogs]);
+    useLiveRefresh(() => fetchLogs(true));
 
     // Derived stats from current page
     const godModeCount   = logs.filter(l => l.context?.override === true).length;
@@ -292,7 +294,7 @@ export default function AuditLogs() {
                 </select>
 
                 <button
-                    onClick={fetchLogs}
+                    onClick={() => fetchLogs()}
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary px-3 py-1.5 rounded-lg hover:bg-slate-50 border border-gray-200 transition-colors"
                 >
                     <RefreshCw className="h-3.5 w-3.5" /> Refresh

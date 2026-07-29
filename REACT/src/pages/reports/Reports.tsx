@@ -17,6 +17,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface CustomEntitySummary {
     id: number;
@@ -55,18 +56,26 @@ export default function Reports() {
     const [customFieldKey, setCustomFieldKey] = useState("");
     const [customFieldValue, setCustomFieldValue] = useState("");
 
+    const fetchReportSources = async () => {
+        try {
+            const [employeeRes, entityRes] = await Promise.all([
+                api.get('/employees?status=active&all=true'),
+                api.get('/entities'),
+            ]);
+            const employeeData = employeeRes.data.data;
+            setEmployees(Array.isArray(employeeData) ? employeeData : (employeeData?.data || []));
+
+            const entityData = Array.isArray(entityRes.data?.data) ? entityRes.data.data : [];
+            setCustomEntities(entityData);
+            setSelectedEntitySlug(current => current || entityData[0]?.slug || "");
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     // Fetch employees and custom report sources.
     useEffect(() => {
-        api.get('/employees?status=active&all=true').then(res => {
-            const data = res.data.data;
-            setEmployees(Array.isArray(data) ? data : (data?.data || []));
-        }).catch(err => console.error(err));
-
-        api.get('/entities').then(res => {
-            const data = Array.isArray(res.data?.data) ? res.data.data : [];
-            setCustomEntities(data);
-            setSelectedEntitySlug(current => current || data[0]?.slug || "");
-        }).catch(err => console.error(err));
+        fetchReportSources();
     }, []);
 
     useEffect(() => {
@@ -85,12 +94,12 @@ export default function Reports() {
         });
     }, [selectedEntitySlug]);
 
-    const generateReport = async () => {
+    const generateReport = async (silent = false) => {
         if (reportTypes.length === 0) return toast("Please select at least one report type.");
         if (reportTypes.includes("custom_entities") && !selectedEntitySlug) {
             return toast("Please select a custom entity.");
         }
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const params: any = { start_date: dateRange.start || new Date().toISOString().split('T')[0], end_date: dateRange.end || new Date().toISOString().split('T')[0] };
             
@@ -118,9 +127,16 @@ export default function Reports() {
         } catch (error) {
             console.error("Failed to fetch report", error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
+
+    useLiveRefresh(async () => {
+        await fetchReportSources();
+        if (Object.keys(reportDataMap).length > 0) {
+            await generateReport(true);
+        }
+    });
 
     const formatCustomValue = (field: CustomEntityField, value: any): string => {
         if (value === null || value === undefined || value === "") return "-";
@@ -655,7 +671,7 @@ export default function Reports() {
                         })()}
                     </>
                 )}
-                <Button onClick={generateReport} disabled={loading}>
+                <Button onClick={() => generateReport()} disabled={loading}>
                     {loading ? "Loading..." : (isSuperAdmin ? "View Report" : "Generate Report")}
                 </Button>
             </div>

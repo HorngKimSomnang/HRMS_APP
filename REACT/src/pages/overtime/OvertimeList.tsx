@@ -9,6 +9,7 @@ import { Check, X, Clock, CalendarDays, CheckCircle2, XCircle, Banknote } from "
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 export default function OvertimeList() {
     const { user } = useAuth();
@@ -35,6 +36,8 @@ export default function OvertimeList() {
         const interval = setInterval(() => fetchOvertimes(true), 10000);
         return () => clearInterval(interval);
     }, []);
+
+    useLiveRefresh(() => fetchOvertimes(true), { pollInterval: 0 });
 
     const confirmStatusUpdate = async () => {
         if (!statusUpdate) return;

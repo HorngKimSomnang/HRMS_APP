@@ -13,6 +13,7 @@ import { Plus, CheckCircle2, Clock, AlertCircle, Calendar, Paperclip, FileCheck,
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { getStorageUrl, getDownloadUrl } from "@/core/config";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 export default function TaskList() {
     const { user } = useAuth();
@@ -76,6 +77,11 @@ export default function TaskList() {
         
         return () => clearInterval(interval);
     }, [isAdmin, fetchTasks, fetchEmployees]);
+
+    useLiveRefresh(async () => {
+        await fetchTasks();
+        if (isAdmin) await fetchEmployees();
+    }, { pollInterval: 0 });
 
     const resetForm = () => {
         setNewTask({ title: "", description: "", assigned_to: [], priority: "medium", due_date: "" });
@@ -603,5 +609,4 @@ export default function TaskList() {
         </div>
     );
 }
-
 

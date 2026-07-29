@@ -9,6 +9,7 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 const DefaultIcon = L.icon({
     iconUrl: icon,
@@ -115,6 +116,8 @@ export default function AttendanceList() {
         const interval = setInterval(() => fetchAttendances(true), 10000);
         return () => clearInterval(interval);
     }, [fetchAttendances]);
+
+    useLiveRefresh(() => fetchAttendances(true), { pollInterval: 0 });
 
     const handleManualClockOut = () => {
         if (!manualTime || !selectedRecord) return;

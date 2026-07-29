@@ -7,6 +7,7 @@ import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Package, Plus, Trash2, Search, UserCheck, Undo2, History, Laptop, Smartphone, Car, Armchair, Wrench, Box } from "lucide-react";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 const statusBadge: Record<string, string> = {
     available: "bg-green-100 text-green-700",
@@ -62,6 +63,12 @@ export default function Assets() {
             setLoading(false);
         }
     }, [search, statusFilter, categoryFilter]);
+
+    useLiveRefresh(async () => {
+        await load();
+        const res = await api.get('/employees?status=active&all=true');
+        setEmployees(res.data.data ?? res.data ?? []);
+    });
 
     useEffect(() => {
         const timer = setTimeout(load, search ? 300 : 0); // debounce typing

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import api from '@/services/api';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface Shift {
     id: number;
@@ -42,6 +43,8 @@ export default function Shifts() {
             setLoading(false);
         }
     };
+
+    useLiveRefresh(fetchShifts);
 
     useEffect(() => {
         fetchShifts();

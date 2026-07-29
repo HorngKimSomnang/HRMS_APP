@@ -9,6 +9,7 @@ import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { FileSignature, History, DoorOpen, AlertTriangle, Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 type Tab = 'overview' | 'contracts' | 'history' | 'offboarding';
 
@@ -61,8 +62,8 @@ export default function Lifecycle() {
     const [offboardForm, setOffboardForm] = useState<any | null>(null);
     const [activeOffboarding, setActiveOffboarding] = useState<any | null>(null);
 
-    const loadAll = useCallback(async () => {
-        setLoading(true);
+    const loadAll = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const [ov, c, e, o] = await Promise.all([
                 api.get('/lifecycle/overview'),
@@ -78,9 +79,15 @@ export default function Lifecycle() {
             console.error(err);
             toast.error("Failed to load lifecycle data");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
+
+    useLiveRefresh(async () => {
+        await loadAll(true);
+        const res = await api.get('/employees?status=active&all=true');
+        setEmployees(res.data.data ?? res.data ?? []);
+    });
 
     useEffect(() => {
         loadAll();

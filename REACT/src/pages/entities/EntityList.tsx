@@ -10,6 +10,7 @@ import { EntityRecordsPanel } from './EntityRecords';
 import { entityAccent } from '@/core/entityColors';
 import { Plus, Edit, Trash2, ArrowRight, Database, Table2, Layers, Rows3, Users, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 const FIELD_TYPES = ['text', 'number', 'date', 'boolean', 'dropdown', 'textarea', 'file'] as const;
 type FieldType = typeof FIELD_TYPES[number];
@@ -73,6 +74,8 @@ export default function EntityList() {
             setLoading(false);
         }
     };
+
+    useLiveRefresh(fetchEntities);
 
     useEffect(() => {
         fetchEntities();

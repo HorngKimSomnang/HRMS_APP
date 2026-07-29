@@ -8,6 +8,7 @@ import api from '@/services/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface EmployeeDetail {
     id: number;
@@ -57,6 +58,7 @@ export default function ViewEmployee() {
     }, [id]);
 
     useEffect(() => { fetchEmployee(); }, [fetchEmployee]);
+    useLiveRefresh(fetchEmployee);
 
     const handleRemoveDocument = async () => {
         if (!deleteDocName) return;

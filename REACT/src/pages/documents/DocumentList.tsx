@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import UploadDocumentModal from './UploadDocumentModal';
 import EditDocumentModal from './EditDocumentModal';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface Document {
     id: number;
@@ -43,6 +44,8 @@ export default function DocumentList() {
             setLoading(false);
         }
     };
+
+    useLiveRefresh(fetchDocuments);
 
     const confirmDelete = async () => {
         if (!deleteId) return;

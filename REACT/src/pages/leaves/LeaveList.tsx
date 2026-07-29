@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 export default function LeaveList() {
     const { user } = useAuth();
@@ -65,6 +66,8 @@ export default function LeaveList() {
         const interval = setInterval(() => fetchLeaves(true), 10000);
         return () => clearInterval(interval);
     }, []);
+
+    useLiveRefresh(() => fetchLeaves(true), { pollInterval: 0 });
 
     const openStatusModal = (id: number, status: 'approved' | 'rejected') => {
         setStatusUpdate({ id, status });

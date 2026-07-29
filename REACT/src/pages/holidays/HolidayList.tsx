@@ -13,6 +13,7 @@ import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { Trash2, Plus, Calendar, PartyPopper, Pencil } from "lucide-react";
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface Holiday {
     id: number;
@@ -59,6 +60,8 @@ export default function HolidayList() {
             setLoading(false);
         }
     };
+
+    useLiveRefresh(fetchHolidays);
 
     useEffect(() => {
         fetchHolidays();

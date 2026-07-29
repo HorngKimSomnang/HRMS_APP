@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import { Users, Clock, CheckCircle, Wallet, Megaphone, Printer, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -80,33 +81,39 @@ export default function AdminDashboard() {
     const [range, setRange] = useState<Range>('week');
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        let cancelled = false;
-        const fetchDashboard = async () => {
-            setLoading(true);
-            try {
-                const res = await api.get('/dashboard', { params: { range } });
-                if (cancelled) return;
-                if (res.data.stats) setStats(res.data.stats);
-                setChartData(res.data.attendance_chart ?? []);
-                setPunctualityData(res.data.punctuality_chart ?? []);
-                setLeaveTrends(res.data.leave_trends ?? []);
-                setPayroll(res.data.payroll_summary ?? null);
-            } catch (error) {
-                console.error("Failed to load dashboard", error);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        };
-        fetchDashboard();
-        return () => { cancelled = true; };
+    const fetchDashboard = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
+        try {
+            const res = await api.get('/dashboard', { params: { range } });
+            if (res.data.stats) setStats(res.data.stats);
+            setChartData(res.data.attendance_chart ?? []);
+            setPunctualityData(res.data.punctuality_chart ?? []);
+            setLeaveTrends(res.data.leave_trends ?? []);
+            setPayroll(res.data.payroll_summary ?? null);
+        } catch (error) {
+            console.error("Failed to load dashboard", error);
+        } finally {
+            if (!silent) setLoading(false);
+        }
     }, [range]);
 
-    useEffect(() => {
-        api.get('/announcements/latest')
-            .then(res => setAnnouncements(res.data.data ?? []))
-            .catch(err => console.error("Failed to load announcements", err));
+    const fetchAnnouncements = useCallback(async () => {
+        try {
+            const res = await api.get('/announcements/latest');
+            setAnnouncements(res.data.data ?? []);
+        } catch (error) {
+            console.error("Failed to load announcements", error);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchDashboard();
+        fetchAnnouncements();
+    }, [fetchDashboard, fetchAnnouncements]);
+
+    useLiveRefresh(async () => {
+        await Promise.all([fetchDashboard(true), fetchAnnouncements()]);
+    });
 
     const getGreeting = () => {
         const hour = new Date().getHours();

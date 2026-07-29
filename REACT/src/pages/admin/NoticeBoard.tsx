@@ -8,6 +8,7 @@ import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface Notice {
     id: number;
@@ -46,6 +47,8 @@ export default function NoticeBoard() {
             setLoading(false);
         }
     };
+
+    useLiveRefresh(fetchNotices);
 
     useEffect(() => {
         fetchNotices();
@@ -247,4 +250,3 @@ export default function NoticeBoard() {
         </div>
     );
 }
-

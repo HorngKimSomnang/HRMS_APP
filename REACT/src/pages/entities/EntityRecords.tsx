@@ -10,6 +10,7 @@ import { getStorageUrl } from '@/core/config';
 import { entityAccent } from '@/core/entityColors';
 import { Plus, Edit, Trash2, ArrowLeft, Upload, Paperclip, MessageSquare, MessageSquareText, Table2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface EntityField {
     id: number;
@@ -142,6 +143,8 @@ export function EntityRecordsPanel({ slug, onRecordsChanged, onLoadError }: Enti
             setLoading(false);
         }
     }, [slug]);
+
+    useLiveRefresh(fetchAll);
 
     useEffect(() => {
         fetchAll();

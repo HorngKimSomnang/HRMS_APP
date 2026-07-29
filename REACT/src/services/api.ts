@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { announceDataChange } from './liveData';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api', 
@@ -24,7 +25,17 @@ api.interceptors.request.use(
 
 // Response interceptor to handle 401
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const method = response.config.method?.toLowerCase();
+        if (method && ['post', 'put', 'patch', 'delete'].includes(method)) {
+            announceDataChange({
+                method,
+                url: response.config.url,
+            });
+        }
+
+        return response;
+    },
     (error) => {
         if (error.response?.status === 401) {
             // Don't redirect if we're already on the login page or if it's the login request itself failing

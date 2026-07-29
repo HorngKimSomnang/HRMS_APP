@@ -10,6 +10,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSXStyle from 'xlsx-js-style';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 const MONTHS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -39,7 +40,7 @@ function DropdownMenu({ trigger, items }: { trigger: React.ReactNode; items: Men
 
     useEffect(() => {
         if (!open) return;
-        updatePosition();
+        const positionFrame = window.requestAnimationFrame(updatePosition);
         const onClick = (e: MouseEvent) => {
             if (triggerRef.current?.contains(e.target as Node)) return;
             if (menuRef.current?.contains(e.target as Node)) return;
@@ -49,6 +50,7 @@ function DropdownMenu({ trigger, items }: { trigger: React.ReactNode; items: Men
         window.addEventListener('scroll', updatePosition, true);
         window.addEventListener('resize', updatePosition);
         return () => {
+            window.cancelAnimationFrame(positionFrame);
             document.removeEventListener('mousedown', onClick);
             window.removeEventListener('scroll', updatePosition, true);
             window.removeEventListener('resize', updatePosition);
@@ -133,9 +135,9 @@ export default function PayrollAdmin() {
                -n("advance_deduction")-n("unpaid_leave_deduction")-n("deductions")).toFixed(2);
     };
 
-    const fetchData = () => {
-        setLoading(true);
-        Promise.all([
+    const fetchData = (silent = false) => {
+        if (!silent) setLoading(true);
+        return Promise.all([
             api.get("/payslips"), 
             api.get("/employees?status=active&all=true"),
             api.get("/overtimes")
@@ -145,8 +147,12 @@ export default function PayrollAdmin() {
                 setEmployees(r3.data.data||r3.data||[]); 
                 setOvertimes(r4.data.data||r4.data||[]);
             })
-            .finally(()=>setLoading(false));
+            .finally(() => {
+                if (!silent) setLoading(false);
+            });
     };
+
+    useLiveRefresh(() => fetchData(true));
 
     useEffect(() => { 
         fetchData(); 
@@ -701,7 +707,7 @@ export default function PayrollAdmin() {
                     <button onClick={openGenerateModal} className="flex items-center gap-2 text-sm font-semibold bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
                         <Plus className="h-4 w-4"/> Generate Individual
                     </button>
-                    <button onClick={fetchData} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-slate-50">
+                    <button onClick={() => fetchData()} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-slate-50">
                         <RefreshCw className="h-4 w-4"/>
                     </button>
                 </div>

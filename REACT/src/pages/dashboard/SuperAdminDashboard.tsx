@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import { Users, Activity, DollarSign, Clock, CheckCircle, FileSignature, DoorOpen, Package, AlertTriangle, ChevronRight, Database } from "lucide-react";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -41,29 +42,29 @@ export default function SuperAdminDashboard() {
     const [customEntitiesSummary, setCustomEntitiesSummary] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        let cancelled = false;
-        const fetchDashboard = async () => {
-            setLoading(true);
-            try {
-                const res = await api.get('/dashboard', { params: { month: selectedMonth, year: selectedYear } });
-                if (cancelled) return;
-                if (res.data.stats) setStats(res.data.stats);
-                if (res.data.period_label) setPeriodLabel(res.data.period_label);
-                if (typeof res.data.is_current_month === 'boolean') setIsCurrentMonth(res.data.is_current_month);
-                if (res.data.department_distribution) setDepartmentData(res.data.department_distribution);
-                if (res.data.payroll_trend) setPayrollTrend(res.data.payroll_trend);
-                if (res.data.recent_logs) setRecentLogs(res.data.recent_logs);
-                if (res.data.custom_entities_summary) setCustomEntitiesSummary(res.data.custom_entities_summary);
-            } catch (error) {
-                console.error("Failed to load dashboard", error);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        };
-        fetchDashboard();
-        return () => { cancelled = true; };
+    const fetchDashboard = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
+        try {
+            const res = await api.get('/dashboard', { params: { month: selectedMonth, year: selectedYear } });
+            if (res.data.stats) setStats(res.data.stats);
+            if (res.data.period_label) setPeriodLabel(res.data.period_label);
+            if (typeof res.data.is_current_month === 'boolean') setIsCurrentMonth(res.data.is_current_month);
+            if (res.data.department_distribution) setDepartmentData(res.data.department_distribution);
+            if (res.data.payroll_trend) setPayrollTrend(res.data.payroll_trend);
+            if (res.data.recent_logs) setRecentLogs(res.data.recent_logs);
+            if (res.data.custom_entities_summary) setCustomEntitiesSummary(res.data.custom_entities_summary);
+        } catch (error) {
+            console.error("Failed to load dashboard", error);
+        } finally {
+            if (!silent) setLoading(false);
+        }
     }, [selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        fetchDashboard();
+    }, [fetchDashboard]);
+
+    useLiveRefresh(() => fetchDashboard(true));
 
     const getGreeting = () => {
         const hour = new Date().getHours();

@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 export default function AdminList() {
     const { user } = useAuth();
@@ -38,6 +39,8 @@ export default function AdminList() {
             setLoading(false);
         }
     };
+
+    useLiveRefresh(fetchUsers);
 
     const confirmDelete = async () => {
         if (!deleteId) return;

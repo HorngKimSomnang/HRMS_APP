@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface Employee {
     id: number;
@@ -101,8 +102,8 @@ export default function EmployeeList() {
         }
     };
 
-    const fetchEmployees = async () => {
-        setLoading(true);
+    const fetchEmployees = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const [currentResponse, archivedResponse] = await Promise.all([
                 api.get('/employees', { params: { all: true } }),
@@ -116,9 +117,11 @@ export default function EmployeeList() {
             console.error('Failed to fetch employees', error);
             toast.error('Failed to refresh employee records');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
+
+    useLiveRefresh(() => fetchEmployees(true));
 
     const employees = viewMode === 'current' ? currentEmployees : archivedEmployees;
     const filteredEmployees = employees.filter(emp =>
