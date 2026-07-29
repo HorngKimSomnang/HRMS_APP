@@ -9,6 +9,7 @@ interface CacheEntry {
 const responseCache = new Map<string, CacheEntry>();
 const pendingRequests = new Map<string, Promise<AxiosResponse>>();
 const resourceGenerations = new Map<string, number>();
+const invalidationListeners = new Set<(resources?: string[]) => void>();
 let globalGeneration = 0;
 
 const stableValue = (value: unknown): string => {
@@ -101,6 +102,7 @@ export const invalidateApiCache = (resources?: string | string[]) => {
         globalGeneration += 1;
         responseCache.clear();
         pendingRequests.clear();
+        invalidationListeners.forEach(listener => listener());
         return;
     }
 
@@ -114,8 +116,18 @@ export const invalidateApiCache = (resources?: string | string[]) => {
             responseCache.delete(key);
         }
     }
+
+    const invalidatedResources = [...targets];
+    invalidationListeners.forEach(listener => listener(invalidatedResources));
 };
 
 export const invalidateApiCacheForUrl = (url?: string) => {
     invalidateApiCache(affectedResources(resourceFromUrl(url)));
+};
+
+export const subscribeApiCacheInvalidation = (
+    listener: (resources?: string[]) => void,
+) => {
+    invalidationListeners.add(listener);
+    return () => invalidationListeners.delete(listener);
 };

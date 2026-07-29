@@ -1,4 +1,10 @@
-import { useState, useEffect } from "react";
+import {
+    useCallback,
+    useEffect,
+    useState,
+    type Dispatch,
+    type SetStateAction,
+} from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -18,6 +24,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
+import { subscribeApiCacheInvalidation } from '@/services/apiCache';
 
 interface CustomEntitySummary {
     id: number;
@@ -32,32 +39,125 @@ interface CustomEntityField {
     options?: string[] | null;
 }
 
+const reportSessionState: Record<string, unknown> = {};
+const activeReportInvalidators = new Set<(types: Set<string>) => void>();
+const allReportTypes = new Set([
+    "attendance",
+    "leaves",
+    "overtime",
+    "payroll",
+    "employees",
+    "custom_entities",
+]);
+
+const reportTypesForResources = (resources?: string[]) => {
+    if (!resources) return new Set(allReportTypes);
+
+    const types = new Set<string>();
+    if (resources.includes("employees")) return new Set(allReportTypes);
+    if (resources.includes("attendance")) types.add("attendance");
+    if (resources.some(resource => ["leaves", "leave-types"].includes(resource))) types.add("leaves");
+    if (resources.includes("overtimes")) types.add("overtime");
+    if (resources.includes("payslips")) types.add("payroll");
+    if (resources.includes("entities")) types.add("custom_entities");
+
+    const hasSpecificResource = types.size > 0;
+    if (!hasSpecificResource && resources.includes("reports")) {
+        return new Set(allReportTypes);
+    }
+
+    return types;
+};
+
+subscribeApiCacheInvalidation(resources => {
+    const invalidatedTypes = reportTypesForResources(resources);
+    if (invalidatedTypes.size === 0) return;
+
+    const retainedData = (reportSessionState.reportDataMap ?? {}) as Record<string, any[]>;
+    reportSessionState.reportDataMap = Object.fromEntries(
+        Object.entries(retainedData).filter(([type]) => !invalidatedTypes.has(type)),
+    );
+    activeReportInvalidators.forEach(invalidate => invalidate(invalidatedTypes));
+});
+
+function useRetainedReportState<T>(
+    key: string,
+    initialValue: T,
+): [T, Dispatch<SetStateAction<T>>] {
+    const [value, setValueState] = useState<T>(
+        () => (reportSessionState[key] as T | undefined) ?? initialValue,
+    );
+
+    const setValue = useCallback<Dispatch<SetStateAction<T>>>((nextValue) => {
+        setValueState(current => {
+            const resolved = typeof nextValue === "function"
+                ? (nextValue as (previous: T) => T)(current)
+                : nextValue;
+            reportSessionState[key] = resolved;
+            return resolved;
+        });
+    }, [key]);
+
+    return [value, setValue];
+}
+
 export default function Reports() {
     const { user } = useAuth();
     const isSuperAdmin = user?.roles?.some((role: any) => role.name === 'Super Admin');
 
-    const [reportTypes, setReportTypes] = useState<string[]>(["attendance"]);
+    const [reportTypes, setReportTypes] = useRetainedReportState<string[]>(
+        "reportTypes",
+        ["attendance"],
+    );
     
     // Default to the current month's start and end dates
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
     
-    const [dateRange, setDateRange] = useState({ start: firstDay, end: lastDay });
-    const [reportDataMap, setReportDataMap] = useState<Record<string, any[]>>({});
-    const [collapsedReports, setCollapsedReports] = useState<Record<string, boolean>>({});
+    const [dateRange, setDateRange] = useRetainedReportState(
+        "dateRange",
+        { start: firstDay, end: lastDay },
+    );
+    const [reportDataMap, setReportDataMap] = useRetainedReportState<Record<string, any[]>>(
+        "reportDataMap",
+        {},
+    );
+    const [collapsedReports, setCollapsedReports] = useRetainedReportState<Record<string, boolean>>(
+        "collapsedReports",
+        {},
+    );
     const [loading, setLoading] = useState(false);
     
     // Employee filter
     const [employees, setEmployees] = useState<any[]>([]);
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+    const [selectedEmployeeId, setSelectedEmployeeId] = useRetainedReportState(
+        "selectedEmployeeId",
+        "",
+    );
     const [customEntities, setCustomEntities] = useState<CustomEntitySummary[]>([]);
-    const [selectedEntitySlug, setSelectedEntitySlug] = useState("");
+    const [selectedEntitySlug, setSelectedEntitySlug] = useRetainedReportState(
+        "selectedEntitySlug",
+        "",
+    );
     const [customEntityFields, setCustomEntityFields] = useState<CustomEntityField[]>([]);
-    const [customFieldKey, setCustomFieldKey] = useState("");
-    const [customFieldValue, setCustomFieldValue] = useState("");
+    const [customFieldKey, setCustomFieldKey] = useRetainedReportState("customFieldKey", "");
+    const [customFieldValue, setCustomFieldValue] = useRetainedReportState("customFieldValue", "");
 
-    const fetchReportSources = async () => {
+    useEffect(() => {
+        const invalidateVisibleReports = (types: Set<string>) => {
+            setReportDataMap(current => Object.fromEntries(
+                Object.entries(current).filter(([type]) => !types.has(type)),
+            ));
+        };
+
+        activeReportInvalidators.add(invalidateVisibleReports);
+        return () => {
+            activeReportInvalidators.delete(invalidateVisibleReports);
+        };
+    }, [setReportDataMap]);
+
+    const fetchReportSources = useCallback(async () => {
         try {
             const [employeeRes, entityRes] = await Promise.all([
                 api.get('/employees?status=active&all=true'),
@@ -72,12 +172,12 @@ export default function Reports() {
         } catch (error) {
             console.error(error);
         }
-    };
+    }, [setSelectedEntitySlug]);
 
     // Fetch employees and custom report sources.
     useEffect(() => {
         fetchReportSources();
-    }, []);
+    }, [fetchReportSources]);
 
     useEffect(() => {
         if (!selectedEntitySlug) {
@@ -93,7 +193,7 @@ export default function Reports() {
             console.error(err);
             setCustomEntityFields([]);
         });
-    }, [selectedEntitySlug]);
+    }, [selectedEntitySlug, setCustomFieldKey, setCustomFieldValue]);
 
     const generateReport = async (silent = false) => {
         if (reportTypes.length === 0) return toast("Please select at least one report type.");
