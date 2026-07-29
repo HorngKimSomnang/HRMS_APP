@@ -56,14 +56,23 @@ export default function EmployeeList() {
 
     const confirmOffboard = async () => {
         if (!selectedEmployee) return;
+        const employee = selectedEmployee;
+        const previousCurrent = currentEmployees;
+        const previousArchived = archivedEmployees;
+
+        setCurrentEmployees(current => current.filter(item => item.id !== employee.id));
+        setArchivedEmployees(current => [
+            { ...employee, archived_at: new Date().toISOString() },
+            ...current,
+        ]);
+        setSelectedEmployee(null);
 
         try {
-            await api.delete(`/employees/${selectedEmployee.id}`);
-            // Fetch employees again to refresh the status
-            fetchEmployees();
+            await api.delete(`/employees/${employee.id}`);
             toast.success("Employee terminated and archived");
-            setSelectedEmployee(null);
         } catch (error: any) {
+            setCurrentEmployees(previousCurrent);
+            setArchivedEmployees(previousArchived);
             console.error("Failed to delete/offboard employee", error);
             const message = error.response?.data?.message || "Failed to offboard employee";
             toast(message);
@@ -72,13 +81,24 @@ export default function EmployeeList() {
 
     const confirmRestore = async () => {
         if (!restoreEmployee) return;
+        const employee = restoreEmployee;
+        const previousCurrent = currentEmployees;
+        const previousArchived = archivedEmployees;
+
         setIsRestoring(true);
+        setArchivedEmployees(current => current.filter(item => item.id !== employee.id));
+        setCurrentEmployees(current => [
+            { ...employee, archived_at: null },
+            ...current,
+        ]);
+        setRestoreEmployee(null);
+
         try {
-            await api.post(`/employees/${restoreEmployee.id}/restore`);
+            await api.post(`/employees/${employee.id}/restore`);
             toast.success("Employee record restored successfully");
-            setRestoreEmployee(null);
-            fetchEmployees();
         } catch (error: any) {
+            setCurrentEmployees(previousCurrent);
+            setArchivedEmployees(previousArchived);
             console.error("Failed to restore employee", error);
             toast.error(error.response?.data?.message || "Failed to restore employee");
         } finally {
@@ -121,7 +141,7 @@ export default function EmployeeList() {
         }
     };
 
-    useLiveRefresh(() => fetchEmployees(true));
+    useLiveRefresh(() => fetchEmployees(true), { resources: 'employees' });
 
     const employees = viewMode === 'current' ? currentEmployees : archivedEmployees;
     const filteredEmployees = employees.filter(emp =>

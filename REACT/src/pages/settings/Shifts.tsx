@@ -44,36 +44,61 @@ export default function Shifts() {
         }
     };
 
-    useLiveRefresh(fetchShifts);
+    useLiveRefresh(fetchShifts, { resources: 'shifts' });
 
     useEffect(() => {
         fetchShifts();
     }, []);
 
     const handleSubmit = async () => {
+        const previousShifts = shifts;
+        const temporaryId = -Date.now();
+        const optimisticShift: Shift = {
+            ...formData,
+            id: formData.id ?? temporaryId,
+            start_time: formData.start_time.length === 5 ? `${formData.start_time}:00` : formData.start_time,
+            end_time: formData.end_time.length === 5 ? `${formData.end_time}:00` : formData.end_time,
+        };
+
+        setShifts(current => formData.id
+            ? current.map(shift => shift.id === formData.id ? optimisticShift : shift)
+            : [...current, optimisticShift]
+        );
+        setIsDialogOpen(false);
+
         try {
             if (formData.id) {
-                await api.put(`/shifts/${formData.id}`, formData);
+                const response = await api.put(`/shifts/${formData.id}`, formData);
+                setShifts(current => current.map(shift => (
+                    shift.id === formData.id ? response.data.data : shift
+                )));
                 toast.success('Shift updated');
             } else {
-                await api.post('/shifts', formData);
+                const response = await api.post('/shifts', formData);
+                setShifts(current => current.map(shift => (
+                    shift.id === temporaryId ? response.data.data : shift
+                )));
                 toast.success('Shift created');
             }
-            setIsDialogOpen(false);
-            fetchShifts();
         } catch (error: any) {
+            setShifts(previousShifts);
+            setIsDialogOpen(true);
             toast.error(error.response?.data?.message || 'Failed to save shift');
         }
     };
 
     const confirmDelete = async () => {
         if (!deleteId) return;
+        const id = deleteId;
+        const previousShifts = shifts;
+        setShifts(current => current.filter(shift => shift.id !== id));
+        setDeleteId(null);
+
         try {
-            await api.delete(`/shifts/${deleteId}`);
+            await api.delete(`/shifts/${id}`);
             toast.success('Shift deleted');
-            fetchShifts();
-            setDeleteId(null);
         } catch {
+            setShifts(previousShifts);
             toast.error('Failed to delete shift');
         }
     };

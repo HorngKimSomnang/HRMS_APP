@@ -48,24 +48,48 @@ export default function NoticeBoard() {
         }
     };
 
-    useLiveRefresh(fetchNotices);
+    useLiveRefresh(fetchNotices, { resources: 'announcements' });
 
     useEffect(() => {
         fetchNotices();
     }, []);
 
     const handleSubmit = async () => {
+        const previousNotices = notices;
+        const temporaryId = -Date.now();
+        const existingNotice = notices.find(notice => notice.id === formData.id);
+        const optimisticNotice: Notice = {
+            ...formData,
+            id: formData.id ?? temporaryId,
+            created_at: existingNotice?.created_at ?? new Date().toISOString(),
+            creator: existingNotice?.creator ?? { name: user?.name ?? 'Current administrator' },
+        };
+
+        setNotices(current => formData.id
+            ? current.map(notice => notice.id === formData.id ? optimisticNotice : notice)
+            : [optimisticNotice, ...current]
+        );
+        setIsDialogOpen(false);
+
         try {
             if (formData.id) {
-                await api.put(`/announcements/${formData.id}`, formData);
+                const response = await api.put(`/announcements/${formData.id}`, formData);
+                setNotices(current => current.map(notice => notice.id === formData.id
+                    ? { ...notice, ...response.data.data, creator: notice.creator }
+                    : notice
+                ));
                 toast.success('Notice updated');
             } else {
-                await api.post('/announcements', formData);
+                const response = await api.post('/announcements', formData);
+                setNotices(current => current.map(notice => notice.id === temporaryId
+                    ? { ...notice, ...response.data.data, creator: notice.creator }
+                    : notice
+                ));
                 toast.success('Notice created');
             }
-            setIsDialogOpen(false);
-            fetchNotices();
         } catch (error: any) {
+            setNotices(previousNotices);
+            setIsDialogOpen(true);
             const msg = error.response?.data?.message || 'Failed to save notice';
             const errors = error.response?.data?.errors ? JSON.stringify(error.response.data.errors) : '';
             toast.error(msg + (errors ? '\n' + errors : ''));
@@ -74,22 +98,31 @@ export default function NoticeBoard() {
 
     const confirmDelete = async () => {
         if (!deleteId) return;
+        const id = deleteId;
+        const previousNotices = notices;
+        setNotices(current => current.filter(notice => notice.id !== id));
+        setDeleteId(null);
+
         try {
-            await api.delete(`/announcements/${deleteId}`);
+            await api.delete(`/announcements/${id}`);
             toast.success('Notice deleted');
-            fetchNotices();
-            setDeleteId(null);
         } catch {
+            setNotices(previousNotices);
             toast.error('Failed to delete notice');
         }
     };
 
     const handleApprove = async (id: number) => {
+        const previousNotices = notices;
+        setNotices(current => current.map(notice => (
+            notice.id === id ? { ...notice, is_published: true } : notice
+        )));
+
         try {
             await api.put(`/announcements/${id}`, { is_published: true });
             toast.success('Notice approved and published!');
-            fetchNotices();
         } catch {
+            setNotices(previousNotices);
             toast.error('Failed to approve notice');
         }
     };

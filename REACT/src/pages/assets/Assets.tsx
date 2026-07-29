@@ -68,7 +68,7 @@ export default function Assets() {
         await load();
         const res = await api.get('/employees?status=active&all=true');
         setEmployees(res.data.data ?? res.data ?? []);
-    });
+    }, { resources: ['assets', 'employees'] });
 
     useEffect(() => {
         const timer = setTimeout(load, search ? 300 : 0); // debounce typing
@@ -77,26 +77,50 @@ export default function Assets() {
 
     // ---------- actions ----------
     const saveAsset = async () => {
+        const previousAssets = assets;
+        const temporaryId = -Date.now();
+        const formSnapshot = assetForm;
+        const payload = { ...formSnapshot, purchase_cost: formSnapshot.purchase_cost === '' ? null : formSnapshot.purchase_cost, purchase_date: formSnapshot.purchase_date || null };
+        const optimisticAsset = {
+            ...payload,
+            id: formSnapshot.id ?? temporaryId,
+            status: formSnapshot.status ?? 'available',
+        };
+
+        setAssets(current => formSnapshot.id
+            ? current.map(asset => asset.id === formSnapshot.id ? { ...asset, ...optimisticAsset } : asset)
+            : [...current, optimisticAsset]
+        );
+        setAssetForm(null);
+
         try {
-            const payload = { ...assetForm, purchase_cost: assetForm.purchase_cost === '' ? null : assetForm.purchase_cost, purchase_date: assetForm.purchase_date || null };
-            if (assetForm.id) {
-                await api.put(`/assets/${assetForm.id}`, payload);
+            if (formSnapshot.id) {
+                const response = await api.put(`/assets/${formSnapshot.id}`, payload);
+                setAssets(current => current.map(asset => (
+                    asset.id === formSnapshot.id ? response.data.data : asset
+                )));
             } else {
-                await api.post('/assets', payload);
+                const response = await api.post('/assets', payload);
+                setAssets(current => current.map(asset => (
+                    asset.id === temporaryId ? response.data.data : asset
+                )));
             }
-            setAssetForm(null);
-            load();
         } catch (err: any) {
+            setAssets(previousAssets);
+            setAssetForm(formSnapshot);
             toast.error(err.response?.data?.message || "Failed to save asset");
         }
     };
 
     const deleteAsset = async (asset: any) => {
         if (!window.confirm(t('assets.confirm_delete', 'Delete this asset?'))) return;
+        const previousAssets = assets;
+        setAssets(current => current.filter(item => item.id !== asset.id));
+
         try {
             await api.delete(`/assets/${asset.id}`);
-            load();
         } catch (err: any) {
+            setAssets(previousAssets);
             toast.error(err.response?.data?.message || "Failed to delete");
         }
     };

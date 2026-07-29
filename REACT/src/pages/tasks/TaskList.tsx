@@ -69,19 +69,12 @@ export default function TaskList() {
         if (isAdmin) {
             fetchEmployees();
         }
-        
-        // Auto-refresh tasks every 10 seconds
-        const interval = setInterval(() => {
-            fetchTasks();
-        }, 10000);
-        
-        return () => clearInterval(interval);
     }, [isAdmin, fetchTasks, fetchEmployees]);
 
     useLiveRefresh(async () => {
         await fetchTasks();
         if (isAdmin) await fetchEmployees();
-    }, { pollInterval: 0 });
+    }, { resources: ['tasks', 'employees'] });
 
     const resetForm = () => {
         setNewTask({ title: "", description: "", assigned_to: [], priority: "medium", due_date: "" });
@@ -609,4 +602,3 @@ export default function TaskList() {
         </div>
     );
 }
-

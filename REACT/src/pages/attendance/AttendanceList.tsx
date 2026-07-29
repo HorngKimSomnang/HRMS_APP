@@ -113,33 +113,58 @@ export default function AttendanceList() {
 
     useEffect(() => {
         fetchAttendances();
-        const interval = setInterval(() => fetchAttendances(true), 10000);
-        return () => clearInterval(interval);
     }, [fetchAttendances]);
 
-    useLiveRefresh(() => fetchAttendances(true), { pollInterval: 0 });
+    useLiveRefresh(() => fetchAttendances(true), { resources: 'attendance' });
 
     const handleManualClockOut = () => {
         if (!manualTime || !selectedRecord) return;
-        api.put(`/attendance/${selectedRecord.id}/manual-clock-out`, { clock_out_time: manualTime })
-            .then(() => { setShowModal(false); setManualTime(""); fetchAttendances(); })
-            .catch(() => toast.error("Failed to save clock out time."));
+        const record = selectedRecord;
+        const previousAttendances = attendances;
+        const optimisticClockOut = `${filterDate}T${manualTime}:00`;
+
+        setAttendances(current => current.map(item => (
+            item.id === record.id ? { ...item, clock_out: optimisticClockOut } : item
+        )));
+        setShowModal(false);
+        setManualTime("");
+
+        api.put(`/attendance/${record.id}/manual-clock-out`, { clock_out_time: manualTime })
+            .catch(() => {
+                setAttendances(previousAttendances);
+                toast.error("Failed to save clock out time.");
+            });
     };
 
     const confirmRemoveRecord = () => {
         if (!deleteId) return;
-        setRemoving(deleteId);
-        api.delete(`/attendance/${deleteId}`)
-            .then(() => { fetchAttendances(); toast.success("Attendance record removed"); })
-            .catch(() => toast.error("Failed to remove record."))
+        const id = deleteId;
+        const previousAttendances = attendances;
+        setRemoving(id);
+        setAttendances(current => current.filter(item => item.id !== id));
+        setDeleteId(null);
+
+        api.delete(`/attendance/${id}`)
+            .then(() => toast.success("Attendance record removed"))
+            .catch(() => {
+                setAttendances(previousAttendances);
+                toast.error("Failed to remove record.");
+            })
             .finally(() => { setRemoving(null); setDeleteId(null); });
     };
 
     const confirmClearLogs = () => {
+        const previousAttendances = attendances;
         setClearing(true);
+        setAttendances([]);
+        setIsClearLogsOpen(false);
+
         api.delete('/attendance/clear')
-            .then(() => { fetchAttendances(); toast.success("All attendance records cleared"); })
-            .catch(() => toast.error("Failed to clear logs."))
+            .then(() => toast.success("All attendance records cleared"))
+            .catch(() => {
+                setAttendances(previousAttendances);
+                toast.error("Failed to clear logs.");
+            })
             .finally(() => { setClearing(false); setIsClearLogsOpen(false); });
     };
 

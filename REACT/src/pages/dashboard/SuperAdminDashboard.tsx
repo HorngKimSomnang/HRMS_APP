@@ -64,7 +64,7 @@ export default function SuperAdminDashboard() {
         fetchDashboard();
     }, [fetchDashboard]);
 
-    useLiveRefresh(() => fetchDashboard(true));
+    useLiveRefresh(() => fetchDashboard(true), { resources: 'dashboard' });
 
     const getGreeting = () => {
         const hour = new Date().getHours();

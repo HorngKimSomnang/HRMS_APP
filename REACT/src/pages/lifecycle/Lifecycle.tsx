@@ -87,7 +87,7 @@ export default function Lifecycle() {
         await loadAll(true);
         const res = await api.get('/employees?status=active&all=true');
         setEmployees(res.data.data ?? res.data ?? []);
-    });
+    }, { resources: ['lifecycle', 'employees'] });
 
     useEffect(() => {
         loadAll();

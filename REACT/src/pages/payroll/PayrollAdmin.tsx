@@ -152,7 +152,7 @@ export default function PayrollAdmin() {
             });
     };
 
-    useLiveRefresh(() => fetchData(true));
+    useLiveRefresh(() => fetchData(true), { resources: ['payslips', 'employees'] });
 
     useEffect(() => { 
         fetchData(); 

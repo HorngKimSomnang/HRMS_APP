@@ -182,7 +182,7 @@ export default function AuditLogs() {
     }, [page, search, roleFilter, actionFilter]);
 
     useEffect(() => { fetchLogs(); }, [fetchLogs]);
-    useLiveRefresh(() => fetchLogs(true));
+    useLiveRefresh(() => fetchLogs(true), { resources: 'audit-logs' });
 
     // Derived stats from current page
     const godModeCount   = logs.filter(l => l.context?.override === true).length;

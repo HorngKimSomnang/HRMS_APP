@@ -8,6 +8,16 @@ class NotificationService {
     return response.data;
   }
 
+  Future<String> fetchNotificationVersion() async {
+    final response = await _apiService.client.get(
+      '/data-versions',
+      queryParameters: {'resources': 'notifications'},
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    final resources = Map<String, dynamic>.from(data['resources'] as Map? ?? {});
+    return resources['notifications']?.toString() ?? '0';
+  }
+
   Future<void> markAllAsRead() async {
     await _apiService.client.post('/notifications/mark-read');
   }

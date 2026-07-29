@@ -58,7 +58,7 @@ export default function ViewEmployee() {
     }, [id]);
 
     useEffect(() => { fetchEmployee(); }, [fetchEmployee]);
-    useLiveRefresh(fetchEmployee);
+    useLiveRefresh(fetchEmployee, { resources: ['employees', 'attendance'] });
 
     const handleRemoveDocument = async () => {
         if (!deleteDocName) return;

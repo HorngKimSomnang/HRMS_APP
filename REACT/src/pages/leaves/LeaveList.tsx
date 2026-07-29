@@ -63,11 +63,9 @@ export default function LeaveList() {
 
     useEffect(() => {
         fetchLeaves();
-        const interval = setInterval(() => fetchLeaves(true), 10000);
-        return () => clearInterval(interval);
     }, []);
 
-    useLiveRefresh(() => fetchLeaves(true), { pollInterval: 0 });
+    useLiveRefresh(() => fetchLeaves(true), { resources: ['leaves', 'employees', 'leave-types'] });
 
     const openStatusModal = (id: number, status: 'approved' | 'rejected') => {
         setStatusUpdate({ id, status });
@@ -87,11 +85,16 @@ export default function LeaveList() {
             rejection_reason = rejectionReason;
         }
 
+        const previousLeaves = leaves;
+        setLeaves(current => current.map(leave => (
+            leave.id === id ? { ...leave, status, rejection_reason } : leave
+        )));
+        setStatusUpdate(null);
+
         try {
             await api.put(`/leaves/${id}/status`, { status, rejection_reason });
-            setLeaves(leaves.map(l => l.id === id ? { ...l, status } : l));
-            setStatusUpdate(null);
         } catch (error: any) {
+            setLeaves(previousLeaves);
             console.error("Failed to update status", error);
             const msg = error.response?.data?.message || "Failed to update status";
             toast(msg);
@@ -104,12 +107,16 @@ export default function LeaveList() {
 
     const confirmRevoke = async () => {
         if (!revokeId) return;
+        const id = revokeId;
+        const previousLeaves = leaves;
+        setLeaves(current => current.filter(leave => leave.id !== id));
+        setRevokeId(null);
+
         try {
-            await api.delete(`/leaves/${revokeId}`);
-            setLeaves(leaves.filter(l => l.id !== revokeId));
-            setRevokeId(null);
+            await api.delete(`/leaves/${id}`);
             toast.success("Leave revoked and balance refunded!");
         } catch (error: any) {
+            setLeaves(previousLeaves);
             console.error("Failed to revoke leave", error);
             toast.error(error.response?.data?.message || "Failed to revoke leave");
         }

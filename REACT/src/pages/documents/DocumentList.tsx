@@ -45,7 +45,7 @@ export default function DocumentList() {
         }
     };
 
-    useLiveRefresh(fetchDocuments);
+    useLiveRefresh(fetchDocuments, { resources: 'documents' });
 
     const confirmDelete = async () => {
         if (!deleteId) return;

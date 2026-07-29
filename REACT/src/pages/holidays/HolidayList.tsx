@@ -61,7 +61,7 @@ export default function HolidayList() {
         }
     };
 
-    useLiveRefresh(fetchHolidays);
+    useLiveRefresh(fetchHolidays, { resources: 'announcements' });
 
     useEffect(() => {
         fetchHolidays();
@@ -90,17 +90,42 @@ export default function HolidayList() {
     };
 
     const handleSave = async () => {
+        const previousHolidays = holidays;
+        const temporaryId = -Date.now();
+        const optimisticHoliday: Holiday = {
+            id: editingId ?? temporaryId,
+            name: newName,
+            start_date: newStartDate,
+            end_date: newEndDate || newStartDate,
+            type: newType,
+            description: newName,
+        };
+
+        setHolidays(current => editingId
+            ? current.map(holiday => holiday.id === editingId ? optimisticHoliday : holiday)
+            : [...current, optimisticHoliday]
+        );
+        setIsCreateOpen(false);
+
         try {
             if (editingId) {
-                await api.put(`/announcements/${editingId}`, {
+                const response = await api.put(`/announcements/${editingId}`, {
                     title: newName,
                     content: newName,
                     start_date: newStartDate,
                     end_date: newEndDate,
                 });
+                const saved = response.data.data;
+                setHolidays(current => current.map(holiday => holiday.id === editingId ? {
+                    ...holiday,
+                    name: saved.title,
+                    start_date: saved.start_date,
+                    end_date: saved.end_date || saved.start_date,
+                    description: saved.content,
+                } : holiday));
                 toast.success("Holiday updated successfully");
             } else {
-                await api.post('/announcements', {
+                const response = await api.post('/announcements', {
                     type: 'Holiday',
                     title: newName,
                     content: newName,
@@ -108,12 +133,21 @@ export default function HolidayList() {
                     end_date: newEndDate,
                     is_published: true,
                 });
+                const saved = response.data.data;
+                setHolidays(current => current.map(holiday => holiday.id === temporaryId ? {
+                    ...holiday,
+                    id: saved.id,
+                    name: saved.title,
+                    start_date: saved.start_date,
+                    end_date: saved.end_date || saved.start_date,
+                    description: saved.content,
+                } : holiday));
                 toast.success("Holiday created successfully");
             }
             resetForm();
-            setIsCreateOpen(false);
-            fetchHolidays();
         } catch (e: any) {
+            setHolidays(previousHolidays);
+            setIsCreateOpen(true);
             toast.error(e.response?.data?.message || "Failed to save holiday");
         }
     };

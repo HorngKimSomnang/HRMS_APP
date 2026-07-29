@@ -144,7 +144,7 @@ export function EntityRecordsPanel({ slug, onRecordsChanged, onLoadError }: Enti
         }
     }, [slug]);
 
-    useLiveRefresh(fetchAll);
+    useLiveRefresh(fetchAll, { resources: 'entities' });
 
     useEffect(() => {
         fetchAll();

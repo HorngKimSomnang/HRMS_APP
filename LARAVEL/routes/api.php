@@ -38,6 +38,7 @@ Route::get('/download/{path}', function ($path) {
 })->where('path', '.*');
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/data-versions', \App\Http\Controllers\Api\LiveDataVersionController::class);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::put('/profile/update', [AuthController::class, 'updateProfile']);

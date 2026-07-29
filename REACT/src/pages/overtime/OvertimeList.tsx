@@ -33,23 +33,24 @@ export default function OvertimeList() {
 
     useEffect(() => {
         fetchOvertimes();
-        const interval = setInterval(() => fetchOvertimes(true), 10000);
-        return () => clearInterval(interval);
     }, []);
 
-    useLiveRefresh(() => fetchOvertimes(true), { pollInterval: 0 });
+    useLiveRefresh(() => fetchOvertimes(true), { resources: 'overtimes' });
 
     const confirmStatusUpdate = async () => {
         if (!statusUpdate) return;
         const { id, status } = statusUpdate;
+        const previousOvertimes = overtimes;
+        setOvertimes(current => current.map(overtime => (
+            overtime.id === id ? { ...overtime, status } : overtime
+        )));
+        setStatusUpdate(null);
 
         try {
             await api.put(`/overtimes/${id}`, { status });
-            // Optimistic update
-            setOvertimes(overtimes.map(ot => ot.id === id ? { ...ot, status } : ot));
-            setStatusUpdate(null);
             toast.success(`Overtime request ${status}`);
         } catch (error: any) {
+            setOvertimes(previousOvertimes);
             console.error("Failed to update status", error);
             const msg = error.response?.data?.message || "Failed to update status";
             toast(msg);

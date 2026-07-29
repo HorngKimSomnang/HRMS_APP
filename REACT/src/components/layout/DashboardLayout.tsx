@@ -6,6 +6,7 @@ import api from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 interface NotificationItem {
     id: string;
@@ -102,10 +103,8 @@ export default function DashboardLayout() {
     }, []);
 
     useEffect(() => {
-        // Initial fetch (deferred to a macrotask so state updates stay async),
-        // then poll for new notifications every 15 seconds
+        // Initial fetch is deferred so state updates remain asynchronous.
         const initialFetchId = setTimeout(fetchNotifications, 0);
-        const intervalId = setInterval(fetchNotifications, 15000);
 
         // Close dropdown on click outside
         function handleClickOutside(event: MouseEvent) {
@@ -117,11 +116,12 @@ export default function DashboardLayout() {
         
         return () => {
             clearTimeout(initialFetchId);
-            clearInterval(intervalId);
             document.removeEventListener("mousedown", handleClickOutside);
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         };
     }, [fetchNotifications]);
+
+    useLiveRefresh(fetchNotifications, { resources: 'notifications' });
 
     const markAsRead = async () => {
         try {

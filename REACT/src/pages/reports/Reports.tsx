@@ -136,7 +136,7 @@ export default function Reports() {
         if (Object.keys(reportDataMap).length > 0) {
             await generateReport(true);
         }
-    });
+    }, { resources: ['reports', 'employees', 'entities'] });
 
     const formatCustomValue = (field: CustomEntityField, value: any): string => {
         if (value === null || value === undefined || value === "") return "-";

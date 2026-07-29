@@ -113,7 +113,7 @@ export default function AdminDashboard() {
 
     useLiveRefresh(async () => {
         await Promise.all([fetchDashboard(true), fetchAnnouncements()]);
-    });
+    }, { resources: ['dashboard', 'announcements'] });
 
     const getGreeting = () => {
         const hour = new Date().getHours();

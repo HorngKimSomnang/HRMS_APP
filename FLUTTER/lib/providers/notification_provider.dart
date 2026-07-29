@@ -19,6 +19,8 @@ class NotificationProvider with ChangeNotifier {
   String? _lastSeenId;
   bool _lastSeenIdLoaded = false;
   Timer? _pollingTimer;
+  String? _notificationVersion;
+  bool _checkingVersion = false;
 
   List<dynamic> get notifications => _notifications;
   int get unreadCount => _unreadCount;
@@ -27,15 +29,35 @@ class NotificationProvider with ChangeNotifier {
   /// Start background polling for real-time alerts
   void startPolling() {
     if (_pollingTimer != null && _pollingTimer!.isActive) return;
-    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      fetchNotifications(isPolling: true);
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      _pollForChanges();
     });
+    _pollForChanges();
   }
 
   /// Stop background polling
   void stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
+  }
+
+  Future<void> _pollForChanges() async {
+    if (_checkingVersion) return;
+    _checkingVersion = true;
+
+    try {
+      final nextVersion = await _service.fetchNotificationVersion();
+      final previousVersion = _notificationVersion;
+      _notificationVersion = nextVersion;
+
+      if (previousVersion == null || previousVersion != nextVersion) {
+        await fetchNotifications(isPolling: true);
+      }
+    } catch (e) {
+      debugPrint('NotificationProvider: version check error: $e');
+    } finally {
+      _checkingVersion = false;
+    }
   }
 
   /// Fetch notifications from the API and update state.

@@ -40,15 +40,19 @@ export default function AdminList() {
         }
     };
 
-    useLiveRefresh(fetchUsers);
+    useLiveRefresh(fetchUsers, { resources: ['users', 'profile'] });
 
     const confirmDelete = async () => {
         if (!deleteId) return;
+        const id = deleteId;
+        const previousUsers = users;
+        setUsers(current => current.filter(item => item.id !== id));
+        setDeleteId(null);
+
         try {
-            await api.delete(`/users/${deleteId}`);
-            fetchUsers();
-            setDeleteId(null);
+            await api.delete(`/users/${id}`);
         } catch (error: any) {
+            setUsers(previousUsers);
             console.error('Failed to delete user', error);
             toast.error(error.response?.data?.message || 'Failed to delete user');
         }

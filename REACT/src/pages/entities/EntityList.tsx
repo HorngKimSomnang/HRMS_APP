@@ -75,7 +75,7 @@ export default function EntityList() {
         }
     };
 
-    useLiveRefresh(fetchEntities);
+    useLiveRefresh(fetchEntities, { resources: 'entities' });
 
     useEffect(() => {
         fetchEntities();
