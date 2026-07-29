@@ -80,11 +80,11 @@ class PayslipTest extends TestCase
 
         \App\Models\Payslip::create([
             'employee_id' => $employeeA->id, 'month' => '07', 'year' => '2026',
-            'basic_salary' => 500, 'net_salary' => 500, 'status' => 'approved',
+            'basic_salary' => 500, 'net_salary' => 500, 'status' => 'paid',
         ]);
         \App\Models\Payslip::create([
             'employee_id' => $employeeB->id, 'month' => '07', 'year' => '2026',
-            'basic_salary' => 800, 'net_salary' => 800, 'status' => 'approved',
+            'basic_salary' => 800, 'net_salary' => 800, 'status' => 'paid',
         ]);
 
         $response = $this->actingAs($userA, 'sanctum')->getJson('/api/payslips');
@@ -94,7 +94,7 @@ class PayslipTest extends TestCase
         $this->assertEquals([$employeeA->id], $ids);
     }
 
-    public function test_employee_cannot_see_a_draft_payslip_until_it_is_authorized()
+    public function test_employee_cannot_see_a_payslip_until_it_is_marked_paid()
     {
         $user = User::factory()->create();
         $user->assignRole('Employee');
@@ -114,7 +114,7 @@ class PayslipTest extends TestCase
             ->assertOk()
             ->assertExactJson([]);
 
-        $payslip->update(['status' => 'approved']);
+        $payslip->update(['status' => 'paid']);
 
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/payslips')
@@ -123,46 +123,7 @@ class PayslipTest extends TestCase
             ->assertJsonPath('0.id', $payslip->id);
     }
 
-    public function test_admin_cannot_authorize_a_payslip()
-    {
-        $admin = User::factory()->create();
-        $admin->assignRole('Admin');
-        $employee = Employee::factory()->create();
-        $payslip = \App\Models\Payslip::create([
-            'employee_id' => $employee->id,
-            'month' => '08',
-            'year' => '2026',
-            'basic_salary' => 600,
-            'net_salary' => 600,
-            'status' => 'draft',
-        ]);
-
-        $this->actingAs($admin, 'sanctum')
-            ->patchJson("/api/payslips/{$payslip->id}", ['status' => 'approved'])
-            ->assertForbidden()
-            ->assertJsonPath('message', 'Only the Super Admin can authorize payroll.');
-
-        $this->assertDatabaseHas('payslips', [
-            'id' => $payslip->id,
-            'status' => 'draft',
-        ]);
-    }
-
-    public function test_admin_cannot_authorize_all_payslips()
-    {
-        $admin = User::factory()->create();
-        $admin->assignRole('Admin');
-
-        $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/payslips/authorize-all', [
-                'month' => '08',
-                'year' => '2026',
-            ])
-            ->assertForbidden()
-            ->assertJsonPath('message', 'Only the Super Admin can authorize payroll.');
-    }
-
-    public function test_admin_cannot_mark_a_draft_payslip_paid_to_skip_authorization()
+    public function test_admin_can_mark_a_draft_payslip_paid_after_offline_management_review()
     {
         $admin = User::factory()->create();
         $admin->assignRole('Admin');
@@ -178,74 +139,11 @@ class PayslipTest extends TestCase
 
         $this->actingAs($admin, 'sanctum')
             ->patchJson("/api/payslips/{$payslip->id}", ['status' => 'paid'])
-            ->assertUnprocessable()
-            ->assertJsonPath(
-                'message',
-                'The payslip must be authorized before it can be marked paid.'
-            );
-
-        $this->assertDatabaseHas('payslips', [
-            'id' => $payslip->id,
-            'status' => 'draft',
-        ]);
-    }
-
-    public function test_super_admin_can_authorize_without_a_signature()
-    {
-        $boss = User::factory()->create();
-        $boss->assignRole('Super Admin');
-        $employee = Employee::factory()->create();
-        $payslip = \App\Models\Payslip::create([
-            'employee_id' => $employee->id,
-            'month' => '08',
-            'year' => '2026',
-            'basic_salary' => 600,
-            'net_salary' => 600,
-            'status' => 'draft',
-            'requires_signature' => true,
-            'is_signed' => false,
-        ]);
-
-        $this->actingAs($boss, 'sanctum')
-            ->patchJson("/api/payslips/{$payslip->id}", ['status' => 'approved'])
             ->assertOk();
 
         $this->assertDatabaseHas('payslips', [
             'id' => $payslip->id,
-            'status' => 'approved',
-            'is_signed' => false,
+            'status' => 'paid',
         ]);
-    }
-
-    public function test_super_admin_can_authorize_all_unsigned_drafts()
-    {
-        $boss = User::factory()->create();
-        $boss->assignRole('Super Admin');
-        $employee = Employee::factory()->create();
-
-        foreach (range(1, 2) as $index) {
-            \App\Models\Payslip::create([
-                'employee_id' => $employee->id,
-                'month' => str_pad((string) (7 + $index), 2, '0', STR_PAD_LEFT),
-                'year' => '2026',
-                'basic_salary' => 600,
-                'net_salary' => 600,
-                'status' => 'draft',
-                'requires_signature' => true,
-                'is_signed' => false,
-            ]);
-        }
-
-        $this->actingAs($boss, 'sanctum')
-            ->postJson('/api/payslips/authorize-all', ['year' => '2026'])
-            ->assertOk()
-            ->assertJsonPath('authorized', 2);
-
-        $this->assertSame(
-            2,
-            \App\Models\Payslip::where('year', '2026')
-                ->where('status', 'approved')
-                ->count()
-        );
     }
 }

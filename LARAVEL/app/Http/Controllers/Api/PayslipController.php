@@ -24,7 +24,7 @@ class PayslipController extends Controller
 
             $payslips = Payslip::with(['employee'])
                 ->where('employee_id', $user->employee->id)
-                ->whereIn('status', ['approved', 'paid'])
+                ->where('status', 'paid')
                 ->orderBy('year', 'desc')
                 ->orderBy('month', 'desc')
                 ->get();
@@ -108,7 +108,7 @@ class PayslipController extends Controller
             'net_salary' => $net_salary,
         ]);
 
-        if (in_array($payslip->status, ['approved', 'paid'])) {
+        if ($payslip->status === 'paid') {
             try {
                 $payslip->employee?->user?->notify(new \App\Notifications\PayslipGenerated($payslip));
             } catch (\Exception $e) {
@@ -219,49 +219,6 @@ class PayslipController extends Controller
         ], 201);
     }
 
-    public function authorizeAll(Request $request)
-    {
-        $user = Auth::user();
-        if (!$this->isSuperAdmin($user)) {
-            return response()->json([
-                'message' => 'Only the Super Admin can authorize payroll.',
-            ], 403);
-        }
-
-        $query = Payslip::with('employee')->where('status', 'draft');
-        
-        if ($request->filled('month')) {
-            $query->where('month', $request->month);
-        }
-        if ($request->filled('year')) {
-            $query->where('year', $request->year);
-        }
-
-        $payslips = $query->get();
-        $authorizedCount = 0;
-
-        foreach ($payslips as $payslip) {
-            $payslip->update(['status' => 'approved']);
-            $authorizedCount++;
-
-            AuditLogger::log($request, 'PAYSLIP_STATUS_CHANGED', $payslip, [
-                'status'      => 'approved',
-                'from_status' => 'draft',
-                'net_salary'  => $payslip->net_salary,
-                'month'       => $payslip->month . ' ' . $payslip->year,
-                'batch'       => true,
-            ]);
-        }
-
-        $message = "Successfully authorized $authorizedCount payslip"
-            . ($authorizedCount === 1 ? '' : 's') . ".";
-
-        return response()->json([
-            'message' => $message,
-            'authorized' => $authorizedCount,
-        ], 200);
-    }
-
     public function show(int|string $id)
     {
         $payslip = Payslip::with(['employee.user'])->findOrFail($id);
@@ -291,28 +248,10 @@ class PayslipController extends Controller
 
         $payslip->load('employee');
         if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
-            return response()->json(['message' => 'Admins cannot modify or authorize their own payslips. Super Admin must do it.'], 403);
+            return response()->json(['message' => 'Admins cannot modify their own payslips. Super Admin must do it.'], 403);
         }
 
         if ($request->has('status') && $request->status !== $payslip->status) {
-            if (
-                $request->status === 'approved'
-                && !$this->isSuperAdmin($user)
-            ) {
-                return response()->json([
-                    'message' => 'Only the Super Admin can authorize payroll.',
-                ], 403);
-            }
-
-            if (
-                $request->status === 'paid'
-                && $payslip->status !== 'approved'
-            ) {
-                return response()->json([
-                    'message' => 'The payslip must be authorized before it can be marked paid.',
-                ], 422);
-            }
-
             AuditLogger::log($request, 'PAYSLIP_STATUS_CHANGED', $payslip, [
                 'status'      => $request->status,
                 'from_status' => $payslip->status,

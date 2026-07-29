@@ -65,7 +65,6 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::apiResource('documents', \App\Http\Controllers\Api\DocumentController::class);
     Route::apiResource('tasks', TaskController::class);
-    Route::post('payslips/authorize-all', [\App\Http\Controllers\Api\PayslipController::class, 'authorizeAll']);
     Route::post('payslips/batch', [\App\Http\Controllers\Api\PayslipController::class, 'batchStore']);
     Route::apiResource('payslips', \App\Http\Controllers\Api\PayslipController::class);
     Route::apiResource('overtimes', \App\Http\Controllers\Api\OvertimeController::class);

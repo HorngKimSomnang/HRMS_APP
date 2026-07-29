@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { Wallet, CheckCircle, XCircle, AlertCircle, RefreshCw, Plus, FileText, X, ShieldCheck, Clock, Printer, Trash2, MoreVertical, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { Wallet, CheckCircle, XCircle, AlertCircle, RefreshCw, Plus, FileText, X, Clock, Printer, Trash2, MoreVertical, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/Button';
 import jsPDF from "jspdf";
@@ -19,7 +19,7 @@ const MONTH_NAMES = ["January","February","March","April","May","June","July","A
 const STATUS_CFG: any = {
     draft:    { label:"Draft",    color:"text-gray-600",    bg:"bg-gray-50",    border:"border-gray-200",    icon: Clock },
     pending:  { label:"Pending",  color:"text-amber-700",   bg:"bg-amber-50",   border:"border-amber-200",   icon: AlertCircle },
-    approved: { label:"Authorized", color:"text-emerald-700", bg:"bg-emerald-50", border:"border-emerald-200", icon: ShieldCheck },
+    approved: { label:"Prepared", color:"text-emerald-700", bg:"bg-emerald-50", border:"border-emerald-200", icon: CheckCircle },
     paid:     { label:"Paid",     color:"text-blue-700",    bg:"bg-blue-50",    border:"border-blue-200",    icon: CheckCircle },
     rejected: { label:"Rejected", color:"text-red-700",     bg:"bg-red-50",     border:"border-red-200",     icon: XCircle },
 };
@@ -258,7 +258,7 @@ export default function PayrollAdmin() {
             doc.setFontSize(9);
             doc.setTextColor(100, 116, 139);
             doc.text(
-                "This payslip is electronically controlled and authorized in HRMS.",
+                "Prepared in HRMS for management review.",
                 14,
                 (doc as any).lastAutoTable.finalY + 16
             );
@@ -313,7 +313,7 @@ export default function PayrollAdmin() {
 
             doc.setFontSize(10);
             doc.setTextColor(55, 65, 81);
-            doc.text("Payroll summary for electronic authorization in HRMS.", 14, 43);
+            doc.text("Payroll summary prepared for management review.", 14, 43);
 
             const num = (v: any) => parseFloat(v || 0);
             const money = (v: number) => `$${v.toFixed(2)}`;
@@ -366,7 +366,7 @@ export default function PayrollAdmin() {
             doc.setFontSize(8);
             doc.setTextColor(100, 116, 139);
             doc.text(
-                "Authorization is recorded electronically in HRMS.",
+                "Final payment status is recorded in HRMS.",
                 14,
                 pageHeight - 8
             );
@@ -415,7 +415,7 @@ export default function PayrollAdmin() {
                 ];
             });
 
-            const noteRow = ["Payroll summary for electronic authorization in HRMS."];
+            const noteRow = ["Payroll summary prepared for management review."];
             const sheetData = [
                 ["HEN CHEN INVESTMENT CO.LTD"],
                 [`Monthly Payroll Roster${titlePeriod}`],
@@ -581,7 +581,7 @@ export default function PayrollAdmin() {
                 doc.setFontSize(9);
                 doc.setTextColor(100, 116, 139);
                 doc.text(
-                    "This payslip is electronically controlled and authorized in HRMS.",
+                    "Prepared in HRMS for management review.",
                     14,
                     (doc as any).lastAutoTable.finalY + 16
                 );
@@ -600,19 +600,6 @@ export default function PayrollAdmin() {
             fetchData();
         } catch (e:any) {
             toast.error(e.response?.data?.message || "Failed to generate batch payroll");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleBatchAuthorize = async () => {
-        setSaving(true);
-        try {
-            const res = await api.post("/payslips/authorize-all", { month: filterMonth, year: filterYear });
-            toast.success(res.data.message);
-            fetchData();
-        } catch (e:any) {
-            toast.error(e.response?.data?.message || "Failed to authorize drafts");
         } finally {
             setSaving(false);
         }
@@ -695,9 +682,7 @@ export default function PayrollAdmin() {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Wallet className="h-6 w-6 text-primary"/>Payroll & Payments</h1>
                     <p className="text-muted-foreground mt-1 text-sm">
-                        {isSuperAdmin
-                            ? "Review payroll drafts and authorize final payslip publication."
-                            : "Prepare payroll drafts for Super Admin authorization."}
+                        Prepare and print payroll for management review, then record completed payments.
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -716,8 +701,8 @@ export default function PayrollAdmin() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4">
                 {[
-                    { label:"Drafts (Pending Auth)", value:payslips.filter((p:any)=>p.status==="draft").length, color:"text-amber-600", bg:"bg-amber-50 border-amber-200", icon:Clock },
-                    { label:"Authorized Payslips", value:payslips.filter((p:any)=>p.status==="approved"||p.status==="paid").length, color:"text-emerald-600", bg:"bg-emerald-50 border-emerald-200", icon:ShieldCheck },
+                    { label:"Prepared for Review", value:payslips.filter((p:any)=>["draft","pending","approved"].includes(p.status)).length, color:"text-amber-600", bg:"bg-amber-50 border-amber-200", icon:Clock },
+                    { label:"Paid Payslips", value:payslips.filter((p:any)=>p.status==="paid").length, color:"text-emerald-600", bg:"bg-emerald-50 border-emerald-200", icon:CheckCircle },
                 ].map(s=>(
                     <div key={s.label} className={`rounded-xl border ${s.bg} p-5 flex items-center gap-4`}>
                         <s.icon className={`h-7 w-7 ${s.color}`}/>
@@ -742,12 +727,6 @@ export default function PayrollAdmin() {
                                     {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y.toString()}>{y}</option>)}
                                 </select>
                                 
-                                {isSuperAdmin && filteredPayslips.some((p:any)=>p.status==="draft") && (
-                                    <button onClick={handleBatchAuthorize} className="flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm ml-2">
-                                        <ShieldCheck className="h-4 w-4"/> Authorize All
-                                    </button>
-                                )}
-
                                 <DropdownMenu
                                     trigger={
                                         <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm ml-2">
@@ -818,19 +797,10 @@ export default function PayrollAdmin() {
 
                                                 return (
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {isSuperAdmin && slip.status === "draft" && (
-                                                            <button
-                                                                disabled={busy}
-                                                                onClick={()=>updatePayslipStatus(slip.id,"approved")}
-                                                                title="Authorize"
-                                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 shadow-sm">
-                                                                <ShieldCheck className="h-3 w-3"/> Authorize
-                                                            </button>
-                                                        )}
-                                                        {slip.status === "approved" && (
+                                                        {["draft", "pending", "approved"].includes(slip.status) && (
                                                             <button disabled={busy || isSelf} onClick={()=>updatePayslipStatus(slip.id,"paid")}
                                                                 title={isSelf ? "Super Admin must pay your payslip" : "Mark as Paid"}
-                                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg text-white flex items-center gap-1 shadow-sm bg-blue-600 hover:bg-blue-700">
+                                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg text-white flex items-center gap-1 shadow-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
                                                                 Mark Paid
                                                             </button>
                                                         )}
