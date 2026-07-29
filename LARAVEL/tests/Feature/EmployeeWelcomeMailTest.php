@@ -23,10 +23,14 @@ class EmployeeWelcomeMailTest extends TestCase
 
         $this->assertStringContainsString('HEN CHEN', $html);
         $this->assertStringContainsString(
-            'Your HEN CHEN Employee Account Is Ready',
+            'Employee Account Details',
             $html
         );
         $this->assertStringNotContainsString('Welcome to HEN CHEN HRMS', $html);
+        $this->assertStringNotContainsString(
+            'Your HEN CHEN Employee Account Is Ready',
+            $html
+        );
         $this->assertStringContainsString('cid:', $html);
         $this->assertStringContainsString('Temporary123', $html);
         $this->assertStringContainsString('sokha.chan@example.com', $html);

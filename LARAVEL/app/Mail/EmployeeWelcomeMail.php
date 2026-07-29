@@ -33,7 +33,7 @@ class EmployeeWelcomeMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your HEN CHEN Employee Account Is Ready',
+            subject: 'HEN CHEN Employee Account Details',
         );
     }
 
