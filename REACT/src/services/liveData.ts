@@ -15,10 +15,42 @@ export const resourceFromUrl = (url?: string) => {
     const segments = path.split('/').filter(Boolean);
     const apiIndex = segments.indexOf('api');
     const resource = segments[apiIndex >= 0 ? apiIndex + 1 : 0];
+    const child = segments[apiIndex >= 0 ? apiIndex + 2 : 1];
+    const grandchild = segments[apiIndex >= 0 ? apiIndex + 3 : 2];
 
     if (!resource) return undefined;
-    if (resource === 'my') return 'entities';
+    if (resource === 'reports') {
+        return ({
+            attendance: 'attendance',
+            leaves: 'leaves',
+            overtime: 'overtimes',
+            payroll: 'payslips',
+            employees: 'employees',
+            'custom-entities': 'entities',
+        } as Record<string, string>)[child] ?? 'reports';
+    }
+    if (resource === 'employees' && grandchild === 'attendance') return 'attendance';
+    if (resource === 'my') return child === 'contract' ? 'lifecycle' : 'entities';
     return resource;
+};
+
+export const affectedResources = (resource?: string): string[] => {
+    if (!resource) return [];
+
+    const affected = [resource, 'dashboard', 'notifications', 'audit-logs'];
+
+    if (['attendance', 'leaves', 'overtimes', 'payslips', 'employees', 'entities', 'lifecycle'].includes(resource)) {
+        affected.push('reports');
+    }
+    if (resource === 'employees') {
+        affected.push('assets', 'tasks', 'lifecycle', 'payslips');
+    }
+    if (resource === 'shifts') affected.push('employees');
+    if (resource === 'announcements') affected.push('holidays');
+    if (resource === 'leave-types') affected.push('leaves');
+    if (['users', 'profile'].includes(resource)) affected.push('admins');
+
+    return [...new Set(affected)];
 };
 
 export const announceDataChange = (change: Omit<LiveDataChange, 'changedAt'>) => {

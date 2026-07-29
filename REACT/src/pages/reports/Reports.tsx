@@ -124,7 +124,7 @@ export default function Reports() {
                 newMap[type] = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
             }));
             
-            setReportDataMap(newMap);
+            setReportDataMap(current => ({ ...current, ...newMap }));
         } catch (error) {
             console.error("Failed to fetch report", error);
         } finally {
@@ -137,7 +137,16 @@ export default function Reports() {
         if (Object.keys(reportDataMap).length > 0) {
             await generateReport(true);
         }
-    }, { resources: ['reports', 'employees', 'entities'] });
+    }, {
+        resources: [
+            'attendance',
+            'leaves',
+            'overtimes',
+            'payslips',
+            'employees',
+            'entities',
+        ],
+    });
 
     const formatCustomValue = (field: CustomEntityField, value: any): string => {
         if (value === null || value === undefined || value === "") return "-";
@@ -537,7 +546,6 @@ export default function Reports() {
         } else {
             setReportTypes([...reportTypes, type]);
         }
-        setReportDataMap({});
     };
 
     const toggleReportSection = (type: string) => {
@@ -547,7 +555,7 @@ export default function Reports() {
         }));
     };
 
-    const hasData = Object.values(reportDataMap).some(arr => arr && arr.length > 0);
+    const hasData = reportTypes.some(type => reportDataMap[type]?.length > 0);
 
     return (
         <div className="space-y-6">
@@ -631,7 +639,11 @@ export default function Reports() {
                                 value={selectedEntitySlug}
                                 onChange={(e) => {
                                     setSelectedEntitySlug(e.target.value);
-                                    setReportDataMap({});
+                                    setReportDataMap(current => {
+                                        const next = { ...current };
+                                        delete next.custom_entities;
+                                        return next;
+                                    });
                                 }}
                             >
                                 {customEntities.length === 0 && <option value="">No custom entities</option>}
@@ -726,18 +738,14 @@ export default function Reports() {
                                     onClick={() => toggleReportSection(type)}
                                     aria-expanded={!isCollapsed}
                                     aria-controls={`report-data-${type}`}
-                                    className="inline-flex min-w-[116px] items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={isCollapsed ? `Open ${cfg.title}` : `Close ${cfg.title}`}
+                                    title={isCollapsed ? "Open data" : "Close data"}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
                                     {isCollapsed ? (
-                                        <>
-                                            <ChevronDown className="h-4 w-4" />
-                                            Open Data
-                                        </>
+                                        <ChevronDown className="h-4 w-4" />
                                     ) : (
-                                        <>
-                                            <ChevronUp className="h-4 w-4" />
-                                            Close Data
-                                        </>
+                                        <ChevronUp className="h-4 w-4" />
                                     )}
                                 </button>
                             </div>
@@ -749,7 +757,7 @@ export default function Reports() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {loading ? (
+                                        {loading && (!data || data.length === 0) ? (
                                             <TableRow>
                                                 <TableCell colSpan={cfg.headers.length} className="text-center h-32 text-muted-foreground">Fetching data...</TableCell>
                                             </TableRow>

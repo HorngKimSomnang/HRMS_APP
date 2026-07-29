@@ -1,5 +1,10 @@
 import axios from 'axios';
 import { announceDataChange } from './liveData';
+import {
+    createCachedAdapter,
+    invalidateApiCache,
+    invalidateApiCacheForUrl,
+} from './apiCache';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api', 
@@ -8,6 +13,8 @@ const api = axios.create({
         'Accept': 'application/json',
     },
 });
+
+api.defaults.adapter = createCachedAdapter(axios.getAdapter(axios.defaults.adapter));
 
 // Request interceptor to add token
 api.interceptors.request.use(
@@ -28,6 +35,7 @@ api.interceptors.response.use(
     (response) => {
         const method = response.config.method?.toLowerCase();
         if (method && ['post', 'put', 'patch', 'delete'].includes(method)) {
+            invalidateApiCacheForUrl(response.config.url);
             announceDataChange({
                 method,
                 url: response.config.url,
@@ -38,6 +46,7 @@ api.interceptors.response.use(
     },
     (error) => {
         if (error.response?.status === 401) {
+            invalidateApiCache();
             // Don't redirect if we're already on the login page or if it's the login request itself failing
             if (window.location.pathname !== '/login') {
                 localStorage.removeItem('token');

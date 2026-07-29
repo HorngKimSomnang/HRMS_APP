@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import api from '@/services/api';
 import {
+    affectedResources,
     LIVE_DATA_CHANGED_EVENT,
     LIVE_DATA_STORAGE_KEY,
     type LiveDataChange,
 } from '@/services/liveData';
+import { invalidateApiCache } from '@/services/apiCache';
 
 interface LiveRefreshOptions {
     pollInterval?: number;
@@ -12,6 +14,7 @@ interface LiveRefreshOptions {
 }
 
 type RefreshCallback = () => void | Promise<void>;
+const knownResourceVersions = new Map<string, string>();
 
 /**
  * Keeps the active screen synchronized without resetting its filters or forms.
@@ -33,31 +36,8 @@ const inferredResources = () => {
 const affectsResource = (change: LiveDataChange, watchedResources: string[]) => {
     const resource = change.resource;
     if (!resource) return true;
-    if (watchedResources.includes(resource)) return true;
-
-    if (watchedResources.some((watched) => ['dashboard', 'notifications', 'audit-logs'].includes(watched))) {
-        return true;
-    }
-
-    if (
-        watchedResources.includes('reports')
-        && ['attendance', 'leaves', 'overtimes', 'payslips', 'employees', 'entities', 'lifecycle'].includes(resource)
-    ) {
-        return true;
-    }
-
-    if (resource === 'employees' && watchedResources.some((watched) =>
-        ['assets', 'tasks', 'lifecycle', 'payslips'].includes(watched)
-    )) {
-        return true;
-    }
-
-    return (
-        (resource === 'shifts' && watchedResources.includes('employees'))
-        || (resource === 'leave-types' && watchedResources.includes('leaves'))
-        || (resource === 'announcements' && watchedResources.includes('holidays'))
-        || (['users', 'profile'].includes(resource) && watchedResources.includes('admins'))
-    );
+    const changedResources = affectedResources(resource);
+    return watchedResources.some(watched => changedResources.includes(watched));
 };
 
 export function useLiveRefresh(
@@ -67,7 +47,6 @@ export function useLiveRefresh(
     const refreshRef = useRef(refresh);
     const isRefreshingRef = useRef(false);
     const isCheckingRef = useRef(false);
-    const versionsRef = useRef<Record<string, string> | null>(null);
     const resourceKey = Array.isArray(resources) ? resources.join(',') : resources;
     const watchedResources = useMemo(
         () => (resourceKey ? resourceKey.split(',').map((item) => item.trim()).filter(Boolean) : inferredResources()),
@@ -118,13 +97,19 @@ export function useLiveRefresh(
                     headers: { 'Cache-Control': 'no-cache' },
                 });
                 const nextVersions = response.data?.resources ?? {};
-                const previousVersions = versionsRef.current;
-                versionsRef.current = nextVersions;
+                const hasPreviousVersions = watchedResources.every(resource =>
+                    knownResourceVersions.has(resource)
+                );
+                const changedResources = hasPreviousVersions ? watchedResources.filter(resource =>
+                    knownResourceVersions.get(resource) !== nextVersions[resource]
+                ) : [];
 
-                if (
-                    previousVersions
-                    && watchedResources.some((resource) => previousVersions[resource] !== nextVersions[resource])
-                ) {
+                watchedResources.forEach(resource => {
+                    knownResourceVersions.set(resource, nextVersions[resource] ?? '0');
+                });
+
+                if (changedResources.length > 0) {
+                    invalidateApiCache(changedResources);
                     await runRefresh();
                 }
             } catch (error) {
@@ -144,18 +129,22 @@ export function useLiveRefresh(
             try {
                 const change = JSON.parse(event.newValue ?? '{}') as LiveDataChange;
                 if (affectsResource(change, watchedResources)) {
-                    versionsRef.current = null;
+                    invalidateApiCache(affectedResources(change.resource));
+                    watchedResources.forEach(resource => knownResourceVersions.delete(resource));
                     scheduleRefresh();
                 }
             } catch {
-                versionsRef.current = null;
+                invalidateApiCache(watchedResources);
+                watchedResources.forEach(resource => knownResourceVersions.delete(resource));
                 scheduleRefresh();
             }
         };
         const handleDataChange = (event: Event) => {
             const change = (event as CustomEvent<LiveDataChange>).detail;
             if (!change || affectsResource(change, watchedResources)) {
-                versionsRef.current = null;
+                if (change?.resource) invalidateApiCache(affectedResources(change.resource));
+                else invalidateApiCache(watchedResources);
+                watchedResources.forEach(resource => knownResourceVersions.delete(resource));
                 scheduleRefresh();
             }
         };

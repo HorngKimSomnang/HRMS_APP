@@ -121,7 +121,30 @@ export default function DashboardLayout() {
         };
     }, [fetchNotifications]);
 
-    useLiveRefresh(fetchNotifications, { resources: 'notifications' });
+    useLiveRefresh(fetchNotifications, {
+        resources: [
+            'notifications',
+            'dashboard',
+            'attendance',
+            'leaves',
+            'leave-types',
+            'overtimes',
+            'payslips',
+            'employees',
+            'entities',
+            'lifecycle',
+            'assets',
+            'tasks',
+            'documents',
+            'announcements',
+            'users',
+            'profile',
+            'shifts',
+            'settings',
+            'audit-logs',
+            'reports',
+        ],
+    });
 
     const markAsRead = async () => {
         try {
