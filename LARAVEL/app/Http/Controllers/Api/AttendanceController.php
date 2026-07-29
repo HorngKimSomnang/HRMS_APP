@@ -115,7 +115,7 @@ class AttendanceController extends Controller
             $attendance->refresh();
         }
 
-        $admins = User::role('Admin', 'web')->get();
+        $admins = User::role(['Admin', 'Super Admin'], 'web')->get();
         Notification::send($admins, new EmployeeClockedIn($attendance));
 
         $msg = $isLate ? 'Clocked in successfully (Late)' : 'Clocked in successfully';
@@ -241,7 +241,7 @@ class AttendanceController extends Controller
             'early_out_reason'  => $earlyReason,
         ]);
 
-        $admins = User::role('Admin', 'web')->get();
+        $admins = User::role(['Admin', 'Super Admin'], 'web')->get();
         Notification::send($admins, new EmployeeClockedIn($attendance, 'clocked out'));
 
         return $this->successResponse($attendance, 'Clocked out successfully');

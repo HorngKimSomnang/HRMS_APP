@@ -7,7 +7,9 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Setting;
+use App\Notifications\EmployeeClockedIn;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Support\Facades\Notification;
 
 class AttendanceTest extends TestCase
 {
@@ -68,6 +70,36 @@ class AttendanceTest extends TestCase
 
         $response->assertStatus(400)
                  ->assertJson(['message' => 'Already clocked in today.']);
+    }
+
+    public function test_clock_in_notifies_admin_and_super_admin(): void
+    {
+        Notification::fake();
+
+        $employeeUser = User::factory()->create();
+        $employeeUser->assignRole('Employee');
+        Employee::factory()->create([
+            'user_id' => $employeeUser->id,
+            'employee_code' => 'EMP997',
+            'first_name' => 'Sophal',
+            'last_name' => 'Soreachpooh',
+        ]);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('Super Admin');
+
+        $this->actingAs($employeeUser, 'sanctum')
+            ->postJson('/api/attendance/clock-in', [
+                'latitude' => 13.7563,
+                'longitude' => 100.5018,
+            ])
+            ->assertOk();
+
+        Notification::assertSentTo($admin, EmployeeClockedIn::class);
+        Notification::assertSentTo($superAdmin, EmployeeClockedIn::class);
+        Notification::assertNotSentTo($employeeUser, EmployeeClockedIn::class);
     }
 
     public function test_clock_in_uses_the_configured_office_address(): void
