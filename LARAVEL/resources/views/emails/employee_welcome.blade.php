@@ -5,7 +5,7 @@
 <div style="margin-top:8px; color:#1e40af; font-size:18px; font-weight:700; letter-spacing:0.04em;">HEN CHEN</div>
 </div>
 
-# Welcome to HEN CHEN HRMS
+# Your HEN CHEN Employee Account Is Ready
 
 Dear **{{ strtoupper($user->name) }}**,
 
