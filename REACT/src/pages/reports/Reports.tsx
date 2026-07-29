@@ -9,7 +9,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Download } from "lucide-react";
+import { ChevronDown, ChevronUp, Download } from "lucide-react";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 
@@ -45,6 +45,7 @@ export default function Reports() {
     
     const [dateRange, setDateRange] = useState({ start: firstDay, end: lastDay });
     const [reportDataMap, setReportDataMap] = useState<Record<string, any[]>>({});
+    const [collapsedReports, setCollapsedReports] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(false);
     
     // Employee filter
@@ -528,10 +529,22 @@ export default function Reports() {
     const toggleReportType = (type: string) => {
         if (reportTypes.includes(type)) {
             setReportTypes(reportTypes.filter(t => t !== type));
+            setCollapsedReports(current => {
+                const next = { ...current };
+                delete next[type];
+                return next;
+            });
         } else {
             setReportTypes([...reportTypes, type]);
         }
         setReportDataMap({});
+    };
+
+    const toggleReportSection = (type: string) => {
+        setCollapsedReports(current => ({
+            ...current,
+            [type]: !current[type],
+        }));
     };
 
     const hasData = Object.values(reportDataMap).some(arr => arr && arr.length > 0);
@@ -694,6 +707,7 @@ export default function Reports() {
                 {reportTypes.map(type => {
                     const data = reportDataMap[type];
                     const cfg = getReportConfig(type);
+                    const isCollapsed = collapsedReports[type] ?? false;
                     const tint = {
                         attendance: 'border-green-100 from-green-50/40',
                         leaves: 'border-orange-100 from-orange-50/40',
@@ -705,10 +719,29 @@ export default function Reports() {
 
                     return (
                         <div key={type} className={`rounded-lg border bg-gradient-to-br via-card to-card shadow-sm overflow-hidden ${tint}`}>
-                            <div className="bg-muted/30 px-4 py-3 border-b">
+                            <div className={`flex items-center justify-between gap-4 bg-muted/30 px-4 py-3 ${isCollapsed ? '' : 'border-b'}`}>
                                 <h3 className="font-semibold text-lg">{cfg.title}</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleReportSection(type)}
+                                    aria-expanded={!isCollapsed}
+                                    aria-controls={`report-data-${type}`}
+                                    className="inline-flex min-w-[116px] items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                    {isCollapsed ? (
+                                        <>
+                                            <ChevronDown className="h-4 w-4" />
+                                            Open Data
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ChevronUp className="h-4 w-4" />
+                                            Close Data
+                                        </>
+                                    )}
+                                </button>
                             </div>
-                            <div className="overflow-x-auto">
+                            {!isCollapsed && <div id={`report-data-${type}`} className="overflow-x-auto">
                                 <Table>
                                     <TableHeader className="bg-muted/10">
                                         <TableRow>
@@ -747,7 +780,7 @@ export default function Reports() {
                                         )}
                                     </TableBody>
                                 </Table>
-                            </div>
+                            </div>}
                         </div>
                     );
                 })}
