@@ -304,6 +304,15 @@ class PayslipController extends Controller
                 ], 403);
             }
 
+            if (
+                $request->status === 'paid'
+                && $payslip->status !== 'approved'
+            ) {
+                return response()->json([
+                    'message' => 'The payslip must be authorized before it can be marked paid.',
+                ], 422);
+            }
+
             AuditLogger::log($request, 'PAYSLIP_STATUS_CHANGED', $payslip, [
                 'status'      => $request->status,
                 'from_status' => $payslip->status,

@@ -162,6 +162,34 @@ class PayslipTest extends TestCase
             ->assertJsonPath('message', 'Only the Super Admin can authorize payroll.');
     }
 
+    public function test_admin_cannot_mark_a_draft_payslip_paid_to_skip_authorization()
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $employee = Employee::factory()->create();
+        $payslip = \App\Models\Payslip::create([
+            'employee_id' => $employee->id,
+            'month' => '08',
+            'year' => '2026',
+            'basic_salary' => 600,
+            'net_salary' => 600,
+            'status' => 'draft',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/payslips/{$payslip->id}", ['status' => 'paid'])
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'message',
+                'The payslip must be authorized before it can be marked paid.'
+            );
+
+        $this->assertDatabaseHas('payslips', [
+            'id' => $payslip->id,
+            'status' => 'draft',
+        ]);
+    }
+
     public function test_super_admin_can_authorize_without_a_signature()
     {
         $boss = User::factory()->create();
