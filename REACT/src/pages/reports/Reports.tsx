@@ -475,15 +475,28 @@ export default function Reports() {
                         fillColor: rowAlt,
                     },
                     styles: {
-                        lineWidth: { bottom: 0.2 },
-                        lineColor: slateBorder,
+                        lineWidth: 0,
                         overflow: 'linebreak',
                     },
+                    rowPageBreak: 'avoid',
                     margin: { left: margin, right: margin, bottom: 20 },
                     didDrawCell: (hookData: any) => {
                         if (hookData.section === 'head' && hookData.column.index === 0) {
                             doc.setFillColor(...accent);
                             doc.rect(hookData.cell.x, hookData.cell.y, 2.5, hookData.cell.height, 'F');
+                        }
+
+                        // Draw one deliberate separator across the full table after
+                        // every record. AutoTable's plain theme can make per-cell
+                        // borders disappear against alternating white rows.
+                        if (
+                            hookData.section === 'body'
+                            && hookData.column.index === cfg.headers.length - 1
+                        ) {
+                            const separatorY = hookData.cell.y + hookData.cell.height;
+                            doc.setDrawColor(...slateBorder);
+                            doc.setLineWidth(0.35);
+                            doc.line(margin, separatorY, pageW - margin, separatorY);
                         }
                     },
                 });
