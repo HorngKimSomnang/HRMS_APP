@@ -64,7 +64,10 @@ class UserController extends Controller
         $user->update($userData);
         $user->syncRoles([$request->role]);
 
-        return $this->successResponse($user, 'User updated successfully');
+        return $this->successResponse(
+            $user->fresh(['roles', 'employee']),
+            'User updated successfully'
+        );
     }
 
     public function destroy(User $user)

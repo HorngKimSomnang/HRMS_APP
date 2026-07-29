@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import api from '@/services/api';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 export default function EditAdmin() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user, updateUser } = useAuth();
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [formData, setFormData] = useState({
@@ -46,7 +48,14 @@ export default function EditAdmin() {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.put(`/users/${id}`, formData);
+            const response = await api.put(`/users/${id}`, formData);
+            const updatedUser = response.data.data;
+
+            if (Number(id) === user?.id) {
+                updateUser(updatedUser);
+            }
+
+            toast.success('Administrator updated successfully');
             navigate('/admins');
         } catch (error: any) {
             console.error('Failed to update user', error);
