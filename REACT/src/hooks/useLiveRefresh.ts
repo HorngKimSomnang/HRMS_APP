@@ -14,7 +14,6 @@ interface LiveRefreshOptions {
 }
 
 type RefreshCallback = () => void | Promise<void>;
-const knownResourceVersions = new Map<string, string>();
 
 /**
  * Keeps the active screen synchronized without resetting its filters or forms.
@@ -47,6 +46,7 @@ export function useLiveRefresh(
     const refreshRef = useRef(refresh);
     const isRefreshingRef = useRef(false);
     const isCheckingRef = useRef(false);
+    const knownResourceVersionsRef = useRef(new Map<string, string>());
     const resourceKey = Array.isArray(resources) ? resources.join(',') : resources;
     const watchedResources = useMemo(
         () => (resourceKey ? resourceKey.split(',').map((item) => item.trim()).filter(Boolean) : inferredResources()),
@@ -97,6 +97,7 @@ export function useLiveRefresh(
                     headers: { 'Cache-Control': 'no-cache' },
                 });
                 const nextVersions = response.data?.resources ?? {};
+                const knownResourceVersions = knownResourceVersionsRef.current;
                 const hasPreviousVersions = watchedResources.every(resource =>
                     knownResourceVersions.has(resource)
                 );
@@ -130,12 +131,16 @@ export function useLiveRefresh(
                 const change = JSON.parse(event.newValue ?? '{}') as LiveDataChange;
                 if (affectsResource(change, watchedResources)) {
                     invalidateApiCache(affectedResources(change.resource));
-                    watchedResources.forEach(resource => knownResourceVersions.delete(resource));
+                    watchedResources.forEach(resource =>
+                        knownResourceVersionsRef.current.delete(resource)
+                    );
                     scheduleRefresh();
                 }
             } catch {
                 invalidateApiCache(watchedResources);
-                watchedResources.forEach(resource => knownResourceVersions.delete(resource));
+                watchedResources.forEach(resource =>
+                    knownResourceVersionsRef.current.delete(resource)
+                );
                 scheduleRefresh();
             }
         };
@@ -144,7 +149,9 @@ export function useLiveRefresh(
             if (!change || affectsResource(change, watchedResources)) {
                 if (change?.resource) invalidateApiCache(affectedResources(change.resource));
                 else invalidateApiCache(watchedResources);
-                watchedResources.forEach(resource => knownResourceVersions.delete(resource));
+                watchedResources.forEach(resource =>
+                    knownResourceVersionsRef.current.delete(resource)
+                );
                 scheduleRefresh();
             }
         };
