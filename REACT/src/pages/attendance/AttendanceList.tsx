@@ -90,11 +90,9 @@ export default function AttendanceList() {
     const [attendances, setAttendances] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [clearing, setClearing] = useState(false);
-    const [removing, setRemoving] = useState<number | null>(null);
     const [filterDate, setFilterDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const markerRefs = useRef<{ [key: number]: any }>({});
 
-    const [deleteId, setDeleteId] = useState<number | null>(null);
     const [isClearLogsOpen, setIsClearLogsOpen] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<any>(null);
@@ -134,23 +132,6 @@ export default function AttendanceList() {
                 setAttendances(previousAttendances);
                 toast.error("Failed to save clock out time.");
             });
-    };
-
-    const confirmRemoveRecord = () => {
-        if (!deleteId) return;
-        const id = deleteId;
-        const previousAttendances = attendances;
-        setRemoving(id);
-        setAttendances(current => current.filter(item => item.id !== id));
-        setDeleteId(null);
-
-        api.delete(`/attendance/${id}`)
-            .then(() => toast.success("Attendance record removed"))
-            .catch(() => {
-                setAttendances(previousAttendances);
-                toast.error("Failed to remove record.");
-            })
-            .finally(() => { setRemoving(null); setDeleteId(null); });
     };
 
     const confirmClearLogs = () => {
@@ -360,9 +341,10 @@ export default function AttendanceList() {
                                                                     return (
                                                                         <button
                                                                             onClick={openFixModal}
-                                                                            className="text-xs bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 px-3 py-1 rounded font-medium transition-colors"
+                                                                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"
+                                                                            title="Edit Clock Out Time"
                                                                         >
-                                                                            Fix Clock Out
+                                                                            <Pencil className="w-4 h-4" />
                                                                         </button>
                                                                     );
                                                                 }
@@ -371,9 +353,10 @@ export default function AttendanceList() {
                                                                     return (
                                                                         <button
                                                                             onClick={openFixModal}
-                                                                            className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1 rounded font-medium transition-colors"
+                                                                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"
+                                                                            title="Edit Clock Out Time"
                                                                         >
-                                                                            Fix Clock Out
+                                                                            <Pencil className="w-4 h-4" />
                                                                         </button>
                                                                     );
                                                                 }
@@ -393,14 +376,6 @@ export default function AttendanceList() {
                                                                     </button>
                                                                 );
                                                             })()}
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); setDeleteId(record.id); }}
-                                                                disabled={removing === record.id}
-                                                                className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                                                                title="Remove Record"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
                                                         </>
                                                     )}
                                                 </div>
@@ -495,27 +470,6 @@ export default function AttendanceList() {
                     </div>
                 </div>
             )}
-
-            {/* Delete Confirmation */}
-            <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-red-600 flex items-center gap-2">
-                            <Trash2 className="h-5 w-5" />
-                            Delete Attendance Record
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <p className="text-sm text-muted-foreground">
-                            Are you sure you want to completely remove this attendance record? This action cannot be undone.
-                        </p>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={confirmRemoveRecord}>Delete Record</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {/* Clear All Logs Confirmation */}
             <Dialog open={isClearLogsOpen} onOpenChange={setIsClearLogsOpen}>
