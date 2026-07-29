@@ -22,7 +22,12 @@ class PayslipController extends Controller
                 return response()->json([]);
             }
 
-            $payslips = Payslip::with(['employee'])->where('employee_id', $user->employee->id)->orderBy('year', 'desc')->orderBy('month', 'desc')->get();
+            $payslips = Payslip::with(['employee'])
+                ->where('employee_id', $user->employee->id)
+                ->whereIn('status', ['approved', 'paid'])
+                ->orderBy('year', 'desc')
+                ->orderBy('month', 'desc')
+                ->get();
         }
         return response()->json($payslips);
     }
@@ -48,7 +53,6 @@ class PayslipController extends Controller
             'unpaid_leave_deduction' => 'nullable|numeric|min:0',
             'deductions'       => 'nullable|numeric|min:0',
             'notes'            => 'nullable|string',
-            'skip_signature'   => 'nullable|boolean',
         ]);
 
         $employeeId = $request->employee_id;
@@ -80,8 +84,6 @@ class PayslipController extends Controller
 
         $net_salary = $basic + $ot + $comm + $att + $allow - $adv - $unpaidLeave - $ded;
 
-        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
-
         $payslip = Payslip::create([
             'employee_id'            => $employeeId,
             'month'                  => $request->month,
@@ -95,12 +97,9 @@ class PayslipController extends Controller
             'unpaid_leave_deduction' => $unpaidLeave,
             'deductions'             => $ded,
             'net_salary'             => $net_salary,
-            'status'                 => $isSuperAdmin ? ($request->status ?? 'approved') : 'draft',
+            'status'                 => 'draft',
             'notes'                  => $request->notes,
-            // Individually-generated payslips require a signature by default, same as
-            // batch ones — an admin must explicitly mark it as a one-off bonus/correction
-            // (skip_signature) to bypass the signed-paper requirement.
-            'requires_signature'     => ! $request->boolean('skip_signature'),
+            'requires_signature'     => false,
         ]);
 
         AuditLogger::log($request, 'PAYSLIP_GENERATED', $payslip, [
@@ -201,7 +200,7 @@ class PayslipController extends Controller
                 'net_salary'             => $net_salary,
                 'status'                 => 'draft',
                 'notes'                  => 'Auto-generated via Batch Payroll',
-                'requires_signature'     => true,
+                'requires_signature'     => false,
             ]);
 
             AuditLogger::log($request, 'PAYSLIP_GENERATED', $payslip, [
@@ -223,8 +222,10 @@ class PayslipController extends Controller
     public function authorizeAll(Request $request)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$this->isSuperAdmin($user)) {
+            return response()->json([
+                'message' => 'Only the Super Admin can authorize payroll.',
+            ], 403);
         }
 
         $query = Payslip::with('employee')->where('status', 'draft');
@@ -237,24 +238,9 @@ class PayslipController extends Controller
         }
 
         $payslips = $query->get();
-        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
         $authorizedCount = 0;
-        $unsignedCount = 0;
 
         foreach ($payslips as $payslip) {
-            // Admin cannot authorize their own payslip
-            if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
-                continue;
-            }
-
-            // Only authorize what the employee has actually verified/signed —
-            // bulk-approving unsigned drafts would skip the point of requiring a signature.
-            // Individually-generated payslips (requires_signature=false) skip this check.
-            if ($payslip->requires_signature && !$payslip->is_signed) {
-                $unsignedCount++;
-                continue;
-            }
-
             $payslip->update(['status' => 'approved']);
             $authorizedCount++;
 
@@ -267,15 +253,12 @@ class PayslipController extends Controller
             ]);
         }
 
-        $message = "Successfully authorized $authorizedCount payslip" . ($authorizedCount === 1 ? '' : 's') . ".";
-        if ($unsignedCount > 0) {
-            $message .= " $unsignedCount still awaiting employee signature.";
-        }
+        $message = "Successfully authorized $authorizedCount payslip"
+            . ($authorizedCount === 1 ? '' : 's') . ".";
 
         return response()->json([
             'message' => $message,
             'authorized' => $authorizedCount,
-            'unsigned_skipped' => $unsignedCount,
         ], 200);
     }
 
@@ -312,11 +295,13 @@ class PayslipController extends Controller
         }
 
         if ($request->has('status') && $request->status !== $payslip->status) {
-            // Authorizing means the employee's physically-signed paper has been scanned
-            // in as proof — without that, there's nothing for the boss to be approving.
-            // Individually-generated payslips (requires_signature=false) skip this check.
-            if ($request->status === 'approved' && $payslip->requires_signature && !$payslip->is_signed) {
-                return response()->json(['message' => 'Cannot authorize: the employee has not signed this payslip yet. Scan the signed paper first.'], 422);
+            if (
+                $request->status === 'approved'
+                && !$this->isSuperAdmin($user)
+            ) {
+                return response()->json([
+                    'message' => 'Only the Super Admin can authorize payroll.',
+                ], 403);
             }
 
             AuditLogger::log($request, 'PAYSLIP_STATUS_CHANGED', $payslip, [
@@ -585,6 +570,11 @@ class PayslipController extends Controller
     private function isAdmin(\App\Models\User $user): bool
     {
         return $user->roles->pluck('name')->intersect(['Admin', 'Super Admin'])->isNotEmpty();
+    }
+
+    private function isSuperAdmin(\App\Models\User $user): bool
+    {
+        return $user->roles->contains('name', 'Super Admin');
     }
 
     private function belongsToUser(Payslip $payslip, \App\Models\User $user): bool

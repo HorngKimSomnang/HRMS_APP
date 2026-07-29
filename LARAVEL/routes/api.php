@@ -67,9 +67,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('payslips/authorize-all', [\App\Http\Controllers\Api\PayslipController::class, 'authorizeAll']);
     Route::post('payslips/batch', [\App\Http\Controllers\Api\PayslipController::class, 'batchStore']);
     Route::apiResource('payslips', \App\Http\Controllers\Api\PayslipController::class);
-    Route::post('payslips/{payslip}/sign', [\App\Http\Controllers\Api\PayslipController::class, 'sign']);
-    Route::post('payslips/sign-batch', [\App\Http\Controllers\Api\PayslipController::class, 'signBatch']);
-    Route::post('payslips/detect-signatures', [\App\Http\Controllers\Api\PayslipController::class, 'detectSignatures']);
     Route::apiResource('overtimes', \App\Http\Controllers\Api\OvertimeController::class);
     
     // Employee self-service: own contract

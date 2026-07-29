@@ -10,7 +10,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSXStyle from 'xlsx-js-style';
 import { toast } from 'sonner';
-import { getStorageUrl } from "@/core/config";
 
 const MONTHS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -125,8 +124,7 @@ export default function PayrollAdmin() {
 
     const blankForm = { id: null, employee_id:"", month:"01", year: String(new Date().getFullYear()),
         basic_salary:"", overtime_amount:"0", commission:"0",
-        attendance_bonus:"0", allowances:"0", advance_deduction:"0", unpaid_leave_deduction:"0", deductions:"0", notes:"",
-        skip_signature: false };
+        attendance_bonus:"0", allowances:"0", advance_deduction:"0", unpaid_leave_deduction:"0", deductions:"0", notes:"" };
     const [form, setForm] = useState<any>(blankForm);
 
     const net = () => {
@@ -202,146 +200,6 @@ export default function PayrollAdmin() {
         catch (e:any) { toast.error(e.response?.data?.message || "Failed to update payslip status"); } finally { setUpdatingId(null); }
     };
 
-    // Verifying a signature means uploading the scanned copy of the physically-signed
-    // paper — the upload itself is what marks the payslip as signed, not a click.
-    const signFileInputRef = useRef<HTMLInputElement>(null);
-    const [signTargetId, setSignTargetId] = useState<number | null>(null);
-
-    // Scan the whole signed roster once, admin confirms each row against it.
-    const [showScanRosterModal, setShowScanRosterModal] = useState(false);
-    const [rosterScanFile, setRosterScanFile] = useState<File | null>(null);
-    const [rosterScanPreviewUrl, setRosterScanPreviewUrl] = useState<string | null>(null);
-    const [rosterCheckedIds, setRosterCheckedIds] = useState<Set<number>>(new Set());
-    const [rosterSaving, setRosterSaving] = useState(false);
-    const [rosterDetecting, setRosterDetecting] = useState(false);
-    const [rosterDetectionSkipped, setRosterDetectionSkipped] = useState(false);
-
-    const triggerSignUpload = (id: number) => {
-        setSignTargetId(id);
-        signFileInputRef.current?.click();
-    };
-
-    const handleSignFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        const id = signTargetId;
-        e.target.value = ""; // allow re-selecting the same file later
-        if (!file || !id) return;
-
-        setUpdatingId(id);
-        try {
-            const formData = new FormData();
-            formData.append('signed_document', file);
-            const res = await api.post(`/payslips/${id}/sign`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            setPayslips(p => p.map(r => r.id === id ? res.data.data : r));
-            toast.success("Signature verified and scan saved.");
-        } catch (e: any) {
-            toast.error(e.response?.data?.message || "Failed to mark payslip as signed");
-        } finally {
-            setUpdatingId(null);
-            setSignTargetId(null);
-        }
-    };
-
-    // Candidates for the roster scan: unsigned drafts that actually need a signature,
-    // matching the currently-selected month/year filter (same set as the printed roster).
-    const rosterScanCandidates = filteredPayslips.filter((p: any) =>
-        p.requires_signature && !(p.is_signed === 1 || p.is_signed === true)
-    );
-
-    const openScanRosterModal = () => {
-        setRosterScanFile(null);
-        setRosterScanPreviewUrl(null);
-        setRosterCheckedIds(new Set());
-        setRosterDetectionSkipped(false);
-        setShowScanRosterModal(true);
-    };
-
-    // The roster PDF is A4 portrait (210x297mm, ratio ~0.71). Detection assumes the
-    // uploaded image IS that full page edge-to-edge — a cropped screenshot or a photo
-    // of just part of the page has a very different ratio and breaks every coordinate
-    // the detector calculates, which is what caused false positives before this check existed.
-    const getImageDimensions = (file: File): Promise<{ width: number; height: number } | null> => {
-        return new Promise((resolve) => {
-            if (!file.type.startsWith('image/')) { resolve(null); return; }
-            const img = new Image();
-            img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-            img.onerror = () => resolve(null);
-            img.src = URL.createObjectURL(file);
-        });
-    };
-
-    const handleRosterScanFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setRosterScanFile(file);
-        setRosterScanPreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
-        setRosterCheckedIds(new Set());
-        setRosterDetectionSkipped(false);
-
-        const dims = await getImageDimensions(file);
-        const ratio = dims ? dims.width / dims.height : null;
-        const looksLikeFullPage = ratio !== null && ratio > 0.58 && ratio < 0.87;
-
-        if (!looksLikeFullPage) {
-            // Doesn't look like a full portrait page (e.g. a cropped screenshot) —
-            // auto-detection would be guessing blindly, so skip it and let the admin
-            // check rows manually instead of risking another false positive.
-            setRosterDetectionSkipped(true);
-            return;
-        }
-
-        // Best-effort auto-detection: pre-check rows the scan looks signed on.
-        // Still fully editable afterward — this is a suggestion, not a decision.
-        setRosterDetecting(true);
-        try {
-            const formData = new FormData();
-            formData.append('signed_document', file);
-            rosterScanCandidates.forEach((p: any) => formData.append('payslip_ids[]', String(p.id)));
-            const res = await api.post('/payslips/detect-signatures', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            const suggested = new Set<number>(
-                rosterScanCandidates.filter((p: any) => res.data.suggestions[p.id]).map((p: any) => p.id)
-            );
-            setRosterCheckedIds(suggested);
-            if (suggested.size > 0) toast(`Auto-detected ${suggested.size} likely signature${suggested.size === 1 ? '' : 's'} — please review before confirming.`);
-        } catch {
-            // Detection is a convenience, not a requirement — silently fall back to manual checking.
-        } finally {
-            setRosterDetecting(false);
-        }
-    };
-
-    const toggleRosterChecked = (id: number) => {
-        setRosterCheckedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id); else next.add(id);
-            return next;
-        });
-    };
-
-    const confirmRosterScan = async () => {
-        if (!rosterScanFile || rosterCheckedIds.size === 0) return;
-        setRosterSaving(true);
-        try {
-            const formData = new FormData();
-            formData.append('signed_document', rosterScanFile);
-            Array.from(rosterCheckedIds).forEach(id => formData.append('payslip_ids[]', String(id)));
-            const res = await api.post('/payslips/sign-batch', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            toast.success(res.data.message);
-            setShowScanRosterModal(false);
-            fetchData();
-        } catch (e: any) {
-            toast.error(e.response?.data?.message || "Failed to verify from scan");
-        } finally {
-            setRosterSaving(false);
-        }
-    };
-
     const downloadPayslipPDF = (slip: any) => {
         try {
             const doc = new jsPDF();
@@ -357,7 +215,7 @@ export default function PayrollAdmin() {
 
             doc.setFontSize(14);
             doc.setTextColor(55, 65, 81);
-            doc.text("Salary Payslip / Verification Sheet", 36, 31);
+            doc.text("Salary Payslip", 36, 31);
 
             doc.setFontSize(11);
             doc.setTextColor(0, 0, 0);
@@ -391,21 +249,15 @@ export default function PayrollAdmin() {
                 columnStyles: { 0: { cellWidth: 100 }, 1: { cellWidth: 80, halign: 'right' } }
             });
 
-            const finalY = (doc as any).lastAutoTable.finalY || 160;
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139);
+            doc.text(
+                "This payslip is electronically controlled and authorized in HRMS.",
+                14,
+                (doc as any).lastAutoTable.finalY + 16
+            );
 
-            doc.setFontSize(10);
-            doc.text("I acknowledge that I have verified my work hours and that this payslip is accurate.", 14, finalY + 20);
-
-            doc.text("________________________________", 14, finalY + 45);
-            doc.text("Employee Signature", 14, finalY + 52);
-
-            doc.text("________________________________", 100, finalY + 45);
-            doc.text("Date", 100, finalY + 52);
-
-            doc.text("________________________________", 14, finalY + 75);
-            doc.text("HR / Admin Signature", 14, finalY + 82);
-
-            doc.save(`${employeeName.replace(/\s+/g, '_')}_${monthName}_${slip.year}_Verification.pdf`);
+            doc.save(`${employeeName.replace(/\s+/g, '_')}_${monthName}_${slip.year}_Payslip.pdf`);
         } catch (e: any) { toast.error("Download failed: " + e.message); console.error(e); }
     };
 
@@ -455,7 +307,7 @@ export default function PayrollAdmin() {
 
             doc.setFontSize(10);
             doc.setTextColor(55, 65, 81);
-            doc.text("All employees must physically sign next to their name to verify their work hours and salary.", 14, 43);
+            doc.text("Payroll summary for electronic authorization in HRMS.", 14, 43);
 
             const num = (v: any) => parseFloat(v || 0);
             const money = (v: number) => `$${v.toFixed(2)}`;
@@ -467,7 +319,6 @@ export default function PayrollAdmin() {
                 const deduct = num(slip.advance_deduction) + num(slip.unpaid_leave_deduction) + num(slip.deductions);
                 const net = num(slip.net_salary);
                 totBasic += basic; totAllow += allow; totDeduct += deduct; totNet += net;
-                const isSigned = slip.is_signed === 1 || slip.is_signed === true;
                 return [
                     (i + 1).toString(),
                     slip.employee?.user?.name || "Unknown",
@@ -476,17 +327,16 @@ export default function PayrollAdmin() {
                     money(allow),
                     money(deduct),
                     money(net),
-                    isSigned && slip.signed_at ? new Date(slip.signed_at).toLocaleDateString() : "",
-                    isSigned ? "Verified (scanned)" : ""
+                    STATUS_CFG[slip.status]?.label || slip.status
                 ];
             });
 
             autoTable(doc, {
                 startY: 48,
                 margin: { left: 14, right: 14 },
-                head: [["No.", "Employee Name", "Position", "Basic", "Allow.", "Deduct.", "Net Pay", "Date", "Signature"]],
+                head: [["No.", "Employee Name", "Position", "Basic", "Allow.", "Deduct.", "Net Pay", "Status"]],
                 body: tableData,
-                foot: [["", "TOTAL", "", money(totBasic), money(totAllow), money(totDeduct), money(totNet), "", ""]],
+                foot: [["", "TOTAL", "", money(totBasic), money(totAllow), money(totDeduct), money(totNet), ""]],
                 showFoot: 'lastPage',
                 theme: 'grid',
                 styles: { fontSize: 9.5, cellPadding: { top: 4, bottom: 4, left: 2.5, right: 2.5 }, valign: 'middle', lineColor: [203, 213, 225], lineWidth: 0.1 },
@@ -496,43 +346,24 @@ export default function PayrollAdmin() {
                 bodyStyles: { minCellHeight: 17 },
                 columnStyles: {
                     0: { cellWidth: 12, halign: 'center' },
-                    1: { cellWidth: 38 },
-                    2: { cellWidth: 35 },
-                    3: { cellWidth: 24, halign: 'right' },
-                    4: { cellWidth: 24, halign: 'right' },
-                    5: { cellWidth: 24, halign: 'right', textColor: [220, 38, 38] },
-                    6: { cellWidth: 26, halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] },
-                    7: { cellWidth: 22 },
-                    8: { cellWidth: 64 }
+                    1: { cellWidth: 48 },
+                    2: { cellWidth: 42 },
+                    3: { cellWidth: 30, halign: 'right' },
+                    4: { cellWidth: 30, halign: 'right' },
+                    5: { cellWidth: 30, halign: 'right', textColor: [220, 38, 38] },
+                    6: { cellWidth: 32, halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] },
+                    7: { cellWidth: 45, halign: 'center' }
                 }
             });
 
-            const finalY = (doc as any).lastAutoTable.finalY || 160;
-
-            // Prepared / Checked / Approved — always pinned near the bottom of the page,
-            // regardless of how many employees are in the table (not right after it).
             const pageHeight = doc.internal.pageSize.getHeight();
-            let sigY = pageHeight - 35;
-            if (finalY + 10 > sigY) {
-                doc.addPage();
-                sigY = pageHeight - 35;
-            }
-
-            const approvalColumns = [
-                { x: 32, label: "Prepared by", role: "HR / Admin" },
-                { x: 119, label: "Checked by", role: "Finance / Accounting" },
-                { x: 210, label: "Approved by", role: "Director / CEO" },
-            ];
-
-            approvalColumns.forEach(({ x, label, role }) => {
-                doc.setFontSize(10);
-                doc.setTextColor(31, 41, 55);
-                doc.text("____________________", x, sigY);
-                doc.text(label, x + 10, sigY + 6);
-                doc.setFontSize(8);
-                doc.setTextColor(100, 116, 139);
-                doc.text(role, x + 10, sigY + 11);
-            });
+            doc.setFontSize(8);
+            doc.setTextColor(100, 116, 139);
+            doc.text(
+                "Authorization is recorded electronically in HRMS.",
+                14,
+                pageHeight - 8
+            );
 
             doc.save("Monthly_Payroll_Roster.pdf");
         } catch (e: any) { toast.error("Download failed: " + e.message); console.error(e); }
@@ -557,7 +388,7 @@ export default function PayrollAdmin() {
             }
             const titlePeriod = (titleMonthName && titleYearStr) ? ` - ${titleMonthName} ${titleYearStr}` : "";
 
-            const headerRow = ["No.", "Employee Name", "Position", "Basic", "Allow.", "Deduct.", "Net Pay", "Date", "Signature"];
+            const headerRow = ["No.", "Employee Name", "Position", "Basic", "Allow.", "Deduct.", "Net Pay", "Status"];
 
             let totBasic = 0, totAllow = 0, totDeduct = 0, totNet = 0;
             const dataRows = filteredPayslips.map((slip: any, i: number) => {
@@ -566,7 +397,6 @@ export default function PayrollAdmin() {
                 const deduct = num(slip.advance_deduction) + num(slip.unpaid_leave_deduction) + num(slip.deductions);
                 const net = num(slip.net_salary);
                 totBasic += basic; totAllow += allow; totDeduct += deduct; totNet += net;
-                const isSigned = slip.is_signed === 1 || slip.is_signed === true;
                 return [
                     i + 1,
                     slip.employee?.user?.name || "Unknown",
@@ -575,12 +405,11 @@ export default function PayrollAdmin() {
                     allow,
                     deduct,
                     net,
-                    isSigned && slip.signed_at ? new Date(slip.signed_at).toLocaleDateString() : "",
-                    isSigned ? "Verified (scanned)" : ""
+                    STATUS_CFG[slip.status]?.label || slip.status
                 ];
             });
 
-            const noteRow = ["All employees must physically sign next to their name to verify their work hours and salary."];
+            const noteRow = ["Payroll summary for electronic authorization in HRMS."];
             const sheetData = [
                 ["HEN CHEN INVESTMENT CO.LTD"],
                 [`Monthly Payroll Roster${titlePeriod}`],
@@ -589,7 +418,7 @@ export default function PayrollAdmin() {
                 [],
                 headerRow,
                 ...dataRows,
-                ["", "TOTAL", "", totBasic, totAllow, totDeduct, totNet, "", ""],
+                ["", "TOTAL", "", totBasic, totAllow, totDeduct, totNet, ""],
             ];
 
             const HEADER_ROW_IDX = 5;
@@ -601,7 +430,7 @@ export default function PayrollAdmin() {
 
             ws['!cols'] = [
                 { wch: 5 }, { wch: 22 }, { wch: 14 }, { wch: 10 }, { wch: 12 },
-                { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 40 },
+                { wch: 12 }, { wch: 10 }, { wch: 14 },
             ];
             ws['!merges'] = [
                 { s: { r: 0, c: 0 }, e: { r: 0, c: LAST_COL_IDX } },
@@ -709,7 +538,7 @@ export default function PayrollAdmin() {
 
                 doc.setFontSize(14);
                 doc.setTextColor(55, 65, 81);
-                doc.text("Salary Payslip / Verification Sheet", 36, 31);
+                doc.text("Salary Payslip", 36, 31);
 
                 doc.setFontSize(11);
                 doc.setTextColor(0, 0, 0);
@@ -743,19 +572,13 @@ export default function PayrollAdmin() {
                     columnStyles: { 0: { cellWidth: 100 }, 1: { cellWidth: 80, halign: 'right' } }
                 });
 
-                const finalY = (doc as any).lastAutoTable.finalY || 160;
-
-                doc.setFontSize(10);
-                doc.text("I acknowledge that I have verified my work hours and that this payslip is accurate.", 14, finalY + 20);
-
-                doc.text("________________________________", 14, finalY + 45);
-                doc.text("Employee Signature", 14, finalY + 52);
-
-                doc.text("________________________________", 100, finalY + 45);
-                doc.text("Date", 100, finalY + 52);
-
-                doc.text("________________________________", 14, finalY + 75);
-                doc.text("HR / Admin Signature", 14, finalY + 82);
+                doc.setFontSize(9);
+                doc.setTextColor(100, 116, 139);
+                doc.text(
+                    "This payslip is electronically controlled and authorized in HRMS.",
+                    14,
+                    (doc as any).lastAutoTable.finalY + 16
+                );
             });
 
             doc.save(`Batch_Payslips_${filteredPayslips[0].month}_${filteredPayslips[0].year}.pdf`);
@@ -780,8 +603,7 @@ export default function PayrollAdmin() {
         setSaving(true);
         try {
             const res = await api.post("/payslips/authorize-all", { month: filterMonth, year: filterYear });
-            if (res.data.unsigned_skipped > 0) toast(res.data.message);
-            else toast.success(res.data.message);
+            toast.success(res.data.message);
             fetchData();
         } catch (e:any) {
             toast.error(e.response?.data?.message || "Failed to authorize drafts");
@@ -816,9 +638,6 @@ export default function PayrollAdmin() {
 
     return (
         <div className="space-y-6">
-            <input type="file" ref={signFileInputRef} onChange={handleSignFileSelected}
-                accept="image/*,application/pdf" capture="environment" style={{ display: 'none' }} />
-
             <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
                 <DialogContent className="sm:max-w-[400px]">
                     <DialogHeader>
@@ -860,99 +679,6 @@ export default function PayrollAdmin() {
                         <Button variant="outline" onClick={() => setShowBatchModal(false)}>Cancel</Button>
                         <Button onClick={handleBatchGenerate} disabled={saving}>
                             {saving ? "Generating..." : "Run Payroll"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={showScanRosterModal} onOpenChange={setShowScanRosterModal}>
-                <DialogContent className="sm:max-w-[700px]">
-                    <DialogHeader>
-                        <DialogTitle>Scan Signed Roster</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-2 space-y-4">
-                        <p className="text-sm text-gray-500">
-                            Upload one photo or scan of the whole signed roster, then check off each employee you can confirm has signed on it.
-                        </p>
-
-                        {!rosterScanFile ? (
-                            <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl py-10 cursor-pointer hover:bg-gray-50 transition-colors">
-                                <FileText className="h-8 w-8 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-600">Click to upload the scanned roster</span>
-                                <span className="text-xs text-gray-400">Full-page photo or scan only — not a cropped screenshot. Image or PDF, max 10MB.</span>
-                                <input type="file" accept="image/*,application/pdf" capture="environment"
-                                    onChange={handleRosterScanFileSelected} className="hidden" />
-                            </label>
-                        ) : (
-                            <div className="border border-gray-200 rounded-xl p-3 flex items-center gap-3">
-                                {rosterScanPreviewUrl ? (
-                                    <img src={rosterScanPreviewUrl} alt="Roster scan preview" className="h-20 w-20 object-cover rounded-lg border" />
-                                ) : (
-                                    <div className="h-20 w-20 flex items-center justify-center bg-gray-100 rounded-lg border">
-                                        <FileText className="h-8 w-8 text-gray-400" />
-                                    </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-800 truncate">{rosterScanFile.name}</p>
-                                    <p className="text-xs text-gray-400">
-                                        {rosterDetecting ? "Detecting signatures..." : `${(rosterScanFile.size / 1024).toFixed(0)} KB`}
-                                    </p>
-                                </div>
-                                <Button variant="outline" size="sm" disabled={rosterDetecting}
-                                    onClick={() => { setRosterScanFile(null); setRosterScanPreviewUrl(null); setRosterCheckedIds(new Set()); }}>
-                                    Change
-                                </Button>
-                            </div>
-                        )}
-
-                        {rosterScanFile && rosterCheckedIds.size > 0 && !rosterDetecting && (
-                            <p className="text-xs text-amber-600 -mt-2">
-                                Auto-detected from the scan — double-check against the photo before confirming.
-                            </p>
-                        )}
-                        {rosterDetectionSkipped && (
-                            <p className="text-xs text-red-500 -mt-2">
-                                This doesn't look like a full-page photo or scan, so auto-detection was skipped — please check each row manually against the image.
-                            </p>
-                        )}
-
-                        <div className="border border-gray-200 rounded-xl max-h-72 overflow-y-auto">
-                            {rosterScanCandidates.length === 0 ? (
-                                <p className="text-sm text-gray-400 text-center py-8">No unsigned drafts to verify for the current filter.</p>
-                            ) : (
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left w-10">No.</th>
-                                            <th className="px-3 py-2 text-left">Employee Name</th>
-                                            <th className="px-3 py-2 text-left">Pay Period</th>
-                                            <th className="px-3 py-2 text-right">Net Salary</th>
-                                            <th className="px-3 py-2 text-center w-24">Signed?</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {rosterScanCandidates.map((p: any, i: number) => (
-                                            <tr key={p.id} onClick={() => toggleRosterChecked(p.id)}
-                                                className={`cursor-pointer transition-colors ${rosterCheckedIds.has(p.id) ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}>
-                                                <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                                                <td className="px-3 py-2 font-medium text-gray-800">{p.employee?.user?.name || p.employee?.employee_code}</td>
-                                                <td className="px-3 py-2 text-gray-500">{MONTH_NAMES[parseInt(p.month) - 1]} {p.year}</td>
-                                                <td className="px-3 py-2 text-right font-semibold text-emerald-600">${p.net_salary}</td>
-                                                <td className="px-3 py-2 text-center">
-                                                    <input type="checkbox" checked={rosterCheckedIds.has(p.id)} onChange={() => toggleRosterChecked(p.id)}
-                                                        onClick={(e) => e.stopPropagation()} className="h-4 w-4 accent-primary" />
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowScanRosterModal(false)}>Cancel</Button>
-                        <Button onClick={confirmRosterScan} disabled={!rosterScanFile || rosterCheckedIds.size === 0 || rosterSaving || rosterDetecting}>
-                            {rosterSaving ? "Saving..." : rosterDetecting ? "Detecting..." : `Confirm ${rosterCheckedIds.size || ''} Verified`}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1010,7 +736,7 @@ export default function PayrollAdmin() {
                                     {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y.toString()}>{y}</option>)}
                                 </select>
                                 
-                                {filteredPayslips.some((p:any)=>p.status==="draft") && (
+                                {isSuperAdmin && filteredPayslips.some((p:any)=>p.status==="draft") && (
                                     <button onClick={handleBatchAuthorize} className="flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm ml-2">
                                         <ShieldCheck className="h-4 w-4"/> Authorize All
                                     </button>
@@ -1023,7 +749,6 @@ export default function PayrollAdmin() {
                                         </button>
                                     }
                                     items={[
-                                        { label: "Scan Signed Roster", icon: CheckCircle, onClick: openScanRosterModal },
                                         { label: "Print Master Roster", icon: FileText, onClick: downloadMasterRosterPDF },
                                         { label: "Export Roster to Excel", icon: FileSpreadsheet, onClick: downloadMasterRosterExcel },
                                         { label: "Batch Individual Payslips", icon: Printer, onClick: downloadBatchPayslips },
@@ -1077,37 +802,26 @@ export default function PayrollAdmin() {
                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${sc.bg} ${sc.color} ${sc.border}`}>
                                                         <sc.icon className="h-3 w-3"/>{sc.label}
                                                     </span>
-                                                    {slip.requires_signature ? (
-                                                        <span className={`text-[10px] font-medium flex items-center gap-1 ${slip.is_signed === 1 || slip.is_signed === true ? 'text-blue-600' : 'text-amber-600'}`}>
-                                                            {slip.is_signed === 1 || slip.is_signed === true
-                                                                ? <><CheckCircle className="h-3 w-3"/> Verified</>
-                                                                : <><AlertCircle className="h-3 w-3"/> Unsigned</>}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-[10px] font-medium text-gray-400">No signature required</span>
-                                                    )}
                                                 </div>
                                             ); })()}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             {(() => {
                                                 const isSelf = !isSuperAdmin && slip.employee?.user_id === user?.id;
-                                                const isSigned = slip.is_signed === 1 || slip.is_signed === true;
-                                                const needsSignature = slip.requires_signature && !isSigned;
                                                 const busy = updatingId === slip.id;
 
                                                 return (
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {slip.status === "draft" && (
+                                                        {isSuperAdmin && slip.status === "draft" && (
                                                             <button
-                                                                disabled={busy || isSelf || needsSignature}
+                                                                disabled={busy}
                                                                 onClick={()=>updatePayslipStatus(slip.id,"approved")}
-                                                                title={needsSignature ? "Scan the signed paper before authorizing" : isSelf ? "Super Admin must authorize your payslip" : "Authorize"}
+                                                                title="Authorize"
                                                                 className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 shadow-sm">
                                                                 <ShieldCheck className="h-3 w-3"/> Authorize
                                                             </button>
                                                         )}
-                                                        {slip.status === "approved" && isSigned && (
+                                                        {slip.status === "approved" && (
                                                             <button disabled={busy || isSelf} onClick={()=>updatePayslipStatus(slip.id,"paid")}
                                                                 title={isSelf ? "Super Admin must pay your payslip" : "Mark as Paid"}
                                                                 className="px-3 py-1.5 text-xs font-semibold rounded-lg text-white flex items-center gap-1 shadow-sm bg-blue-600 hover:bg-blue-700">
@@ -1117,22 +831,12 @@ export default function PayrollAdmin() {
 
                                                         <DropdownMenu
                                                             trigger={
-                                                                <button className={`relative p-1.5 rounded-lg transition-colors ${needsSignature ? 'text-amber-600 hover:bg-amber-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
-                                                                    title={needsSignature ? "Signature verification needed" : undefined}>
+                                                                <button className="relative p-1.5 rounded-lg transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                                                                     <MoreVertical className="h-4 w-4"/>
-                                                                    {needsSignature && <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-amber-500"/>}
                                                                 </button>
                                                             }
                                                             items={[
-                                                                ...(needsSignature ? [{
-                                                                    label: busy ? "Uploading..." : "Scan to Verify",
-                                                                    icon: CheckCircle,
-                                                                    disabled: busy || isSelf,
-                                                                    title: isSelf ? "You cannot verify your own payslip" : "Scan the signed paper to verify",
-                                                                    onClick: () => triggerSignUpload(slip.id),
-                                                                }] : []),
-                                                                { label: "Print Signature Sheet", icon: Printer, onClick: () => downloadPayslipPDF(slip) },
-                                                                ...(slip.signed_document_path ? [{ label: "View Scanned Copy", icon: FileText, href: getStorageUrl(slip.signed_document_path) }] : []),
+                                                                { label: "Print Payslip", icon: Printer, onClick: () => downloadPayslipPDF(slip) },
                                                                 { label: "Edit", disabled: busy || isSelf, onClick: () => handleEdit(slip) },
                                                                 { label: "Delete", danger: true, disabled: busy || isSelf, onClick: () => handleDelete(slip.id) },
                                                             ]}
@@ -1213,10 +917,6 @@ export default function PayrollAdmin() {
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"/>
                             </div>
 
-                            <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
-                                <input type="checkbox" checked={!!form.skip_signature} onChange={e=>setForm({...form,skip_signature:e.target.checked})} className="mt-0.5"/>
-                                <span>One-off bonus/correction — skip the signature requirement and authorize directly.</span>
-                            </label>
                         </div>
                         <div className="p-6 border-t flex gap-3">
                             <button onClick={()=>setShowModal(false)} className="flex-1 px-4 py-2.5 text-sm font-semibold border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>

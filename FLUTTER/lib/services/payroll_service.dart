@@ -15,12 +15,4 @@ class PayrollService {
       throw Exception(serverMessage(e, 'Failed to fetch payslips'));
     }
   }
-
-  Future<void> signPayslip(int id) async {
-    try {
-      await _apiService.client.post('/payslips/$id/sign');
-    } on DioException catch (e) {
-      throw Exception(serverMessage(e, 'Failed to sign payslip'));
-    }
-  }
 }

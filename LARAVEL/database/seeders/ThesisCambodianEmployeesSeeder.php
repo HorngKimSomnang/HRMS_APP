@@ -885,9 +885,9 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'net_salary' => $netSalary + ($index % 3 === 0 ? 15 : 0),
                 'status' => $status,
                 'notes' => 'Monthly payroll processed and reviewed by Finance',
-                'requires_signature' => true,
-                'is_signed' => true,
-                'signed_at' => $period->copy()->day(min(24, $period->daysInMonth))->endOfDay(),
+                'requires_signature' => false,
+                'is_signed' => false,
+                'signed_at' => null,
             ]);
 
             $createdAt = $period->copy()->day(min(25, $period->daysInMonth))->endOfDay();
