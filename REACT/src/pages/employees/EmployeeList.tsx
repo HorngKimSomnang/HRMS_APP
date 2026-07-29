@@ -90,7 +90,7 @@ export default function EmployeeList() {
         setIsResending(true);
         try {
             const res = await api.post(`/employees/${resendEmployee.id}/resend-credentials`);
-            toast.success(`SUCCESS: ${res.data.message}\n\nPassword: ${res.data.generated_password}`);
+            toast.success(res.data.message);
             setResendEmployee(null);
         } catch (error: any) {
             console.error("Failed to resend credentials", error);

@@ -103,11 +103,10 @@ export default function CreateEmployee() {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             
-            const generatedPassword = response.data?.generated_password;
-            if (generatedPassword) {
-                toast.success(`SUCCESS: Employee created!\n\nEmail: ${formData.email}\nPassword: ${generatedPassword}\n\nPlease copy this password to login to the mobile app.`);
+            if (response.data?.credentials_email_sent === false) {
+                toast.warning(response.data.message);
             } else {
-                toast.success('Employee created successfully');
+                toast.success(response.data?.message || 'Employee created successfully');
             }
             
             navigate('/employees');

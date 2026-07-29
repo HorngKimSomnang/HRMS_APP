@@ -152,10 +152,13 @@ class EmployeeController extends Controller
 
             DB::commit();
 
-            // Send Welcome Email
+            $credentialsEmailSent = true;
+
+            // Send the generated password only to the employee's email.
             try {
                 Mail::to($user->email)->send(new EmployeeWelcomeMail($user, $generatedPassword));
             } catch (\Exception $mailException) {
+                $credentialsEmailSent = false;
                 \Illuminate\Support\Facades\Log::error('Failed to send welcome email: ' . $mailException->getMessage());
             }
 
@@ -167,10 +170,12 @@ class EmployeeController extends Controller
             ]);
 
             return response()->json([
-                'success'            => true,
-                'message'            => 'Employee created successfully',
-                'data'               => new EmployeeResource($employee),
-                'generated_password' => $generatedPassword
+                'success' => true,
+                'message' => $credentialsEmailSent
+                    ? 'Employee created and login credentials emailed successfully.'
+                    : 'Employee created, but the credential email could not be sent. Please check the mail settings and generate a new key.',
+                'data' => new EmployeeResource($employee),
+                'credentials_email_sent' => $credentialsEmailSent,
             ], 201);
 
         } catch (\Exception $e) {
@@ -185,6 +190,8 @@ class EmployeeController extends Controller
             $user = $employee->user;
 
             $generatedPassword = Str::random(10);
+            $previousPassword = $user->password;
+            $previousPasswordChangedAt = $user->password_changed_at;
             $user->password = Hash::make($generatedPassword);
             $user->password_changed_at = null; // back to auto-generated -> show change-password warning
             $user->save();
@@ -192,14 +199,21 @@ class EmployeeController extends Controller
             try {
                 Mail::to($user->email)->send(new EmployeeWelcomeMail($user, $generatedPassword));
             } catch (\Exception $mailException) {
+                // Do not lock the employee out when delivery fails.
+                $user->password = $previousPassword;
+                $user->password_changed_at = $previousPasswordChangedAt;
+                $user->save();
+
                 \Illuminate\Support\Facades\Log::error('Failed to send welcome email: ' . $mailException->getMessage());
-                return response()->json(['success' => false, 'message' => 'Credentials regenerated but failed to send email. Password: ' . $generatedPassword], 500);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The new key could not be emailed. The employee can continue using the previous password.',
+                ], 500);
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Credentials regenerated and email sent successfully.',
-                'generated_password' => $generatedPassword
             ]);
 
         } catch (\Exception $e) {

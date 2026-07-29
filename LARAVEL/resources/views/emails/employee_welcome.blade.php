@@ -1,12 +1,11 @@
 <x-mail::message>
 
-@if($logoBase64)
 <div style="text-align: center; margin-bottom: 16px;">
-<img src="{{ $logoBase64 }}" alt="{{ config('app.name') }}" width="120" height="120" style="display:inline-block; width:120px; height:120px; object-fit:contain;">
+<img src="{{ $message->embed(public_path('logo_small.png')) }}" alt="HEN CHEN" width="120" height="120" style="display:inline-block; width:120px; height:120px; object-fit:contain;">
+<div style="margin-top:8px; color:#1e40af; font-size:18px; font-weight:700; letter-spacing:0.04em;">HEN CHEN</div>
 </div>
-@endif
 
-# Welcome to {{ config('app.name', 'HRMS') }}
+# Welcome to HEN CHEN HRMS
 
 Dear **{{ strtoupper($user->name) }}**,
 
@@ -20,10 +19,6 @@ Your account has been created. Here are your login credentials:
 
 Please login and change your password immediately.
 
-<x-mail::button :url="env('APP_URL')">
-Login Now
-</x-mail::button>
-
 Regards,<br>
-Heng Camary
+HEN CHEN HR Team
 </x-mail::message>
