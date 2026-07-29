@@ -32,6 +32,8 @@ class EmployeeController extends Controller
             $query->where('status', $request->status);
         }
 
+        $query->orderBy('employee_code');
+
         if ($request->has('all') && $request->all == 'true') {
             $employees = $query->get();
             return EmployeeResource::collection($employees);

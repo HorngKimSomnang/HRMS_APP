@@ -105,8 +105,10 @@ export default function EmployeeList() {
         setLoading(true);
         try {
             const [currentResponse, archivedResponse] = await Promise.all([
-                api.get('/employees'),
-                api.get('/employees', { params: { archived: true } }),
+                api.get('/employees', { params: { all: true } }),
+                api.get('/employees', {
+                    params: { archived: true, all: true },
+                }),
             ]);
             setCurrentEmployees(currentResponse.data.data);
             setArchivedEmployees(archivedResponse.data.data);

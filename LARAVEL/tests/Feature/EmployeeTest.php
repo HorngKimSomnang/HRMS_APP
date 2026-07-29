@@ -83,6 +83,56 @@ class EmployeeTest extends TestCase
         ]);
     }
 
+    public function test_all_employee_list_remains_complete_and_sorted_after_an_edit(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Super Admin');
+
+        foreach (range(12, 1) as $number) {
+            Employee::factory()->create([
+                'employee_code' => 'EMP' . str_pad(
+                    (string) $number,
+                    3,
+                    '0',
+                    STR_PAD_LEFT
+                ),
+                'first_name' => $number === 5 ? 'Rady' : "Employee{$number}",
+                'last_name' => $number === 5 ? 'Ren' : 'Test',
+            ]);
+        }
+
+        $rady = Employee::where('employee_code', 'EMP005')->firstOrFail();
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/employees/{$rady->id}", [
+                'phone' => '012345678',
+            ])
+            ->assertOk();
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/employees?all=true')
+            ->assertOk()
+            ->assertJsonCount(12, 'data')
+            ->assertJsonFragment([
+                'id' => $rady->id,
+                'employee_code' => 'EMP005',
+                'phone' => '012345678',
+            ]);
+
+        $this->assertSame(
+            array_map(
+                fn (int $number): string => 'EMP' . str_pad(
+                    (string) $number,
+                    3,
+                    '0',
+                    STR_PAD_LEFT
+                ),
+                range(1, 12)
+            ),
+            collect($response->json('data'))->pluck('employee_code')->all()
+        );
+    }
+
     public function test_archived_employee_can_be_listed_and_restored(): void
     {
         $admin = User::factory()->create();
