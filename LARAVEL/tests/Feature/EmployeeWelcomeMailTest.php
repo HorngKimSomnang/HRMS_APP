@@ -15,12 +15,17 @@ class EmployeeWelcomeMailTest extends TestCase
             'email' => 'sokha.chan@example.com',
         ]);
 
-        $html = (new EmployeeWelcomeMail($user, 'Temporary123'))->render();
+        $html = (new EmployeeWelcomeMail(
+            $user,
+            'Temporary123',
+            'Heng Camary'
+        ))->render();
 
         $this->assertStringContainsString('HEN CHEN', $html);
         $this->assertStringContainsString('cid:', $html);
         $this->assertStringContainsString('Temporary123', $html);
         $this->assertStringContainsString('sokha.chan@example.com', $html);
+        $this->assertStringContainsString('Heng Camary', $html);
         $this->assertStringNotContainsString('Login Now', $html);
     }
 }

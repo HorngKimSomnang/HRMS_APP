@@ -156,7 +156,11 @@ class EmployeeController extends Controller
 
             // Send the generated password only to the employee's email.
             try {
-                Mail::to($user->email)->send(new EmployeeWelcomeMail($user, $generatedPassword));
+                Mail::to($user->email)->send(new EmployeeWelcomeMail(
+                    $user,
+                    $generatedPassword,
+                    $request->user()->name
+                ));
             } catch (\Exception $mailException) {
                 $credentialsEmailSent = false;
                 \Illuminate\Support\Facades\Log::error('Failed to send welcome email: ' . $mailException->getMessage());
@@ -197,7 +201,11 @@ class EmployeeController extends Controller
             $user->save();
 
             try {
-                Mail::to($user->email)->send(new EmployeeWelcomeMail($user, $generatedPassword));
+                Mail::to($user->email)->send(new EmployeeWelcomeMail(
+                    $user,
+                    $generatedPassword,
+                    auth()->user()->name
+                ));
             } catch (\Exception $mailException) {
                 // Do not lock the employee out when delivery fails.
                 $user->password = $previousPassword;

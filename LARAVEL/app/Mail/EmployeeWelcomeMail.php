@@ -15,14 +15,16 @@ class EmployeeWelcomeMail extends Mailable
 
     public $user;
     public $generatedPassword;
+    public $adminName;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(User $user, $generatedPassword)
+    public function __construct(User $user, $generatedPassword, string $adminName)
     {
         $this->user = $user;
         $this->generatedPassword = $generatedPassword;
+        $this->adminName = $adminName;
     }
 
     /**

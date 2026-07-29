@@ -20,5 +20,5 @@ Your account has been created. Here are your login credentials:
 Please login and change your password immediately.
 
 Regards,<br>
-HEN CHEN HR Team
+{{ $adminName }}
 </x-mail::message>
