@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import api from '@/services/api';
 import { toast } from 'sonner';
+import { formatShiftOption, type ShiftOption } from '@/utils/shift';
 
 export default function CreateEmployee() {
     const navigate = useNavigate();
@@ -28,13 +29,18 @@ export default function CreateEmployee() {
         emergency_contact: ''
     });
 
-    const [shifts, setShifts] = useState<{id: number, name: string}[]>([]);
+    const [shifts, setShifts] = useState<ShiftOption[]>([]);
 
     useEffect(() => {
         const fetchOptions = async () => {
             try {
                 const res = await api.get('/shifts');
-                setShifts(res.data.data || []);
+                const availableShifts: ShiftOption[] = res.data.data || [];
+                setShifts(availableShifts);
+                setFormData(current => ({
+                    ...current,
+                    shift_id: current.shift_id || availableShifts[0]?.id || '',
+                }));
             } catch {
                 console.error("Failed to fetch shifts");
             }
@@ -240,12 +246,19 @@ export default function CreateEmployee() {
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             onChange={handleChange}
                             value={formData.shift_id}
+                            required
+                            disabled={shifts.length === 0}
                         >
-                            <option value="">No Shift / Default</option>
+                            <option value="" disabled>Select an assigned shift</option>
                             {shifts.map(shift => (
-                                <option key={shift.id} value={shift.id}>{shift.name}</option>
+                                <option key={shift.id} value={shift.id}>
+                                    {formatShiftOption(shift)}
+                                </option>
                             ))}
                         </select>
+                        <p className="text-xs text-muted-foreground">
+                            Standard schedule: Monday–Saturday at Norton University.
+                        </p>
                     </div>
                 </div>
 

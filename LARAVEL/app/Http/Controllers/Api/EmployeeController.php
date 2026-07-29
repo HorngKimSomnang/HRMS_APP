@@ -7,6 +7,7 @@ use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Support\HrCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -143,7 +144,8 @@ class EmployeeController extends Controller
                 'address' => $request->address,
                 'gender' => $request->gender,
                 'dob' => $request->dob,
-                'shift_id' => $request->shift_id,
+                'shift_id' => $request->shift_id
+                    ?: (HrCatalog::getShifts()[0]['id'] ?? null),
                 'documents' => $documentsData,
             ]);
             

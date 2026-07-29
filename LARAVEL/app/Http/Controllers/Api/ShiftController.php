@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Support\HrCatalog;
+use Illuminate\Validation\Rule;
 
 class ShiftController extends Controller
 {
@@ -21,6 +22,8 @@ class ShiftController extends Controller
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i',
             'grace_period_minutes' => 'nullable|integer',
+            'work_days' => 'required|array|min:1',
+            'work_days.*' => ['required', Rule::in(HrCatalog::defaultWorkDays())],
         ]);
 
         $shifts = HrCatalog::getShifts();
@@ -30,11 +33,15 @@ class ShiftController extends Controller
             'start_time' => $validated['start_time'] . ':00',
             'end_time' => $validated['end_time'] . ':00',
             'grace_period_minutes' => $validated['grace_period_minutes'] ?? 15,
+            'work_days' => array_values($validated['work_days']),
         ];
         $shifts[] = $shift;
         HrCatalog::saveShifts($shifts);
 
-        return response()->json(['data' => $shift, 'message' => 'Shift created successfully.']);
+        return response()->json(
+            ['data' => $shift, 'message' => 'Shift created successfully.'],
+            201
+        );
     }
 
     public function show(int|string $id)
@@ -54,6 +61,8 @@ class ShiftController extends Controller
             'start_time' => 'required|date_format:H:i:s,H:i',
             'end_time' => 'required|date_format:H:i:s,H:i',
             'grace_period_minutes' => 'nullable|integer',
+            'work_days' => 'required|array|min:1',
+            'work_days.*' => ['required', Rule::in(HrCatalog::defaultWorkDays())],
         ]);
 
         $shifts = HrCatalog::getShifts();
@@ -64,6 +73,7 @@ class ShiftController extends Controller
                 $shift['start_time'] = strlen($validated['start_time']) === 5 ? $validated['start_time'] . ':00' : $validated['start_time'];
                 $shift['end_time'] = strlen($validated['end_time']) === 5 ? $validated['end_time'] . ':00' : $validated['end_time'];
                 $shift['grace_period_minutes'] = (int) ($validated['grace_period_minutes'] ?? 15);
+                $shift['work_days'] = array_values($validated['work_days']);
                 $updated = $shift;
                 break;
             }

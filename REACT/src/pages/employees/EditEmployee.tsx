@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { formatShiftOption, type ShiftOption } from '@/utils/shift';
 
 export default function EditEmployee() {
     const { id } = useParams();
@@ -13,7 +14,7 @@ export default function EditEmployee() {
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [isSelf, setIsSelf] = useState(false);
-    const [shifts, setShifts] = useState<any[]>([]);
+    const [shifts, setShifts] = useState<ShiftOption[]>([]);
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -86,6 +87,15 @@ export default function EditEmployee() {
         fetchEmployee();
         fetchShifts();
     }, [fetchEmployee, fetchShifts]);
+
+    useEffect(() => {
+        if (!fetching && shifts.length > 0 && !formData.shift_id) {
+            setFormData(current => ({
+                ...current,
+                shift_id: current.shift_id || shifts[0].id,
+            }));
+        }
+    }, [fetching, shifts, formData.shift_id]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -288,12 +298,19 @@ export default function EditEmployee() {
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             onChange={handleChange}
                             value={formData.shift_id}
+                            required
+                            disabled={shifts.length === 0}
                         >
-                            <option value="">No Shift / Default</option>
+                            <option value="" disabled>Select an assigned shift</option>
                             {shifts.map(shift => (
-                                <option key={shift.id} value={shift.id}>{shift.name}</option>
+                                <option key={shift.id} value={shift.id}>
+                                    {formatShiftOption(shift)}
+                                </option>
                             ))}
                         </select>
+                        <p className="text-xs text-muted-foreground">
+                            Standard schedule: Monday–Saturday at Norton University.
+                        </p>
                     </div>
                 </div>
 

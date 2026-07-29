@@ -57,7 +57,10 @@ class EmployeeTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'john.doe@example.com']);
 
         // Verify Employee Profile was created
-        $this->assertDatabaseHas('employees', ['employee_code' => 'EMP001']);
+        $this->assertDatabaseHas('employees', [
+            'employee_code' => 'EMP001',
+            'shift_id' => 1,
+        ]);
 
         // Verify Role was assigned
         $newUser = User::where('email', 'john.doe@example.com')->first();

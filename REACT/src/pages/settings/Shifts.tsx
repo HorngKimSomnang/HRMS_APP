@@ -27,7 +27,7 @@ export default function Shifts() {
         id: null as number | null,
         name: '',
         start_time: '08:00',
-        end_time: '17:00',
+        end_time: '16:55',
         grace_period_minutes: 15,
         work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as string[],
     });
@@ -89,7 +89,7 @@ export default function Shifts() {
     };
 
     const openCreate = () => {
-        setFormData({ id: null, name: '', start_time: '08:00', end_time: '17:00', grace_period_minutes: 15, work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] });
+        setFormData({ id: null, name: '', start_time: '08:00', end_time: '16:55', grace_period_minutes: 15, work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] });
         setIsDialogOpen(true);
     };
 
@@ -123,7 +123,7 @@ export default function Shifts() {
                                         <TableCell className="font-medium">{shift.name}</TableCell>
                                         <TableCell>{shift.start_time}</TableCell>
                                         <TableCell>{shift.end_time}</TableCell>
-                                        <TableCell>{shift.work_days ? shift.work_days.map(d => d.substring(0, 3)).join(', ') : 'Mon, Tue, Wed, Thu, Fri'}</TableCell>
+                                        <TableCell>{shift.work_days ? shift.work_days.map(d => d.substring(0, 3)).join(', ') : 'Mon, Tue, Wed, Thu, Fri, Sat'}</TableCell>
                                         <TableCell>{shift.grace_period_minutes}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => openEdit(shift)}>
@@ -173,7 +173,7 @@ export default function Shifts() {
                         <div className="grid gap-2">
                             <Label>Working Days</Label>
                             <div className="flex flex-wrap gap-2 mt-1">
-                                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
                                     <label key={day} className="flex items-center gap-1 text-sm border px-2 py-1 rounded cursor-pointer hover:bg-gray-50">
                                         <input 
                                             type="checkbox" 
@@ -224,4 +224,3 @@ export default function Shifts() {
         </div>
     );
 }
-

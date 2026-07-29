@@ -6,6 +6,11 @@ use App\Models\Setting;
 
 class HrCatalog
 {
+    public static function defaultWorkDays(): array
+    {
+        return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    }
+
     public static function defaultLeaveTypes(): array
     {
         return [
@@ -26,6 +31,7 @@ class HrCatalog
                 'start_time' => '08:00:00',
                 'end_time' => '16:55:00',
                 'grace_period_minutes' => 15,
+                'work_days' => self::defaultWorkDays(),
             ],
         ];
     }
@@ -76,7 +82,19 @@ class HrCatalog
             self::saveShifts($shifts);
         }
 
-        return array_values($shifts);
+        $normalized = array_map(
+            fn (array $shift): array => array_merge(
+                ['work_days' => self::defaultWorkDays()],
+                $shift
+            ),
+            array_values($shifts)
+        );
+
+        if ($normalized !== array_values($shifts)) {
+            self::saveShifts($normalized);
+        }
+
+        return $normalized;
     }
 
     public static function saveShifts(array $shifts): void
