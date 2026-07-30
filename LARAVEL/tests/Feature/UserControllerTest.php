@@ -2,12 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Mail\EmployeeWelcomeMail;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class UserControllerTest extends TestCase
@@ -20,7 +17,7 @@ class UserControllerTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
     }
 
-    public function test_updated_admin_response_contains_current_name_email_and_roles(): void
+    public function test_super_admin_can_change_admin_to_employee_without_changing_identity(): void
     {
         $boss = User::factory()->create([
             'name' => 'Super Admin Henchen',
@@ -28,62 +25,60 @@ class UserControllerTest extends TestCase
         ]);
         $boss->assignRole('Super Admin');
 
+        $admin = User::factory()->create([
+            'name' => 'Heng Camary',
+            'email' => 'camary@example.com',
+        ]);
+        $admin->assignRole('Admin');
+
         $response = $this->actingAs($boss, 'sanctum')
-            ->putJson("/api/users/{$boss->id}", [
-                'name' => 'Hen Chen',
-                'email' => 'henchen@example.com',
-                'role' => 'Super Admin',
+            ->putJson("/api/users/{$admin->id}", [
+                'role' => 'Employee',
             ]);
 
         $response
             ->assertOk()
-            ->assertJsonPath('data.id', $boss->id)
-            ->assertJsonPath('data.name', 'Hen Chen')
-            ->assertJsonPath('data.email', 'henchen@example.com')
-            ->assertJsonPath('data.roles.0.name', 'Super Admin');
+            ->assertJsonPath('data.id', $admin->id)
+            ->assertJsonPath('data.name', 'Heng Camary')
+            ->assertJsonPath('data.email', 'camary@example.com')
+            ->assertJsonPath('data.roles.0.name', 'Employee');
 
-        $this->assertDatabaseHas('users', [
-            'id' => $boss->id,
-            'name' => 'Hen Chen',
-            'email' => 'henchen@example.com',
-        ]);
+        $this->assertTrue($admin->fresh()->hasRole('Employee'));
+        $this->assertFalse($admin->fresh()->hasRole('Admin'));
     }
 
-    public function test_super_admin_can_create_administrator_without_entering_password(): void
+    public function test_super_admin_can_promote_existing_employee_to_admin(): void
     {
-        Mail::fake();
-
         $boss = User::factory()->create([
             'name' => 'Heng Camary',
             'email' => 'boss@example.com',
         ]);
         $boss->assignRole('Super Admin');
 
+        $employee = User::factory()->create([
+            'name' => 'Chan Sreyneang',
+            'email' => 'sreyneang.chan@example.com',
+        ]);
+        $employee->assignRole('Employee');
+        $originalPassword = $employee->password;
+
         $response = $this->actingAs($boss, 'sanctum')
             ->postJson('/api/users', [
-                'name' => 'Chan Sreyneang',
-                'email' => 'sreyneang.chan@example.com',
+                'user_id' => $employee->id,
                 'role' => 'Admin',
             ]);
 
         $response
-            ->assertCreated()
+            ->assertOk()
+            ->assertJsonPath('data.id', $employee->id)
             ->assertJsonPath('data.name', 'Chan Sreyneang')
             ->assertJsonPath('data.email', 'sreyneang.chan@example.com')
-            ->assertJsonPath('data.roles.0.name', 'Admin')
-            ->assertJsonPath('credentials_email_sent', true)
-            ->assertJsonMissingPath('password')
-            ->assertJsonMissingPath('generated_password');
+            ->assertJsonPath('data.roles.0.name', 'Admin');
 
-        $created = User::where('email', 'sreyneang.chan@example.com')->firstOrFail();
-        $this->assertTrue($created->hasRole('Admin'));
-        $this->assertFalse(Hash::check('', $created->password));
-
-        Mail::assertSent(EmployeeWelcomeMail::class, function (EmployeeWelcomeMail $mail): bool {
-            return $mail->hasTo('sreyneang.chan@example.com')
-                && $mail->adminName === 'Heng Camary'
-                && $mail->generatedPassword !== '';
-        });
+        $employee->refresh();
+        $this->assertTrue($employee->hasRole('Admin'));
+        $this->assertFalse($employee->hasRole('Employee'));
+        $this->assertSame($originalPassword, $employee->password);
     }
 
     public function test_admin_cannot_create_or_change_administrator_role(): void
@@ -96,21 +91,53 @@ class UserControllerTest extends TestCase
 
         $this->actingAs($admin, 'sanctum')
             ->postJson('/api/users', [
-                'name' => 'Blocked User',
-                'email' => 'blocked@example.com',
+                'user_id' => $target->id,
                 'role' => 'Admin',
             ])
             ->assertForbidden();
 
         $this->actingAs($admin, 'sanctum')
             ->putJson("/api/users/{$target->id}", [
-                'name' => $target->name,
-                'email' => $target->email,
-                'role' => 'Super Admin',
+                'role' => 'Employee',
             ])
             ->assertForbidden();
 
         $this->assertTrue($target->fresh()->hasRole('Admin'));
-        $this->assertFalse($target->fresh()->hasRole('Super Admin'));
+        $this->assertFalse($target->fresh()->hasRole('Employee'));
+    }
+
+    public function test_all_user_dropdown_includes_employees_but_admin_list_does_not(): void
+    {
+        $boss = User::factory()->create();
+        $boss->assignRole('Super Admin');
+
+        $employee = User::factory()->create();
+        $employee->assignRole('Employee');
+
+        $this->actingAs($boss, 'sanctum')
+            ->getJson('/api/users')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $employee->id]);
+
+        $this->actingAs($boss, 'sanctum')
+            ->getJson('/api/users?all=1')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $employee->id,
+                'email' => $employee->email,
+            ]);
+    }
+
+    public function test_last_super_admin_cannot_be_demoted(): void
+    {
+        $boss = User::factory()->create();
+        $boss->assignRole('Super Admin');
+
+        $this->actingAs($boss, 'sanctum')
+            ->putJson("/api/users/{$boss->id}", ['role' => 'Employee'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('role');
+
+        $this->assertTrue($boss->fresh()->hasRole('Super Admin'));
     }
 }

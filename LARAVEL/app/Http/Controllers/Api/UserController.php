@@ -3,62 +3,38 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Mail\EmployeeWelcomeMail;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Only return users who are Admins or Super Admins. Hide normal Employees.
-        $users = User::with('roles')->whereHas('roles', function ($query) {
-            $query->whereIn('name', ['Admin', 'Super Admin']);
-        })->get();
+        $users = User::with(['roles', 'employee:id,user_id,employee_code,first_name,last_name'])
+            ->when(! $request->boolean('all'), function ($query) {
+                $query->whereHas('roles', function ($roleQuery) {
+                    $roleQuery->whereIn('name', ['Admin', 'Super Admin']);
+                });
+            })
+            ->orderBy('name')
+            ->get();
 
         return $this->successResponse($users);
     }
 
     public function store(StoreUserRequest $request)
     {
-        $generatedPassword = Str::random(12);
+        $user = User::findOrFail($request->integer('user_id'));
+        $this->changeRole($user, $request->string('role')->toString());
 
-        $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($generatedPassword),
-        ]);
-
-        // Ensure role exists before assigning (guards against missing seeder data)
-        Role::firstOrCreate(['name' => $request->role, 'guard_name' => 'web']);
-        $user->assignRole($request->role);
-
-        $credentialsEmailSent = true;
-        try {
-            Mail::to($user->email)->send(new EmployeeWelcomeMail(
-                $user,
-                $generatedPassword,
-                $request->user()->name
-            ));
-        } catch (\Exception $exception) {
-            $credentialsEmailSent = false;
-            Log::error('Failed to send administrator credentials: '.$exception->getMessage());
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => $credentialsEmailSent
-                ? 'Administrator created and credentials emailed successfully.'
-                : 'Administrator created, but the credential email could not be sent. They can use Forgot Password to activate access.',
-            'data' => $user->fresh(['roles']),
-            'credentials_email_sent' => $credentialsEmailSent,
-        ], 201);
+        return $this->successResponse(
+            $user->fresh(['roles', 'employee']),
+            'User role updated successfully'
+        );
     }
 
     public function show(User $user)
@@ -69,21 +45,11 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user)
     {
-        // Check removed: Route is guarded by Super Admin middleware
-
-
-
-        $userData = [
-            'name'  => $request->name,
-            'email' => $request->email,
-        ];
-
-        $user->update($userData);
-        $user->syncRoles([$request->role]);
+        $this->changeRole($user, $request->string('role')->toString());
 
         return $this->successResponse(
             $user->fresh(['roles', 'employee']),
-            'User updated successfully'
+            'User role updated successfully'
         );
     }
 
@@ -97,5 +63,21 @@ class UserController extends Controller
 
         $user->delete();
         return $this->successResponse(null, 'User deleted successfully');
+    }
+
+    private function changeRole(User $user, string $role): void
+    {
+        if (
+            $user->hasRole('Super Admin')
+            && $role !== 'Super Admin'
+            && User::role('Super Admin')->count() <= 1
+        ) {
+            throw ValidationException::withMessages([
+                'role' => 'The last Super Admin cannot be changed to another role.',
+            ]);
+        }
+
+        Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
+        $user->syncRoles([$role]);
     }
 }

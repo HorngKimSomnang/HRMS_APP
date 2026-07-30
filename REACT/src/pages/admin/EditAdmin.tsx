@@ -12,6 +12,7 @@ export default function EditAdmin() {
     const { user, updateUser } = useAuth();
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
+    const [users, setUsers] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -21,8 +22,12 @@ export default function EditAdmin() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const response = await api.get(`/users/${id}`);
-                const data = response.data.data;
+                const [userResponse, usersResponse] = await Promise.all([
+                    api.get(`/users/${id}`),
+                    api.get('/users?all=1'),
+                ]);
+                const data = userResponse.data.data;
+                setUsers(usersResponse.data.data);
                 setFormData({
                     name: data.name,
                     email: data.email || '',
@@ -38,22 +43,22 @@ export default function EditAdmin() {
         loadData();
     }, [id, navigate]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleUserSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        navigate(`/admins/edit/${e.target.value}`, { replace: true });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await api.put(`/users/${id}`, formData);
+            const response = await api.put(`/users/${id}`, { role: formData.role });
             const updatedUser = response.data.data;
 
             if (Number(id) === user?.id) {
                 updateUser(updatedUser);
             }
 
-            toast.success('Administrator updated successfully');
+            toast.success(response.data.message || 'User role updated successfully');
             navigate('/admins');
         } catch (error: any) {
             console.error('Failed to update user', error);
@@ -69,19 +74,31 @@ export default function EditAdmin() {
         <div className="max-w-3xl mx-auto py-4">
             <div className="bg-gradient-to-br from-violet-50/40 via-white to-white rounded-2xl shadow-sm border border-violet-100 p-6 sm:p-8">
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">Edit Administrator</h2>
-                    <p className="text-sm text-slate-500 mt-1">Update system access credentials and roles.</p>
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">Edit User Role</h2>
+                    <p className="text-sm text-slate-500 mt-1">Select an existing user and change their system role.</p>
                 </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Employee Name</label>
-                    <Input name="name" value={formData.name} required onChange={handleChange} />
+                    <label className="text-sm font-medium">Email</label>
+                    <select
+                        name="email"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={id}
+                        onChange={handleUserSelect}
+                        required
+                    >
+                        {users.map((item) => (
+                            <option key={item.id} value={item.id}>
+                                {item.email}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Email</label>
-                    <Input name="email" type="email" value={formData.email} required onChange={handleChange} placeholder="name@example.com" />
+                    <label className="text-sm font-medium">Employee Name</label>
+                    <Input name="name" value={formData.name} readOnly className="bg-slate-50" />
                 </div>
 
                 <div className="space-y-2">
@@ -89,10 +106,12 @@ export default function EditAdmin() {
                     <select
                         name="role"
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        onChange={handleChange}
+                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                         value={formData.role}
+                        required
                     >
                         <option value="" disabled>Select Role...</option>
+                        <option value="Employee">Employee</option>
                         <option value="Admin">Admin</option>
                         <option value="Super Admin">Super Admin</option>
                     </select>
