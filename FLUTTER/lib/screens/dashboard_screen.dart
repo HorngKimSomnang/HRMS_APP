@@ -238,11 +238,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final isLate =
             result['data']?['is_late'] == true ||
             result['data']?['is_late'] == 1;
-        await _loadData();
 
         if (isLate && mounted) {
           _showLateReasonDialog();
         }
+        await _loadData();
       } else {
         await _attendanceService.clockOut(
           position.latitude,

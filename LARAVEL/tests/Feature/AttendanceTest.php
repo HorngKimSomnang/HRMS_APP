@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Employee;
 use App\Models\Setting;
 use App\Notifications\EmployeeClockedIn;
+use Carbon\Carbon;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Notification;
 
@@ -21,8 +22,16 @@ class AttendanceTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_employee_can_clock_in()
     {
+        Carbon::setTestNow(Carbon::create(2026, 7, 30, 1, 10, 0, 'UTC'));
+
         $user = User::factory()->create();
         $user->assignRole('Employee');
 
@@ -142,5 +151,78 @@ class AttendanceTest extends TestCase
             'employee_id' => $employee->id,
             'address' => 'Norton University, St. Keo Chenda, Phnom Penh, Cambodia',
         ]);
+    }
+
+    public function test_default_shift_marks_clock_in_after_fifteen_minutes_late_and_uses_business_time_in_notification(): void
+    {
+        Carbon::setTestNow(Carbon::create(
+            2026,
+            7,
+            30,
+            1,
+            16,
+            0,
+            'UTC'
+        ));
+        Notification::fake();
+
+        Setting::whereIn('key', [
+            'office_latitude',
+            'office_longitude',
+            'office_address',
+            'attendance_allowed_radius',
+        ])->delete();
+        Setting::updateOrCreate(
+            ['key' => 'shifts'],
+            [
+                'value' => json_encode([[
+                    'id' => 1,
+                    'name' => 'Morning Shift',
+                    'start_time' => '08:00:00',
+                    'end_time' => '16:55:00',
+                    'grace_period_minutes' => 15,
+                    'work_days' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+                ]]),
+                'type' => 'json',
+                'group' => 'hr',
+            ]
+        );
+
+        $employeeUser = User::factory()->create();
+        $employeeUser->assignRole('Employee');
+        $employee = Employee::factory()->create([
+            'user_id' => $employeeUser->id,
+            'employee_code' => 'EMP996',
+            'first_name' => 'Sophal',
+            'last_name' => 'Soreachpooh',
+            'shift_id' => null,
+        ]);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+
+        $this->actingAs($employeeUser, 'sanctum')
+            ->postJson('/api/attendance/clock-in', [
+                'latitude' => 11.58817,
+                'longitude' => 104.93074,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.is_late', true)
+            ->assertJsonPath('data.status', 'late');
+
+        $this->assertDatabaseHas('attendances', [
+            'employee_id' => $employee->id,
+            'is_late' => true,
+            'status' => 'late',
+        ]);
+
+        Notification::assertSentTo(
+            $admin,
+            EmployeeClockedIn::class,
+            fn (EmployeeClockedIn $notification): bool => str_contains(
+                $notification->toArray($admin)['message'],
+                '08:16 AM'
+            )
+        );
     }
 }

@@ -11,6 +11,8 @@ class EmployeeClockedIn extends Notification
 {
     use Queueable;
 
+    private const BUSINESS_TIMEZONE = 'Asia/Phnom_Penh';
+
     protected $attendance;
     protected $action;
 
@@ -30,9 +32,13 @@ class EmployeeClockedIn extends Notification
         $employee = $this->attendance->employee;
         $name = $employee->first_name . ' ' . $employee->last_name;
         
-        $time = $this->action === 'clocked out' && $this->attendance->clock_out 
-            ? $this->attendance->clock_out->format('h:i A') 
-            : $this->attendance->clock_in->format('h:i A');
+        $attendanceTime = $this->action === 'clocked out' && $this->attendance->clock_out
+            ? $this->attendance->clock_out
+            : $this->attendance->clock_in;
+        $time = $attendanceTime
+            ->copy()
+            ->setTimezone(self::BUSINESS_TIMEZONE)
+            ->format('h:i A');
 
         return [
             'id' => $this->attendance->id,

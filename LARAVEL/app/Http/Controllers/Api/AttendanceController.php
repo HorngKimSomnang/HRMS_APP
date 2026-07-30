@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Models\Setting;
 use App\Notifications\EmployeeClockedIn;
+use App\Support\HrCatalog;
 use Illuminate\Support\Facades\Notification;
 
 class AttendanceController extends Controller
@@ -34,7 +35,7 @@ class AttendanceController extends Controller
             return response()->json(['message' => 'Employee profile not found.'], 404);
         }
 
-        $today = Carbon::today();
+        $today = Carbon::today(self::BUSINESS_TIMEZONE)->toDateString();
 
         // Location validation
         $officeSettings = Setting::whereIn('key', [
@@ -60,10 +61,12 @@ class AttendanceController extends Controller
 
         // Determine lateness against shift
         $isLate = false;
-        if ($employee->shift_id && $employee->shift) {
-            $shift        = $employee->shift;
+        $shift = $employee->shift ?? (HrCatalog::getShifts()[0] ?? null);
+        if ($shift) {
             $startTime    = is_array($shift) ? ($shift['start_time'] ?? null) : $shift->start_time;
-            $graceMinutes = is_array($shift) ? (int) ($shift['grace_period_minutes'] ?? 0) : (int) $shift->grace_period_minutes;
+            $graceMinutes = is_array($shift)
+                ? (int) ($shift['grace_period_minutes'] ?? 15)
+                : (int) ($shift->grace_period_minutes ?? 15);
 
             if ($startTime) {
                 $shiftStart = Carbon::today(self::BUSINESS_TIMEZONE)->setTimeFromTimeString($startTime)->addMinutes($graceMinutes);
