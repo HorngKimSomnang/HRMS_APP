@@ -857,7 +857,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get totalEarnings => 'ចំណូលសរុប';
 
   @override
-  String get deductionsSection => '➖ ការកាត់ទុក';
+  String get deductionsSection => 'ការកាត់ទុក';
 
   @override
   String get tax => 'ពន្ធ';

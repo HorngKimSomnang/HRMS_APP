@@ -1673,7 +1673,7 @@ abstract class AppLocalizations {
   /// No description provided for @deductionsSection.
   ///
   /// In en, this message translates to:
-  /// **'➖ Deductions'**
+  /// **'Deductions'**
   String get deductionsSection;
 
   /// No description provided for @tax.

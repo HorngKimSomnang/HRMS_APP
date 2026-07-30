@@ -853,7 +853,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get totalEarnings => 'Total Earnings';
 
   @override
-  String get deductionsSection => '➖ Deductions';
+  String get deductionsSection => 'Deductions';
 
   @override
   String get tax => 'Tax';
