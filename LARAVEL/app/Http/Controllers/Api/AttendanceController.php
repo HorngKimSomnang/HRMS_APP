@@ -308,24 +308,6 @@ class AttendanceController extends Controller
         return response()->json(['data' => $history]);
     }
 
-    public function clearLogs(Request $request)
-    {
-        /** @var User $user */
-        $user = Auth::user();
-        if (!$user->hasRole('Admin')) {
-            return $this->errorResponse('Unauthorized. Only Admin (HR Manager) can clear attendance logs.', 403);
-        }
-
-        $today = Carbon::today();
-
-        Attendance::where(function ($query) use ($today) {
-            $query->whereNotNull('clock_out')
-                  ->orWhere('date', '<', $today);
-        })->delete();
-
-        return response()->json(['message' => 'Past & completed logs cleared (active sessions preserved).']);
-    }
-
     public function manualClockOut(Request $request, int $id)
     {
         /** @var User $user */

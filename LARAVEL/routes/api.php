@@ -131,7 +131,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::put('/leaves/{id}/status', [\App\Http\Controllers\Api\LeaveController::class, 'updateStatus']);
         Route::put('/leaves/{id}/restore-status', [\App\Http\Controllers\Api\LeaveController::class, 'restoreStatus']);
-        Route::delete('/attendance/clear', [\App\Http\Controllers\Api\AttendanceController::class, 'clearLogs']);
         Route::put('/attendance/{id}/manual-clock-out', [\App\Http\Controllers\Api\AttendanceController::class, 'manualClockOut']);
         Route::delete('/attendance/{id}', [\App\Http\Controllers\Api\AttendanceController::class, 'destroy']);
 

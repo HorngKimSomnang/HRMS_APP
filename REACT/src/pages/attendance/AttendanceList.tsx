@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/services/api";
-import { MapPin, Trash2, Pencil, MessageSquare } from "lucide-react";
+import { MapPin, Pencil, MessageSquare } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
@@ -89,11 +87,9 @@ const HoursBadge = ({ hours, crossesMidnight }: { hours: string; crossesMidnight
 export default function AttendanceList() {
     const [attendances, setAttendances] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [clearing, setClearing] = useState(false);
     const [filterDate, setFilterDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const markerRefs = useRef<{ [key: number]: any }>({});
 
-    const [isClearLogsOpen, setIsClearLogsOpen] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<any>(null);
     const [manualTime, setManualTime] = useState("");
@@ -134,21 +130,6 @@ export default function AttendanceList() {
             });
     };
 
-    const confirmClearLogs = () => {
-        const previousAttendances = attendances;
-        setClearing(true);
-        setAttendances([]);
-        setIsClearLogsOpen(false);
-
-        api.delete('/attendance/clear')
-            .then(() => toast.success("All attendance records cleared"))
-            .catch(() => {
-                setAttendances(previousAttendances);
-                toast.error("Failed to clear logs.");
-            })
-            .finally(() => { setClearing(false); setIsClearLogsOpen(false); });
-    };
-
     const formatTime = (isoString: string) => {
         if (!isoString) return "—";
         return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -165,19 +146,11 @@ export default function AttendanceList() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div>
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-gray-900">Attendance</h1>
                     <p className="text-muted-foreground mt-1">Manage your organization's HR resources efficiently.</p>
                 </div>
-                <button
-                    onClick={() => setIsClearLogsOpen(true)}
-                    disabled={clearing || attendances.length === 0}
-                    className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                    <Trash2 className="w-4 h-4" />
-                    {clearing ? "Clearing..." : "Clear Logs"}
-                </button>
             </div>
 
             {/* Live Location Map */}
@@ -471,26 +444,6 @@ export default function AttendanceList() {
                 </div>
             )}
 
-            {/* Clear All Logs Confirmation */}
-            <Dialog open={isClearLogsOpen} onOpenChange={setIsClearLogsOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-red-600 flex items-center gap-2">
-                            <Trash2 className="h-5 w-5" />
-                            Clear All Logs
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <p className="text-sm text-muted-foreground">
-                            Are you sure you want to clear ALL attendance logs? This will wipe the attendance history and cannot be undone.
-                        </p>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsClearLogsOpen(false)}>Cancel</Button>
-                        <Button variant="destructive" onClick={confirmClearLogs}>Yes, Clear All Logs</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
