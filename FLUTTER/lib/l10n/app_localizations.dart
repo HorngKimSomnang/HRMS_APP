@@ -1631,7 +1631,7 @@ abstract class AppLocalizations {
   /// No description provided for @earningsSection.
   ///
   /// In en, this message translates to:
-  /// **'💰 Earnings'**
+  /// **'Earnings'**
   String get earningsSection;
 
   /// No description provided for @basicSalary.
@@ -1703,7 +1703,7 @@ abstract class AppLocalizations {
   /// No description provided for @noneTaxExempt.
   ///
   /// In en, this message translates to:
-  /// **'None / Tax (Exempt)'**
+  /// **'None / Tax'**
   String get noneTaxExempt;
 
   /// No description provided for @totalDeductions.

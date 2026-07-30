@@ -836,7 +836,7 @@ class AppLocalizationsKm extends AppLocalizations {
   }
 
   @override
-  String get earningsSection => '💰 ចំណូល';
+  String get earningsSection => 'ចំណូល';
 
   @override
   String get basicSalary => 'ប្រាក់ខែមូលដ្ឋាន';
@@ -872,7 +872,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get otherDeductions => 'ការកាត់ទុកផ្សេងទៀត';
 
   @override
-  String get noneTaxExempt => 'គ្មាន / ពន្ធ (លើកលែង)';
+  String get noneTaxExempt => 'គ្មាន / ពន្ធ';
 
   @override
   String get totalDeductions => 'ការកាត់ទុកសរុប';

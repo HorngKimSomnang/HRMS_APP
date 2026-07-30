@@ -394,7 +394,7 @@
             "year": {"type": "String"}
         }
     },
-    "earningsSection": "💰 Earnings",
+    "earningsSection": "Earnings",
     "basicSalary": "Basic Salary",
     "overtimeOT": "Overtime (OT)",
     "commission": "Commission",
@@ -406,7 +406,7 @@
     "advanceDeduction": "Advance Deduction",
     "unpaidLeave": "Unpaid Leave",
     "otherDeductions": "Other Deductions",
-    "noneTaxExempt": "None / Tax (Exempt)",
+    "noneTaxExempt": "None / Tax",
     "totalDeductions": "Total Deductions",
     "netSalaryCaps": "NET SALARY",
     "verifiedReleasedOn": "Verified and Released on {date}",

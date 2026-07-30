@@ -832,7 +832,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get earningsSection => '💰 Earnings';
+  String get earningsSection => 'Earnings';
 
   @override
   String get basicSalary => 'Basic Salary';
@@ -868,7 +868,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otherDeductions => 'Other Deductions';
 
   @override
-  String get noneTaxExempt => 'None / Tax (Exempt)';
+  String get noneTaxExempt => 'None / Tax';
 
   @override
   String get totalDeductions => 'Total Deductions';

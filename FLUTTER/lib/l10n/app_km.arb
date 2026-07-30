@@ -394,7 +394,7 @@
             "year": {"type": "String"}
         }
     },
-    "earningsSection": "💰 ចំណូល",
+    "earningsSection": "ចំណូល",
     "basicSalary": "ប្រាក់ខែមូលដ្ឋាន",
     "overtimeOT": "ថែមម៉ោង (OT)",
     "commission": "កម្រៃជើងសារ",
@@ -406,7 +406,7 @@
     "advanceDeduction": "ការកាត់ប្រាក់បុរេប្រទាន",
     "unpaidLeave": "ច្បាប់គ្មានប្រាក់ខែ",
     "otherDeductions": "ការកាត់ទុកផ្សេងទៀត",
-    "noneTaxExempt": "គ្មាន / ពន្ធ (លើកលែង)",
+    "noneTaxExempt": "គ្មាន / ពន្ធ",
     "totalDeductions": "ការកាត់ទុកសរុប",
     "netSalaryCaps": "ប្រាក់ខែសុទ្ធ",
     "verifiedReleasedOn": "បានផ្ទៀងផ្ទាត់ និងចេញផ្សាយនៅថ្ងៃទី {date}",
