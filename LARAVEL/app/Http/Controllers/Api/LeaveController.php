@@ -140,13 +140,6 @@ class LeaveController extends Controller
         $leave = Leave::findOrFail($id);
         $user = Auth::user();
 
-        // Prevent modifying past leaves
-        if (\Carbon\Carbon::parse($leave->end_date)->endOfDay()->isPast()) {
-            return response()->json([
-                'message' => 'Cannot modify this leave because its date has already passed.'
-            ], 403);
-        }
-
         // A processed decision is immutable until an Admin or Super Admin
         // explicitly restores it to Pending from the Archived view.
         if ($leave->status !== 'pending') {
@@ -197,12 +190,6 @@ class LeaveController extends Controller
             ], 409);
         }
 
-        if (\Carbon\Carbon::parse($leave->end_date)->endOfDay()->isPast()) {
-            return response()->json([
-                'message' => 'Historical leave records cannot be returned to Pending.'
-            ], 409);
-        }
-
         $oldStatus = $leave->status;
         $leave->update([
             'status' => 'pending',
@@ -239,11 +226,6 @@ class LeaveController extends Controller
             'name' => $leave->getAttribute('leave_type'),
         ];
         
-        // Dynamically mark past pending leaves as expired
-        if ($payload['status'] === 'pending' && \Carbon\Carbon::parse($leave->end_date)->endOfDay()->isPast()) {
-            $payload['status'] = 'expired';
-        }
-
         return $payload;
     }
 

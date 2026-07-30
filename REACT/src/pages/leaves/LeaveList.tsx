@@ -280,7 +280,6 @@ export default function LeaveList() {
                             </TableRow>
                         ) : (
                             filteredLeaves.map((leave) => {
-                                const isPast = new Date(leave.end_date).setHours(23, 59, 59, 999) < new Date().getTime();
                                 return (
                                 <TableRow key={leave.id} className="hover:bg-muted/50 transition-colors">
                                     <TableCell className="font-medium">
@@ -323,7 +322,7 @@ export default function LeaveList() {
                                     <TableCell className="text-right">
                                         <AnimatePresence>
                                             {/* NORMAL: Approve/Reject for pending leaves (Admin + Super Admin) */}
-                                            {leave.status === 'pending' && !isPast && (
+                                            {leave.status === 'pending' && (
                                                 <motion.div
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
@@ -350,24 +349,16 @@ export default function LeaveList() {
                                                     <div className="flex items-center gap-1 text-[10px] text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full font-semibold uppercase tracking-wide">
                                                         <Archive className="h-3 w-3" /> Archived
                                                     </div>
-                                                    {!isPast && (
-                                                        <Button
-                                                            size="icon"
-                                                            variant="outline"
-                                                            className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
-                                                            onClick={() => openRestoreModal(leave.id)}
-                                                            title="Return to Pending"
-                                                        >
-                                                            <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
-                                                        </Button>
-                                                    )}
+                                                    <Button
+                                                        size="icon"
+                                                        variant="outline"
+                                                        className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                                                        onClick={() => openRestoreModal(leave.id)}
+                                                        title="Return to Pending"
+                                                    >
+                                                        <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
+                                                    </Button>
                                                 </motion.div>
-                                            )}
-
-                                            {isPast && leave.status !== 'approved' && leave.status !== 'rejected' && (
-                                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right pr-2">
-                                                    Archived
-                                                </div>
                                             )}
                                         </AnimatePresence>
                                     </TableCell>

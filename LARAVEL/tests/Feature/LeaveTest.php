@@ -148,4 +148,40 @@ class LeaveTest extends TestCase
             'approved_by' => null,
         ]);
     }
+
+    public function test_admin_can_restore_and_correct_historical_archived_leave()
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+
+        $employee = Employee::factory()->create();
+        $leave = \App\Models\Leave::create([
+            'employee_id' => $employee->id,
+            'leave_type' => 'Annual Leave',
+            'start_date' => now()->subDays(20)->toDateString(),
+            'end_date' => now()->subDays(18)->toDateString(),
+            'days_count' => 3,
+            'reason' => 'Family event',
+            'status' => 'rejected',
+            'approved_by' => $admin->id,
+            'rejection_reason' => 'Incorrect original decision',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/leaves/{$leave->id}/restore-status")
+            ->assertOk();
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/leaves/{$leave->id}/status", [
+                'status' => 'approved',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('leaves', [
+            'id' => $leave->id,
+            'status' => 'approved',
+            'approved_by' => $admin->id,
+            'rejection_reason' => null,
+        ]);
+    }
 }
