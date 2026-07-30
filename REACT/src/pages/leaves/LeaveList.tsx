@@ -349,15 +349,17 @@ export default function LeaveList() {
                                                     <div className="flex items-center gap-1 text-[10px] text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full font-semibold uppercase tracking-wide">
                                                         <Archive className="h-3 w-3" /> Archived
                                                     </div>
-                                                    <Button
-                                                        size="icon"
-                                                        variant="outline"
-                                                        className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
-                                                        onClick={() => openRestoreModal(leave.id)}
-                                                        title="Return to Pending"
-                                                    >
-                                                        <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
-                                                    </Button>
+                                                    {filter === 'archived' && (
+                                                        <Button
+                                                            size="icon"
+                                                            variant="outline"
+                                                            className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                                                            onClick={() => openRestoreModal(leave.id)}
+                                                            title="Return to Pending"
+                                                        >
+                                                            <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
+                                                        </Button>
+                                                    )}
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
