@@ -139,21 +139,20 @@ class LeaveController extends Controller
 
         $leave = Leave::findOrFail($id);
         $user = Auth::user();
-        
-        $isSuperAdmin = $user->hasRole('Super Admin');
-        
+
         // Prevent modifying past leaves
         if (\Carbon\Carbon::parse($leave->end_date)->endOfDay()->isPast()) {
             return response()->json([
                 'message' => 'Cannot modify this leave because its date has already passed.'
             ], 403);
         }
-        
-        // God Mode & multi-tier status check
-        if ($leave->status !== 'pending' && !$isSuperAdmin) {
+
+        // A processed decision is immutable until an Admin or Super Admin
+        // explicitly restores it to Pending from the Archived view.
+        if ($leave->status !== 'pending') {
             return response()->json([
-                'message' => 'This leave request has already been processed. Only a Super Admin can override its status.'
-            ], 403);
+                'message' => 'This leave request is archived. Restore it to Pending before making another decision.'
+            ], 409);
         }
         
         $oldStatus = $leave->status;
@@ -172,7 +171,6 @@ class LeaveController extends Controller
             'leave_type'       => $leave->leave_type,
             'employee'         => $leave->employee?->user?->name,
             'rejection_reason' => $request->rejection_reason,
-            'override'         => ($oldStatus !== 'pending' && $isSuperAdmin) ? true : false,
         ]);
 
         // Notify Employee
@@ -185,6 +183,49 @@ class LeaveController extends Controller
 
         return response()->json([
             'message' => 'Leave status updated',
+            'data' => $this->transformLeave($leave->load(['employee.user'])),
+        ]);
+    }
+
+    public function restoreStatus(Request $request, $id)
+    {
+        $leave = Leave::findOrFail($id);
+
+        if (! in_array($leave->status, ['approved', 'rejected'], true)) {
+            return response()->json([
+                'message' => 'Only an archived Approved or Rejected leave can be restored.'
+            ], 409);
+        }
+
+        if (\Carbon\Carbon::parse($leave->end_date)->endOfDay()->isPast()) {
+            return response()->json([
+                'message' => 'Historical leave records cannot be returned to Pending.'
+            ], 409);
+        }
+
+        $oldStatus = $leave->status;
+        $leave->update([
+            'status' => 'pending',
+            'approved_by' => null,
+            'rejection_reason' => null,
+        ]);
+
+        AuditLogger::log($request, 'LEAVE_STATUS_RESTORED', $leave, [
+            'from_status' => $oldStatus,
+            'status' => 'pending',
+            'leave_type' => $leave->leave_type,
+            'employee' => $leave->employee?->user?->name,
+            'restored_by' => $request->user()?->name,
+        ]);
+
+        try {
+            $leave->employee?->user?->notify(new \App\Notifications\LeaveStatusUpdated($leave));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send restored leave notification: '.$e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Leave request restored to Pending',
             'data' => $this->transformLeave($leave->load(['employee.user'])),
         ]);
     }

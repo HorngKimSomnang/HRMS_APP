@@ -10,8 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import api from "@/services/api";
-import { useAuth } from "@/context/AuthContext";
-import { Check, X, CalendarDays, FileText, CheckCircle2, XCircle, ShieldAlert, Trash2 } from "lucide-react";
+import { Check, X, CalendarDays, FileText, CheckCircle2, XCircle, Archive, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/Label";
@@ -20,15 +19,15 @@ import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 export default function LeaveList() {
-    const { user } = useAuth();
-    const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin') ?? false;
     const [leaves, setLeaves] = useState<any[]>([]);
     const [balances, setBalances] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchParams] = useSearchParams();
     const statusParam = searchParams.get('status');
-    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(
-        statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected' ? statusParam : 'all'
+    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'archived'>(
+        statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected' || statusParam === 'archived'
+            ? statusParam
+            : 'all'
     );
     const [employees, setEmployees] = useState<any[]>([]);
     const [isAssignOpen, setIsAssignOpen] = useState(false);
@@ -38,7 +37,7 @@ export default function LeaveList() {
         reason: 'Assigned Day Off by Admin'
     });
 
-    const [revokeId, setRevokeId] = useState<number | null>(null);
+    const [restoreId, setRestoreId] = useState<number | null>(null);
     const [statusUpdate, setStatusUpdate] = useState<{ id: number, status: 'approved' | 'rejected' } | null>(null);
     const [rejectionReason, setRejectionReason] = useState("");
 
@@ -101,24 +100,28 @@ export default function LeaveList() {
         }
     };
 
-    const openRevokeModal = (id: number) => {
-        setRevokeId(id);
+    const openRestoreModal = (id: number) => {
+        setRestoreId(id);
     };
 
-    const confirmRevoke = async () => {
-        if (!revokeId) return;
-        const id = revokeId;
+    const confirmRestore = async () => {
+        if (!restoreId) return;
+        const id = restoreId;
         const previousLeaves = leaves;
-        setLeaves(current => current.filter(leave => leave.id !== id));
-        setRevokeId(null);
+        setLeaves(current => current.map(leave => (
+            leave.id === id
+                ? { ...leave, status: 'pending', approved_by: null, rejection_reason: null }
+                : leave
+        )));
+        setRestoreId(null);
 
         try {
-            await api.delete(`/leaves/${id}`);
-            toast.success("Leave revoked and balance refunded!");
+            await api.put(`/leaves/${id}/restore-status`);
+            toast.success("Leave returned to Pending for review.");
         } catch (error: any) {
             setLeaves(previousLeaves);
-            console.error("Failed to revoke leave", error);
-            toast.error(error.response?.data?.message || "Failed to revoke leave");
+            console.error("Failed to restore leave", error);
+            toast.error(error.response?.data?.message || "Failed to restore leave");
         }
     };
 
@@ -153,7 +156,11 @@ export default function LeaveList() {
         }
     };
 
-    const filteredLeaves = leaves.filter(l => filter === 'all' || l.status === filter);
+    const filteredLeaves = leaves.filter(leave => {
+        if (filter === 'all') return true;
+        if (filter === 'archived') return leave.status === 'approved' || leave.status === 'rejected';
+        return leave.status === filter;
+    });
 
     const handleAssignDayOff = async () => {
         if (!assignForm.employee_id) return toast('Select an employee');
@@ -222,7 +229,7 @@ export default function LeaveList() {
 
             {/* Filters */}
             <div className="flex items-center gap-1.5 p-1.5 rounded-full bg-card border border-border shadow-sm w-fit mt-6 overflow-hidden relative">
-                {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
+                {(['all', 'pending', 'approved', 'rejected', 'archived'] as const).map((f) => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -235,7 +242,9 @@ export default function LeaveList() {
                                 className="absolute inset-0 bg-primary/10 backdrop-blur-sm shadow-[0_0_10px_rgba(59,130,246,0.1)] border border-primary/20 rounded-full"
                             />
                         )}
-                        <span className="relative z-10">{f} Requests</span>
+                        <span className="relative z-10">
+                            {f === 'archived' ? 'Archived' : `${f} Requests`}
+                        </span>
                     </button>
                 ))}
             </div>
@@ -330,45 +339,32 @@ export default function LeaveList() {
                                                 </motion.div>
                                             )}
 
-                                            {/* GOD MODE: Super Admin override on already-processed leaves */}
-                                            {leave.status !== 'pending' && isSuperAdmin && !isPast && (
+                                            {/* Processed decisions are archived. They must be restored
+                                                to Pending before either role can decide again. */}
+                                            {(leave.status === 'approved' || leave.status === 'rejected') && (
                                                 <motion.div
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
-                                                    className="flex flex-col items-end gap-1.5"
+                                                    className="flex items-center justify-end gap-2"
                                                 >
-                                                    <div className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
-                                                        <ShieldAlert className="h-3 w-3" /> God Mode Override
+                                                    <div className="flex items-center gap-1 text-[10px] text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full font-semibold uppercase tracking-wide">
+                                                        <Archive className="h-3 w-3" /> Archived
                                                     </div>
-                                                    <div className="flex gap-1.5">
-                                                        {leave.status !== 'approved' && (
-                                                            <Button size="icon" variant="outline" className="h-8 w-8 rounded-full text-emerald-600 hover:bg-emerald-50 border-emerald-200" onClick={() => openStatusModal(leave.id, 'approved')} title="Override: Approve">
-                                                                <Check className="h-3.5 w-3.5 stroke-[3]" />
-                                                            </Button>
-                                                        )}
-                                                        {leave.status !== 'rejected' && (
-                                                            <Button size="icon" variant="outline" className="h-8 w-8 rounded-full text-red-600 hover:bg-red-50 border-red-200" onClick={() => openStatusModal(leave.id, 'rejected')} title="Override: Reject">
-                                                                <X className="h-3.5 w-3.5 stroke-[3]" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
+                                                    {!isPast && (
+                                                        <Button
+                                                            size="icon"
+                                                            variant="outline"
+                                                            className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                                                            onClick={() => openRestoreModal(leave.id)}
+                                                            title="Return to Pending"
+                                                        >
+                                                            <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
+                                                        </Button>
+                                                    )}
                                                 </motion.div>
                                             )}
 
-                                            {/* Admin: Revoke already-processed leaves */}
-                                            {leave.status !== 'pending' && !isPast && (isSuperAdmin || user?.roles?.some((r: any) => r.name === 'Admin')) && (
-                                                <Button 
-                                                    size="icon" 
-                                                    variant="ghost" 
-                                                    className="h-8 w-8 ml-2 text-red-500 hover:text-red-700 hover:bg-red-50" 
-                                                    onClick={() => openRevokeModal(leave.id)} 
-                                                    title="Revoke / Soft Delete"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            
-                                            {isPast && (
+                                            {isPast && leave.status !== 'approved' && leave.status !== 'rejected' && (
                                                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right pr-2">
                                                     Archived
                                                 </div>
@@ -458,24 +454,24 @@ export default function LeaveList() {
                 </DialogContent>
             </Dialog>
 
-            {/* Revoke Confirmation Modal */}
-            <Dialog open={!!revokeId} onOpenChange={(open) => !open && setRevokeId(null)}>
+            {/* Restore Archived Decision Confirmation Modal */}
+            <Dialog open={!!restoreId} onOpenChange={(open) => !open && setRestoreId(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="text-red-600 flex items-center gap-2">
-                            <ShieldAlert className="h-5 w-5" />
-                            Revoke Leave
+                        <DialogTitle className="text-blue-700 flex items-center gap-2">
+                            <RotateCcw className="h-5 w-5" />
+                            Return Leave to Pending
                         </DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
                         <p className="text-sm text-muted-foreground">
-                            Are you sure you want to <strong>REVOKE</strong> this leave? 
-                            This action will soft-delete the record and automatically refund the employee's leave balance.
+                            This removes the previous decision and returns the request to
+                            <strong> Pending</strong>, where an Admin or Super Admin can review it again.
                         </p>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setRevokeId(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={confirmRevoke}>Yes, Revoke Leave</Button>
+                        <Button variant="outline" onClick={() => setRestoreId(null)}>Cancel</Button>
+                        <Button onClick={confirmRestore}>Return to Pending</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
