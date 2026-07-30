@@ -13,7 +13,9 @@ import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 export default function OvertimeList() {
     const { user } = useAuth();
-    const isAdmin = user?.roles?.some((r: any) => r.name === 'Admin') ?? false;
+    const canReviewOvertime = user?.roles?.some(
+        (role: any) => role.name === 'Admin' || role.name === 'Super Admin'
+    ) ?? false;
     const [overtimes, setOvertimes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -197,8 +199,7 @@ export default function OvertimeList() {
                                         {getStatusBadge(ot.status)}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        {/* Only Admin can approve/reject — Super Admin has God Mode via backend */}
-                                        {isAdmin && (
+                                        {canReviewOvertime && (
                                             <AnimatePresence>
                                                 {ot.status === 'pending' && (
                                                     <motion.div 
@@ -220,7 +221,7 @@ export default function OvertimeList() {
                                                 )}
                                             </AnimatePresence>
                                         )}
-                                        {!isAdmin && (
+                                        {!canReviewOvertime && (
                                             <span className="text-xs text-muted-foreground italic">View Only</span>
                                         )}
                                     </TableCell>

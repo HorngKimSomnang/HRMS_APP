@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Overtime;
+use App\Models\User;
+use App\Notifications\OvertimeRequested;
 use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class OvertimeController extends Controller
 {
@@ -50,6 +54,14 @@ class OvertimeController extends Controller
             'status' => 'pending',
         ]);
 
+        try {
+            $overtime->loadMissing('employee.user');
+            $reviewers = User::role(['Admin', 'Super Admin'], 'web')->get();
+            Notification::send($reviewers, new OvertimeRequested($overtime));
+        } catch (\Exception $exception) {
+            Log::error('Failed to send overtime request notification: '.$exception->getMessage());
+        }
+
         return response()->json(['message' => 'Overtime request submitted successfully.', 'data' => $overtime], 201);
     }
 
@@ -92,7 +104,7 @@ class OvertimeController extends Controller
                 try {
                     $overtime->employee?->user?->notify(new \App\Notifications\OvertimeStatusUpdated($overtime));
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Failed to send overtime notification: ' . $e->getMessage());
+                    Log::error('Failed to send overtime notification: ' . $e->getMessage());
                 }
             }
         } else {
