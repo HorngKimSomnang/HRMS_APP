@@ -15,8 +15,7 @@ export default function EditAdmin() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: '',
-        role: 'Admin',
+        role: '',
     });
 
     useEffect(() => {
@@ -27,8 +26,7 @@ export default function EditAdmin() {
                 setFormData({
                     name: data.name,
                     email: data.email || '',
-                    password: '', // Don't populate password
-                    role: data.roles?.[0]?.name || 'Admin',
+                    role: data.roles?.[0]?.name || '',
                 });
             } catch (error) {
                 console.error('Failed to load user', error);
@@ -77,18 +75,13 @@ export default function EditAdmin() {
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Name</label>
+                    <label className="text-sm font-medium">Employee Name</label>
                     <Input name="name" value={formData.name} required onChange={handleChange} />
                 </div>
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
                     <Input name="email" type="email" value={formData.email} required onChange={handleChange} placeholder="name@example.com" />
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Password (Leave blank to keep current)</label>
-                    <Input name="password" type="password" onChange={handleChange} />
                 </div>
 
                 <div className="space-y-2">
@@ -99,9 +92,9 @@ export default function EditAdmin() {
                         onChange={handleChange}
                         value={formData.role}
                     >
+                        <option value="" disabled>Select Role...</option>
                         <option value="Admin">Admin</option>
                         <option value="Super Admin">Super Admin</option>
-                        <option value="Employee">Employee</option>
                     </select>
                 </div>
 

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\EmployeeWelcomeMail;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
@@ -25,19 +27,38 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request)
     {
-        // Role is guaranteed to be Super Admin or managed by one.
+        $generatedPassword = Str::random(12);
 
         $user = User::create([
             'name'     => $request->name,
             'email'    => $request->email,
-            'password' => Hash::make($request->password),
+            'password' => Hash::make($generatedPassword),
         ]);
 
         // Ensure role exists before assigning (guards against missing seeder data)
         Role::firstOrCreate(['name' => $request->role, 'guard_name' => 'web']);
         $user->assignRole($request->role);
 
-        return $this->successResponse($user, 'User created successfully', 201);
+        $credentialsEmailSent = true;
+        try {
+            Mail::to($user->email)->send(new EmployeeWelcomeMail(
+                $user,
+                $generatedPassword,
+                $request->user()->name
+            ));
+        } catch (\Exception $exception) {
+            $credentialsEmailSent = false;
+            Log::error('Failed to send administrator credentials: '.$exception->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $credentialsEmailSent
+                ? 'Administrator created and credentials emailed successfully.'
+                : 'Administrator created, but the credential email could not be sent. They can use Forgot Password to activate access.',
+            'data' => $user->fresh(['roles']),
+            'credentials_email_sent' => $credentialsEmailSent,
+        ], 201);
     }
 
     public function show(User $user)
@@ -56,10 +77,6 @@ class UserController extends Controller
             'name'  => $request->name,
             'email' => $request->email,
         ];
-
-        if ($request->filled('password')) {
-            $userData['password'] = Hash::make($request->password);
-        }
 
         $user->update($userData);
         $user->syncRoles([$request->role]);

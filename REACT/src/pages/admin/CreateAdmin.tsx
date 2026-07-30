@@ -11,8 +11,7 @@ export default function CreateAdmin() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: '',
-        role: 'Admin', // Default to Admin
+        role: '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -23,7 +22,8 @@ export default function CreateAdmin() {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/users', formData);
+            const response = await api.post('/users', formData);
+            toast.success(response.data.message || 'Administrator created successfully');
             navigate('/admins');
         } catch (error: any) {
             console.error('Failed to create user', error);
@@ -41,20 +41,29 @@ export default function CreateAdmin() {
                     <p className="text-sm text-slate-500 mt-1">Create a new system access account and assign roles.</p>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Name</label>
-                    <Input name="name" required onChange={handleChange} />
+                    <label className="text-sm font-medium">Employee Name</label>
+                    <Input
+                        name="name"
+                        value={formData.name}
+                        required
+                        autoComplete="off"
+                        onChange={handleChange}
+                    />
                 </div>
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
-                    <Input name="email" type="email" required onChange={handleChange} placeholder="name@example.com" />
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Password</label>
-                    <Input name="password" type="password" required onChange={handleChange} />
+                    <Input
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        required
+                        autoComplete="off"
+                        onChange={handleChange}
+                        placeholder="name@example.com"
+                    />
                 </div>
 
                 <div className="space-y-2">
@@ -64,10 +73,11 @@ export default function CreateAdmin() {
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         onChange={handleChange}
                         value={formData.role}
+                        required
                     >
+                        <option value="" disabled>Select Role...</option>
                         <option value="Admin">Admin</option>
                         <option value="Super Admin">Super Admin</option>
-                        <option value="Employee">Employee</option>
                     </select>
                 </div>
 
