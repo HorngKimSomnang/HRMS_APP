@@ -21,7 +21,7 @@ class LeaveScreen extends StatefulWidget {
 class _LeaveScreenState extends State<LeaveScreen> {
   final _formKey = GlobalKey<FormState>();
   final LeaveService _leaveService = LeaveService();
-  
+
   List<dynamic> _leaveTypes = [];
   bool _loadingTypes = true;
   bool _submitting = false;
@@ -58,12 +58,12 @@ class _LeaveScreenState extends State<LeaveScreen> {
           _leaveTypes = types;
           _loadingTypes = false;
         });
-        
+
         // Auto-select first type if draft is empty and types exist
         final provider = Provider.of<LeaveProvider>(context, listen: false);
         if (provider.selectedType == null && types.isNotEmpty) {
-           // We could auto select, but maybe better to let user choose
-           // provider.setLeaveType(types.first);
+          // We could auto select, but maybe better to let user choose
+          // provider.setLeaveType(types.first);
         }
       }
     } catch (e) {
@@ -72,7 +72,12 @@ class _LeaveScreenState extends State<LeaveScreen> {
   }
 
   Future<void> _selectDate(bool isStart, LeaveProvider provider) async {
-    final picked = await showAppDatePicker(context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2030));
+    final picked = await showAppDatePicker(
+      context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2030),
+    );
     if (picked != null) {
       if (isStart) {
         provider.setDates(picked, provider.endDate);
@@ -85,11 +90,17 @@ class _LeaveScreenState extends State<LeaveScreen> {
   void _submit(LeaveProvider provider) async {
     if (!_formKey.currentState!.validate()) return;
     if (provider.startDate == null || provider.endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.selectDates)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.selectDates)),
+      );
       return;
     }
     if (provider.selectedType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectLeaveType)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.pleaseSelectLeaveType),
+        ),
+      );
       return;
     }
 
@@ -101,16 +112,23 @@ class _LeaveScreenState extends State<LeaveScreen> {
         'end_date': DateFormat('yyyy-MM-dd').format(provider.endDate!),
         'reason': provider.reasonController.text,
       });
-      
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.leaveRequestedSuccessfully)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.leaveRequestedSuccessfully,
+          ),
+        ),
+      );
       provider.clear(); // Clear draft on success
-      
+
       // Optionally navigate to history or show success dialog
-      
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(context, e))));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -133,7 +151,10 @@ class _LeaveScreenState extends State<LeaveScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50], // Light background
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.newRequest, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+        title: Text(
+          AppLocalizations.of(context)!.newRequest,
+          style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600),
+        ),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -155,10 +176,17 @@ class _LeaveScreenState extends State<LeaveScreen> {
             children: [
               // 0. Leave Balances
               if (_loadingBalances || _balances.isNotEmpty) ...[
-                Text(AppLocalizations.of(context)!.yourLeaveBalance, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                Text(
+                  AppLocalizations.of(context)!.yourLeaveBalance,
+                  style: GoogleFonts.notoSansKhmer(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 SizedBox(
-                  height: 92,
+                  height: 100,
                   child: Skeletonizer(
                     enabled: _loadingBalances,
                     child: ListView.separated(
@@ -167,39 +195,79 @@ class _LeaveScreenState extends State<LeaveScreen> {
                       separatorBuilder: (_, __) => const SizedBox(width: 12),
                       itemBuilder: (context, index) {
                         final balance = _loadingBalances
-                            ? {'leave_type': 'Loading...', 'days_allowed': 0, 'days_used': 0, 'days_remaining': 0}
+                            ? {
+                                'leave_type': 'Loading...',
+                                'days_allowed': 0,
+                                'days_used': 0,
+                                'days_remaining': 0,
+                              }
                             : _balances[index];
-                        final allowed = (balance['days_allowed'] as num).toInt();
-                        final remaining = (balance['days_remaining'] as num).toInt();
+                        final allowed = (balance['days_allowed'] as num)
+                            .toInt();
+                        final remaining = (balance['days_remaining'] as num)
+                            .toInt();
                         final isLimit = allowed > 0 && remaining == 0;
-                        final progress = allowed > 0 ? ((allowed - remaining) / allowed).clamp(0.0, 1.0) : 0.0;
+                        final progress = allowed > 0
+                            ? ((allowed - remaining) / allowed).clamp(0.0, 1.0)
+                            : 0.0;
                         return Container(
                           width: 160,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-                            border: Border.all(color: isLimit ? Colors.red.shade100 : Colors.orange.shade100),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: isLimit
+                                  ? Colors.red.shade100
+                                  : Colors.orange.shade100,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
                                       balance['leave_type'].toString(),
-                                      style: GoogleFonts.notoSansKhmer(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey[600], letterSpacing: 0.3),
+                                      style: GoogleFonts.notoSansKhmer(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.grey[600],
+                                        letterSpacing: 0.3,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   if (isLimit)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
-                                      child: Text(AppLocalizations.of(context)!.limitBadge, style: GoogleFonts.notoSansKhmer(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.red)),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade50,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.limitBadge,
+                                        style: GoogleFonts.notoSansKhmer(
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.red,
+                                        ),
+                                      ),
                                     ),
                                 ],
                               ),
@@ -208,9 +276,21 @@ class _LeaveScreenState extends State<LeaveScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.baseline,
                                 textBaseline: TextBaseline.alphabetic,
                                 children: [
-                                  Text('$remaining', style: GoogleFonts.notoSansKhmer(fontSize: 20, fontWeight: FontWeight.bold)),
+                                  Text(
+                                    '$remaining',
+                                    style: GoogleFonts.notoSansKhmer(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                   const SizedBox(width: 4),
-                                  Text('/ $allowed ${AppLocalizations.of(context)!.daysUnit}', style: GoogleFonts.notoSansKhmer(fontSize: 11, color: Colors.grey[500])),
+                                  Text(
+                                    '/ $allowed ${AppLocalizations.of(context)!.daysUnit}',
+                                    style: GoogleFonts.notoSansKhmer(
+                                      fontSize: 11,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -220,7 +300,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
                                   value: progress,
                                   minHeight: 5,
                                   backgroundColor: Colors.grey.shade100,
-                                  valueColor: AlwaysStoppedAnimation<Color>(isLimit ? Colors.red : const Color(0xFF2563EB)),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isLimit
+                                        ? Colors.red
+                                        : const Color(0xFF2563EB),
+                                  ),
                                 ),
                               ),
                             ],
@@ -234,38 +318,82 @@ class _LeaveScreenState extends State<LeaveScreen> {
               ],
 
               // 1. Leave Type Dropdown
-              Text(AppLocalizations.of(context)!.leaveType, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+              Text(
+                AppLocalizations.of(context)!.leaveType,
+                style: GoogleFonts.notoSansKhmer(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                   border: Border.all(color: Colors.grey.shade100),
                 ),
                 child: Skeletonizer(
                   enabled: _loadingTypes,
                   child: DropdownButtonHideUnderline(
-                  child: DropdownButtonFormField<int>(
-                    value: provider.selectedType != null ? provider.selectedType['id'] as int : null,
-                    decoration: const InputDecoration(border: InputBorder.none, icon: Icon(LucideIcons.list, size: 18, color: Color(0xFF2563EB))),
-                    hint: Text(AppLocalizations.of(context)!.selectType, style: GoogleFonts.notoSansKhmer(color: Colors.grey[400])),
-                    items: (_loadingTypes ? [{'id': 1, 'name': 'Loading...'}] : _leaveTypes).map<DropdownMenuItem<int>>((type) {
-                      return DropdownMenuItem<int>(
-                        value: type['id'] as int, 
-                        child: Text(type['name'].toString(), style: GoogleFonts.notoSansKhmer())
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        final selectedMap = _leaveTypes.firstWhere((t) => t['id'] == val);
-                        provider.setLeaveType(selectedMap);
-                      }
-                    },
-                    validator: (v) => v == null ? AppLocalizations.of(context)!.required : null,
+                    child: DropdownButtonFormField<int>(
+                      value: provider.selectedType != null
+                          ? provider.selectedType['id'] as int
+                          : null,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        icon: Icon(
+                          LucideIcons.list,
+                          size: 18,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                      hint: Text(
+                        AppLocalizations.of(context)!.selectType,
+                        style: GoogleFonts.notoSansKhmer(
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                      items:
+                          (_loadingTypes
+                                  ? [
+                                      {'id': 1, 'name': 'Loading...'},
+                                    ]
+                                  : _leaveTypes)
+                              .map<DropdownMenuItem<int>>((type) {
+                                return DropdownMenuItem<int>(
+                                  value: type['id'] as int,
+                                  child: Text(
+                                    type['name'].toString(),
+                                    style: GoogleFonts.notoSansKhmer(),
+                                  ),
+                                );
+                              })
+                              .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          final selectedMap = _leaveTypes.firstWhere(
+                            (t) => t['id'] == val,
+                          );
+                          provider.setLeaveType(selectedMap);
+                        }
+                      },
+                      validator: (v) => v == null
+                          ? AppLocalizations.of(context)!.required
+                          : null,
+                    ),
                   ),
-                ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -277,7 +405,14 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(AppLocalizations.of(context)!.startDate, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                        Text(
+                          AppLocalizations.of(context)!.startDate,
+                          style: GoogleFonts.notoSansKhmer(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         DateSelector(
                           date: provider.startDate,
@@ -292,7 +427,14 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(AppLocalizations.of(context)!.endDate, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                        Text(
+                          AppLocalizations.of(context)!.endDate,
+                          style: GoogleFonts.notoSansKhmer(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         DateSelector(
                           date: provider.endDate,
@@ -307,28 +449,45 @@ class _LeaveScreenState extends State<LeaveScreen> {
               const SizedBox(height: 20),
 
               // 3. Reason
-              Text(AppLocalizations.of(context)!.reason, style: GoogleFonts.notoSansKhmer(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+              Text(
+                AppLocalizations.of(context)!.reason,
+                style: GoogleFonts.notoSansKhmer(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                   border: Border.all(color: Colors.grey.shade100),
                 ),
                 child: TextFormField(
                   controller: provider.reasonController,
                   decoration: InputDecoration(
                     hintText: AppLocalizations.of(context)!.enterReasonForLeave,
-                    hintStyle: GoogleFonts.notoSansKhmer(color: Colors.grey[400]),
+                    hintStyle: GoogleFonts.notoSansKhmer(
+                      color: Colors.grey[400],
+                    ),
                     contentPadding: const EdgeInsets.all(16),
                     border: InputBorder.none,
                   ),
                   maxLines: 4,
-                  validator: (v) => v!.isEmpty ? AppLocalizations.of(context)!.required : null,
+                  validator: (v) => v!.isEmpty
+                      ? AppLocalizations.of(context)!.required
+                      : null,
                 ),
               ),
-              
+
               const SizedBox(height: 40),
 
               // 4. Submit Button
@@ -342,16 +501,24 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     foregroundColor: Colors.white,
                     shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.4),
                     elevation: 8,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  child: _submitting 
-                      ? const CircularProgressIndicator(color: Colors.white) 
+                  child: _submitting
+                      ? const CircularProgressIndicator(color: Colors.white)
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Icon(LucideIcons.send, size: 20),
                             const SizedBox(width: 8),
-                            Text(AppLocalizations.of(context)!.submitRequest, style: GoogleFonts.notoSansKhmer(fontSize: 16, fontWeight: FontWeight.w700)),
+                            Text(
+                              AppLocalizations.of(context)!.submitRequest,
+                              style: GoogleFonts.notoSansKhmer(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ],
                         ),
                 ),
@@ -385,7 +552,11 @@ class _HistorySheetState extends State<_HistorySheet> {
   Future<void> _fetchLeaves() async {
     try {
       final data = await _leaveService.fetchLeaves();
-      if (mounted) setState(() { _leaves = data; _loading = false; });
+      if (mounted)
+        setState(() {
+          _leaves = data;
+          _loading = false;
+        });
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -393,9 +564,12 @@ class _HistorySheetState extends State<_HistorySheet> {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'approved': return Colors.green;
-      case 'rejected': return Colors.red;
-      default: return Colors.orange;
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.orange;
     }
   }
 
@@ -425,50 +599,96 @@ class _HistorySheetState extends State<_HistorySheet> {
             children: [
               const SizedBox(height: 16),
               Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text(AppLocalizations.of(context)!.leaveHistory, style: GoogleFonts.notoSansKhmer(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text(
+                  AppLocalizations.of(context)!.leaveHistory,
+                  style: GoogleFonts.notoSansKhmer(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               Expanded(
                 child: Skeletonizer(
                   enabled: _loading,
                   child: (_leaves.isEmpty && !_loading)
-                    ? Center(child: Text(AppLocalizations.of(context)!.noHistory, style: GoogleFonts.notoSansKhmer(color: Colors.grey)))
-                    : ListView.builder(
-                        controller: controller,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: _loading ? 3 : _leaves.length,
-                        itemBuilder: (context, index) {
-                          final leave = _loading ? {
-                            'leave_type': {'name': 'Loading...'},
-                            'start_date': '2023-01-01',
-                            'end_date': '2023-01-02',
-                            'status': 'pending'
-                          } : _leaves[index];
-                          final color = _getStatusColor(leave['status']);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50], // Slight background difference
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.shade200),
+                      ? Center(
+                          child: Text(
+                            AppLocalizations.of(context)!.noHistory,
+                            style: GoogleFonts.notoSansKhmer(
+                              color: Colors.grey,
                             ),
-                            child: ListTile(
-                              leading: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                                child: Icon(LucideIcons.calendar, color: color, size: 20),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: controller,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: _loading ? 3 : _leaves.length,
+                          itemBuilder: (context, index) {
+                            final leave = _loading
+                                ? {
+                                    'leave_type': {'name': 'Loading...'},
+                                    'start_date': '2023-01-01',
+                                    'end_date': '2023-01-02',
+                                    'status': 'pending',
+                                  }
+                                : _leaves[index];
+                            final color = _getStatusColor(leave['status']);
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors
+                                    .grey[50], // Slight background difference
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
                               ),
-                              title: Text(leave['leave_type']['name'], style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600, fontSize: 14)),
-                              subtitle: Text('${_formatDate(leave['start_date'])} - ${_formatDate(leave['end_date'])}', style: GoogleFonts.notoSansKhmer(fontSize: 12, color: Colors.grey[600])),
-                              trailing: Text(leave['status'].toUpperCase(), style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold, fontSize: 11, color: color)),
-                            ),
-                          );
-                        },
-                      ),
+                              child: ListTile(
+                                leading: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    LucideIcons.calendar,
+                                    color: color,
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  leave['leave_type']['name'],
+                                  style: GoogleFonts.notoSansKhmer(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${_formatDate(leave['start_date'])} - ${_formatDate(leave['end_date'])}',
+                                  style: GoogleFonts.notoSansKhmer(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                trailing: Text(
+                                  leave['status'].toUpperCase(),
+                                  style: GoogleFonts.notoSansKhmer(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: color,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ),
             ],
