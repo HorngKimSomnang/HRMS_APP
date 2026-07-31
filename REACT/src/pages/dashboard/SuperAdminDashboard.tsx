@@ -1,18 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
-import { Users, Activity, DollarSign, Clock, CheckCircle, FileSignature, DoorOpen, Package, AlertTriangle, ChevronRight, Database } from "lucide-react";
+import { Users, Activity, DollarSign, Clock, CheckCircle, FileSignature, DoorOpen, Package, ChevronRight } from "lucide-react";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
-
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function SuperAdminDashboard() {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1).padStart(2, '0'));
     const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
     const [isCurrentMonth, setIsCurrentMonth] = useState(true);
@@ -36,10 +33,6 @@ export default function SuperAdminDashboard() {
         open_offboardings: 0,
         assigned_assets: 0
     });
-    const [departmentData, setDepartmentData] = useState<any[]>([]);
-    const [payrollTrend, setPayrollTrend] = useState<any[]>([]);
-    const [recentLogs, setRecentLogs] = useState<any[]>([]);
-    const [customEntitiesSummary, setCustomEntitiesSummary] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchDashboard = useCallback(async (silent = false) => {
@@ -49,10 +42,6 @@ export default function SuperAdminDashboard() {
             if (res.data.stats) setStats(res.data.stats);
             if (res.data.period_label) setPeriodLabel(res.data.period_label);
             if (typeof res.data.is_current_month === 'boolean') setIsCurrentMonth(res.data.is_current_month);
-            if (res.data.department_distribution) setDepartmentData(res.data.department_distribution);
-            if (res.data.payroll_trend) setPayrollTrend(res.data.payroll_trend);
-            if (res.data.recent_logs) setRecentLogs(res.data.recent_logs);
-            if (res.data.custom_entities_summary) setCustomEntitiesSummary(res.data.custom_entities_summary);
         } catch (error) {
             console.error("Failed to load dashboard", error);
         } finally {
@@ -267,182 +256,6 @@ export default function SuperAdminDashboard() {
                 </Link>
             </div>
 
-            {/* Custom Entities Summary — so entities like a Super-Admin-defined "Sales" collection
-                show up here at a glance, not just when digging into the Custom Entities page. */}
-            {customEntitiesSummary.length > 0 && (
-                <div className="bg-gradient-to-br from-indigo-50/60 via-card to-card border border-indigo-100 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <h3 className="text-[15px] font-semibold text-foreground flex items-center gap-2">
-                                <Database className="h-4 w-4 text-primary" /> Custom Entities
-                            </h3>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">Your custom data collections — {periodLabel}</p>
-                        </div>
-                        <Link to="/entities" className="text-xs font-medium text-blue-600 hover:underline flex-shrink-0">Manage all</Link>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {customEntitiesSummary.map((entity: any) => (
-                            <Link
-                                key={entity.slug}
-                                to={`/entities/${entity.slug}`}
-                                className="group rounded-lg border p-3 hover:shadow-sm hover:border-blue-200 transition-shadow"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-foreground">{entity.name}</span>
-                                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                                </div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                    {entity.record_count} {entity.record_count === 1 ? 'record' : 'records'}
-                                </div>
-                                {entity.numeric_field_total !== null && (
-                                    <div className="mt-1 text-sm font-bold text-emerald-600">
-                                        {entity.numeric_field_label}: {Number(entity.numeric_field_total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </div>
-                                )}
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Charts Section */}
-            <div className="grid gap-5 lg:grid-cols-2">
-                {/* Department Distribution Pie Chart */}
-                <div className="bg-gradient-to-br from-sky-50/60 via-card to-card border border-sky-100 rounded-xl p-5 shadow-sm flex flex-col">
-                    <div>
-                        <h3 className="text-[15px] font-semibold mb-0.5 text-foreground">Department Distribution</h3>
-                        <p className="text-[11px] text-muted-foreground mb-3">Employee composition across all departments.</p>
-                    </div>
-                    <div className="flex-1 w-full min-h-[250px] flex flex-col">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={departmentData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={90}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                    stroke="none"
-                                >
-                                    {departmentData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color || '#3B82F6'} />
-                                    ))}
-                                </Pie>
-                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex flex-wrap justify-center gap-4 mt-2">
-                            {departmentData.map((entry, index) => (
-                                <div key={index} className="flex items-center gap-1.5">
-                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color || '#3B82F6' }}></div>
-                                    <span className="text-[11px] font-medium text-slate-700">{entry.name} ({entry.value})</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Payroll Trend Chart */}
-                <div className="bg-gradient-to-br from-emerald-50/60 via-card to-card border border-emerald-100 rounded-xl p-5 shadow-sm flex flex-col">
-                    <div>
-                        <h3 className="text-[15px] font-semibold mb-0.5 text-foreground">Payroll Cost Trend (6 Months)</h3>
-                        <p className="text-[11px] text-muted-foreground mb-2">Total finalized payroll expenses per month. Click a bar to view that month's payroll.</p>
-                        <div className="flex items-center gap-4 mb-3">
-                            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Paid</span>
-                            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400"></span>Not yet paid</span>
-                        </div>
-                        {payrollTrend.some((m: any) => m.pending_count > 0) && (
-                            <div className="mb-3 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-100 px-2.5 py-1.5 rounded-lg flex items-start gap-1.5 w-fit">
-                                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                                <span>
-                                    {payrollTrend.reduce((sum: number, m: any) => sum + (m.pending_count || 0), 0)} payslip(s) totaling $
-                                    {payrollTrend.reduce((sum: number, m: any) => sum + (m.pending_amount || 0), 0).toFixed(2)} awaiting authorization/payment
-                                    {' '}({payrollTrend.filter((m: any) => m.pending_count > 0).map((m: any) => m.name).join(', ')})
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex-1 w-full min-h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                                data={payrollTrend}
-                                onClick={(state: any) => {
-                                    // Recharts v3 reports activeIndex as a numeric string (or null), not a number.
-                                    const rawIdx = state?.activeIndex ?? state?.activeTooltipIndex;
-                                    const idx = rawIdx === null || rawIdx === undefined ? NaN : Number(rawIdx);
-                                    const point = Number.isInteger(idx) ? payrollTrend[idx] : undefined;
-                                    if (point?.month && point?.year) navigate(`/payroll?month=${point.month}&year=${point.year}`);
-                                }}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11 }} dy={10} />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#64748B', fontSize: 11 }}
-                                    tickFormatter={(val) => `$${val}`}
-                                />
-                                <Tooltip
-                                    cursor={{ fill: '#F8FAFC' }}
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    formatter={(value, name) => [`$${Number(value).toFixed(2)}`, name === 'pending_amount' ? 'Not yet paid' : 'Paid']}
-                                />
-                                <Bar dataKey="cost" stackId="payroll" fill="#10B981" radius={[0, 0, 0, 0]} barSize={35} name="cost" />
-                                <Bar dataKey="pending_amount" stackId="payroll" fill="#FBBF24" radius={[4, 4, 0, 0]} barSize={35} name="pending_amount" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-
-            {/* Recent Logs Table */}
-            <div className="bg-gradient-to-br from-slate-50 via-card to-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-5 border-b bg-slate-50/50">
-                    <h3 className="text-[15px] font-semibold text-foreground">
-                        {isCurrentMonth ? 'Recent Security & Audit Logs' : `Security & Audit Logs — ${periodLabel}`}
-                    </h3>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-muted-foreground bg-slate-50/50 uppercase">
-                            <tr>
-                                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
-                                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
-                                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">IP Address</th>
-                                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {recentLogs.map((log) => (
-                                <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-5 py-3 text-slate-700 font-medium">
-                                        {log.user ? log.user.name : 'System'}
-                                    </td>
-                                    <td className="px-5 py-3">
-                                        <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs font-medium">
-                                            {log.action}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-3 text-slate-500 font-mono text-xs">{log.ip_address || '-'}</td>
-                                    <td className="px-5 py-3 text-right text-slate-500 text-xs">
-                                        {new Date(log.created_at).toLocaleString()}
-                                    </td>
-                                </tr>
-                            ))}
-                            {recentLogs.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">
-                                        {isCurrentMonth ? 'No recent activity found.' : `No activity recorded for ${periodLabel}.`}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
     );
 }
