@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
-import { Users, Clock, CheckCircle, Wallet, Megaphone, Printer, ChevronRight } from "lucide-react";
+import { Users, Clock, CheckCircle, Wallet, Printer, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import NoticeBoard from "@/pages/admin/NoticeBoard";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -15,13 +16,6 @@ interface PayrollSummary {
     total_paid: number;
     paid_count: number;
     pending_count: number;
-}
-
-interface Announcement {
-    id: number;
-    title: string;
-    type: string;
-    created_at: string;
 }
 
 const Skeleton = ({ className = "" }: { className?: string }) => (
@@ -58,13 +52,6 @@ const EmptyChart = ({ message }: { message: string }) => (
     </div>
 );
 
-const typeBadgeColors: Record<string, string> = {
-    Urgent: "bg-red-100 text-red-600",
-    Holiday: "bg-green-100 text-green-600",
-    Info: "bg-blue-100 text-blue-600",
-    General: "bg-slate-100 text-slate-600",
-};
-
 export default function AdminDashboard() {
     const { user } = useAuth();
     const { t } = useTranslation();
@@ -77,7 +64,6 @@ export default function AdminDashboard() {
     const [punctualityData, setPunctualityData] = useState<any[]>([]);
     const [leaveTrends, setLeaveTrends] = useState<any[]>([]);
     const [payroll, setPayroll] = useState<PayrollSummary | null>(null);
-    const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [range, setRange] = useState<Range>('week');
     const [loading, setLoading] = useState(true);
 
@@ -97,23 +83,11 @@ export default function AdminDashboard() {
         }
     }, [range]);
 
-    const fetchAnnouncements = useCallback(async () => {
-        try {
-            const res = await api.get('/announcements/latest');
-            setAnnouncements(res.data.data ?? []);
-        } catch (error) {
-            console.error("Failed to load announcements", error);
-        }
-    }, []);
-
     useEffect(() => {
         fetchDashboard();
-        fetchAnnouncements();
-    }, [fetchDashboard, fetchAnnouncements]);
+    }, [fetchDashboard]);
 
-    useLiveRefresh(async () => {
-        await Promise.all([fetchDashboard(true), fetchAnnouncements()]);
-    }, { resources: ['dashboard', 'announcements'] });
+    useLiveRefresh(() => fetchDashboard(true), { resources: 'dashboard' });
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -346,40 +320,6 @@ export default function AdminDashboard() {
                     )}
                 </div>
 
-                {/* Announcements Widget */}
-                <div className="bg-gradient-to-br from-sky-50/60 via-card to-card border border-sky-100 rounded-xl p-5 shadow-sm flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <Megaphone className="h-4 w-4 text-blue-600" />
-                            <h3 className="text-[15px] font-semibold text-foreground">{t('dashboard.announcements')}</h3>
-                        </div>
-                        <Link to="/notices" className="text-xs font-medium text-blue-600 hover:underline print:hidden">
-                            {t('dashboard.view_all')}
-                        </Link>
-                    </div>
-                    {announcements.length === 0 ? (
-                        <div className="flex-1 flex items-center justify-center py-8 text-sm text-muted-foreground">
-                            {t('dashboard.no_announcements')}
-                        </div>
-                    ) : (
-                        <ul className="divide-y">
-                            {announcements.slice(0, 5).map(a => (
-                                <li key={a.id} className="py-2.5 flex items-center justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
-                                        <p className="text-[11px] text-muted-foreground">
-                                            {new Date(a.created_at).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                    <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${typeBadgeColors[a.type] ?? typeBadgeColors.General}`}>
-                                        {a.type}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
                 {/* Leave Trends Bar Chart */}
                 <div className="bg-gradient-to-br from-violet-50/60 via-card to-card border border-violet-100 rounded-xl p-5 shadow-sm flex flex-col">
                     <div>
@@ -403,6 +343,8 @@ export default function AdminDashboard() {
                     )}
                 </div>
             </div>
+
+            <NoticeBoard embedded />
         </div>
     );
 }

@@ -20,13 +20,19 @@ interface Notice {
     creator: { name: string };
 }
 
-export default function NoticeBoard() {
+interface NoticeBoardProps {
+    embedded?: boolean;
+}
+
+export default function NoticeBoard({ embedded = false }: NoticeBoardProps) {
     const [notices, setNotices] = useState<Notice[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const { user } = useAuth();
     const isSuperAdmin = user?.roles?.some((role: any) => role.name === 'Super Admin');
+    const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin');
+    const canManageNotices = Boolean(isSuperAdmin || isAdmin);
     
     const [formData, setFormData] = useState({
         id: null as number | null,
@@ -48,11 +54,18 @@ export default function NoticeBoard() {
         }
     };
 
-    useLiveRefresh(fetchNotices, { resources: 'announcements' });
+    useLiveRefresh(
+        () => canManageNotices ? fetchNotices() : Promise.resolve(),
+        { resources: 'announcements' }
+    );
 
     useEffect(() => {
-        fetchNotices();
-    }, []);
+        if (canManageNotices) {
+            fetchNotices();
+        } else {
+            setLoading(false);
+        }
+    }, [canManageNotices]);
 
     const handleSubmit = async () => {
         const previousNotices = notices;
@@ -143,8 +156,10 @@ export default function NoticeBoard() {
         setIsDialogOpen(true);
     };
 
+    if (!canManageNotices) return null;
+
     return (
-        <div className="p-6">
+        <div className={embedded ? "pt-2" : "p-6"}>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Notice Board</h1>
                 <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" /> Publish Notice</Button>

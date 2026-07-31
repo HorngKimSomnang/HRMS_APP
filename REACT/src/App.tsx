@@ -19,7 +19,6 @@ import TaskList from '@/pages/tasks/TaskList';
 import Profile from '@/pages/profile/Profile';
 import Settings from '@/pages/settings/Settings';
 import HolidayList from '@/pages/holidays/HolidayList';
-import NoticeBoard from '@/pages/admin/NoticeBoard';
 import Shifts from '@/pages/settings/Shifts';
 import PayrollAdmin from '@/pages/payroll/PayrollAdmin';
 import OvertimeList from '@/pages/overtime/OvertimeList';
@@ -95,7 +94,7 @@ function App() {
               <Route path="/employees/:id" element={<ViewEmployee />} />
               
               <Route path="/reports" element={<Reports />} />
-              <Route path="/notices" element={<NoticeBoard />} />
+              <Route path="/notices" element={<Navigate to="/dashboard" replace />} />
               <Route path="/payroll" element={<PayrollAdmin />} />
               <Route path="/overtime" element={<OvertimeList />} />
               <Route path="/lifecycle" element={<Lifecycle />} />

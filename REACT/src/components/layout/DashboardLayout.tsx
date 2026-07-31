@@ -42,7 +42,7 @@ const getNotificationPath = (notification: NotificationItem): string => {
     if (notificationType.includes('leave')) return '/leaves';
     if (notificationType.includes('task')) return '/tasks';
     if (notificationType.includes('document')) return '/documents';
-    if (notificationType.includes('announcement') || notificationType.includes('holiday')) return '/notices';
+    if (notificationType.includes('announcement') || notificationType.includes('holiday')) return '/dashboard';
     if (notificationType.includes('overtime')) return '/overtime';
     if (notificationType.includes('payslip') || notificationType.includes('payroll')) return '/payroll';
     if (notificationType.includes('contract')) return '/lifecycle';

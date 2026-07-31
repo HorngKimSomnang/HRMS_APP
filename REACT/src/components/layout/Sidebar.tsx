@@ -74,7 +74,6 @@ export function Sidebar() {
                     {/* ── MAIN ── */}
                     <SectionLabel label={t('nav.section_main')} />
                     <NavItem to="/dashboard" icon={LayoutDashboard} label={t('nav.dashboard')} />
-                    <NavItem to="/notices" icon={FileText} label={t('nav.notice_board')} />
 
                     {/* ══════════════════════════════════════ */}
                     {/* HR OPERATIONS (Admin & Super Admin)    */}

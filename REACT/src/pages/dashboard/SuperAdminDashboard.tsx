@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import { Users, Activity, DollarSign, Clock, CheckCircle, FileSignature, DoorOpen, Package, ChevronRight } from "lucide-react";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import NoticeBoard from "@/pages/admin/NoticeBoard";
 
 const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -255,6 +256,8 @@ export default function SuperAdminDashboard() {
                     </div>
                 </Link>
             </div>
+
+            <NoticeBoard embedded />
 
         </div>
     );
