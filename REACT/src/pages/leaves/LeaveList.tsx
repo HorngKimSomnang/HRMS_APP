@@ -10,22 +10,24 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import api from "@/services/api";
-import { Check, X, CalendarDays, FileText, CheckCircle2, XCircle, Archive, RotateCcw } from "lucide-react";
+import { Check, X, CalendarDays, CalendarPlus, FileText, CheckCircle2, XCircle, Archive, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
+import { useAuth } from "@/context/AuthContext";
 
 export default function LeaveList() {
     const [leaves, setLeaves] = useState<any[]>([]);
     const [balances, setBalances] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchParams] = useSearchParams();
+    const { hasPermission } = useAuth();
     const statusParam = searchParams.get('status');
-    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'archived'>(
-        statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected' || statusParam === 'archived'
+    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(
+        statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected'
             ? statusParam
             : 'all'
     );
@@ -33,8 +35,8 @@ export default function LeaveList() {
     const [isAssignOpen, setIsAssignOpen] = useState(false);
     const [assignForm, setAssignForm] = useState({
         employee_id: '',
-        date: new Date().toISOString().split('T')[0],
-        reason: 'Assigned Day Off by Admin'
+        date: new Date().toISOString().slice(0, 10),
+        reason: ''
     });
 
     const [restoreId, setRestoreId] = useState<number | null>(null);
@@ -157,9 +159,7 @@ export default function LeaveList() {
     };
 
     const filteredLeaves = leaves.filter(leave => {
-        if (filter === 'all') return true;
-        if (filter === 'archived') return leave.status === 'approved' || leave.status === 'rejected';
-        return leave.status === filter;
+        return filter === 'all' || leave.status === filter;
     });
 
     const handleAssignDayOff = async () => {
@@ -188,9 +188,13 @@ export default function LeaveList() {
                         <h1 className="text-3xl font-bold font-poppins">Leave Management</h1>
                         <p className="text-blue-100 mt-2 text-sm font-medium">Review, approve, and manage employee leave requests seamlessly.</p>
                     </div>
-                    <Button variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => setIsAssignOpen(true)}>
-                        + Assign Day Off
-                    </Button>
+                    <div className="relative z-10 flex gap-3">
+                        {hasPermission('leaves.create') && (
+                            <Button variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50 font-semibold" onClick={() => setIsAssignOpen(true)}>
+                                Create Leave
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 {/* Decorative Pattern */}
                 <div className="absolute right-0 top-0 h-full w-1/3 opacity-20">
@@ -229,7 +233,7 @@ export default function LeaveList() {
 
             {/* Filters */}
             <div className="flex items-center gap-1.5 p-1.5 rounded-full bg-card border border-border shadow-sm w-fit mt-6 overflow-hidden relative">
-                {(['all', 'pending', 'approved', 'rejected', 'archived'] as const).map((f) => (
+                {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -243,7 +247,7 @@ export default function LeaveList() {
                             />
                         )}
                         <span className="relative z-10">
-                            {f === 'archived' ? 'Archived' : `${f} Requests`}
+                            {`${f} Requests`}
                         </span>
                     </button>
                 ))}
@@ -321,18 +325,18 @@ export default function LeaveList() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <AnimatePresence>
-                                            {/* NORMAL: Approve/Reject for pending leaves (Admin + Super Admin) */}
-                                            {leave.status === 'pending' && (
+                                            {/* NORMAL: Approve/Reject for pending leaves */}
+                                            {leave.status === 'pending' && hasPermission('leaves.approve') && (
                                                 <motion.div
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     exit={{ opacity: 0, scale: 0.9 }}
                                                     className="flex justify-end gap-2"
                                                 >
-                                                    <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 hover:scale-105 transition-all outline-none" onClick={() => openStatusModal(leave.id, 'approved')} title="Approve">
+                                                    <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 hover:scale-105 transition-all outline-none" onClick={() => openStatusModal(leave.id, 'approved')} disabled={!hasPermission('leaves.approve')} title={!hasPermission('leaves.approve') ? 'No permission' : 'Approve'}>
                                                         <Check className="h-4 w-4 stroke-[3]" />
                                                     </Button>
-                                                    <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-red-600 hover:text-red-700 hover:bg-red-500/10 hover:scale-105 transition-all outline-none" onClick={() => openStatusModal(leave.id, 'rejected')} title="Reject">
+                                                    <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-red-600 hover:text-red-700 hover:bg-red-500/10 hover:scale-105 transition-all outline-none" onClick={() => openStatusModal(leave.id, 'rejected')} disabled={!hasPermission('leaves.approve')} title={!hasPermission('leaves.approve') ? 'No permission' : 'Reject'}>
                                                         <X className="h-4 w-4 stroke-[3]" />
                                                     </Button>
                                                 </motion.div>
@@ -346,20 +350,33 @@ export default function LeaveList() {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     className="flex items-center justify-end gap-2"
                                                 >
-                                                    <div className="flex items-center gap-1 text-[10px] text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full font-semibold uppercase tracking-wide">
-                                                        <Archive className="h-3 w-3" /> Archived
-                                                    </div>
-                                                    {filter === 'archived' && (
-                                                        <Button
-                                                            size="icon"
-                                                            variant="outline"
-                                                            className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
-                                                            onClick={() => openRestoreModal(leave.id)}
-                                                            title="Return to Pending"
-                                                        >
-                                                            <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
-                                                        </Button>
-                                                    )}
+                                                    {(() => {
+                                                        const isAutoProcessed = leave.rejection_reason && leave.rejection_reason.startsWith('Auto-processed');
+                                                        const minutesSinceUpdate = (new Date().getTime() - new Date(leave.updated_at).getTime()) / 60000;
+                                                        const cannotReturn = isAutoProcessed || minutesSinceUpdate > 30;
+                                                        
+                                                        return (
+                                                            <div className="flex items-center gap-1">
+                                                                {hasPermission('leaves.edit') && (
+                                                                    <Button
+                                                                        size="icon"
+                                                                        variant="outline"
+                                                                        className={`h-8 w-8 rounded-full ${cannotReturn ? 'text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200'}`}
+                                                                        onClick={() => {
+                                                                            if (cannotReturn) {
+                                                                                toast.error(isAutoProcessed ? "This leave request was auto-processed by the system and cannot be restored." : "Cannot return leave to pending status after 30 minutes.");
+                                                                            } else {
+                                                                                openRestoreModal(leave.id);
+                                                                            }
+                                                                        }}
+                                                                        title={cannotReturn ? "Cannot be restored" : "Return to Pending"}
+                                                                    >
+                                                                        <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
@@ -374,7 +391,7 @@ export default function LeaveList() {
             <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Assign Day Off</DialogTitle>
+                        <DialogTitle>Create Leave</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
@@ -408,7 +425,7 @@ export default function LeaveList() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsAssignOpen(false)}>Cancel</Button>
-                        <Button onClick={handleAssignDayOff}>Confirm Day Off</Button>
+                        <Button onClick={handleAssignDayOff}>Create Leave</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

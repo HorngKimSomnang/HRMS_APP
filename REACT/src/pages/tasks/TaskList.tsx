@@ -16,7 +16,7 @@ import { getStorageUrl, getDownloadUrl } from "@/core/config";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 export default function TaskList() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const isAdmin = user?.roles?.some((r: any) => r.name !== 'Employee');
 
     const [tasks, setTasks] = useState<any[]>([]);
@@ -179,16 +179,23 @@ export default function TaskList() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Task Management</h1>
-                    <p className="text-muted-foreground">Assign and track employee tasks.</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">Task Management</h1>
+                    <p className="text-orange-50 mt-2 text-sm font-medium">Assign and track employee tasks.</p>
                 </div>
                 {isAdmin && (
-                    <Button onClick={() => { resetForm(); setIsCreateOpen(true); }}>
-                        <Plus className="mr-2 h-4 w-4" /> New Task
-                    </Button>
+                    <div className="relative z-10 flex gap-2">
+                        {hasPermission('tasks.create') && (
+                            <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm">
+                                <Plus className="mr-2 h-4 w-4" /> New Task
+                            </Button>
+                        )}
+                    </div>
                 )}
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             <div className="flex w-fit items-center gap-1 rounded-xl border bg-muted/40 p-1">
@@ -240,7 +247,7 @@ export default function TaskList() {
                             <TableHead>Assigned To</TableHead>
                             <TableHead>Priority</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-right pr-6">Actions</TableHead>
+                            <TableHead className="text-center">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -292,30 +299,30 @@ export default function TaskList() {
                                             {task.status.replace('_', ' ')}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right pr-6">
-                                        <div className="flex justify-end gap-2">
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => setViewTask(task)} title="View Details">
+                                    <TableCell className="text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-100" disabled={!hasPermission('tasks.view')} onClick={() => setViewTask(task)} title={!hasPermission('tasks.view') ? 'No permission' : 'View Details'}>
                                                 <Eye className="h-4 w-4" />
                                             </Button>
-                                            {isAdmin && (
-                                                <>
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-500 hover:text-orange-700 hover:bg-orange-50" onClick={() => {
-                                                        setNewTask({
-                                                            title: task.title,
-                                                            description: task.description || "",
-                                                            assigned_to: task.employee ? [task.employee.id.toString()] : [],
-                                                            priority: task.priority,
-                                                            due_date: task.due_date
-                                                        });
-                                                        setEditTaskId(task.id);
-                                                        setIsCreateOpen(true);
-                                                    }} title="Edit Task">
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setTaskToDelete(task.id)} title="Delete Task">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </>
+                                            {isAdmin && hasPermission('tasks.edit') && (
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => {
+                                                    setNewTask({
+                                                        title: task.title,
+                                                        description: task.description || "",
+                                                        assigned_to: task.employee ? [task.employee.id.toString()] : [],
+                                                        priority: task.priority,
+                                                        due_date: task.due_date
+                                                    });
+                                                    setEditTaskId(task.id);
+                                                    setIsCreateOpen(true);
+                                                }} title="Edit Task">
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            {isAdmin && hasPermission('tasks.delete') && (
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setTaskToDelete(task.id)} title="Delete Task">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             )}
                                         </div>
                                     </TableCell>
@@ -512,49 +519,29 @@ export default function TaskList() {
                                 <label className="text-sm font-medium">
                                     Assign To <span className="text-red-500">*</span>
                                 </label>
-                                <div className={`flex flex-col border rounded-md bg-background overflow-y-auto h-32 p-2 space-y-1 ${
-                                    fieldErrors.assigned_to ? "border-red-400" : "border-input"
-                                }`}>
-                                    {employees.length === 0 ? (
-                                        <p className="text-xs text-amber-600 p-2">No employees found.</p>
-                                    ) : (
-                                        employees.map(e => {
-                                            const isChecked = newTask.assigned_to.includes(e.id.toString());
-                                            return (
-                                                <label key={e.id} className="flex items-center gap-2 p-1.5 hover:bg-muted/50 rounded cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                        checked={isChecked}
-                                                        onChange={(event) => {
-                                                            const strId = e.id.toString();
-                                                            if (editTaskId) {
-                                                                if (event.target.checked) setNewTask({ ...newTask, assigned_to: [strId] });
-                                                                else setNewTask({ ...newTask, assigned_to: [] });
-                                                            } else {
-                                                                let newAssigned = [...newTask.assigned_to];
-                                                                if (event.target.checked) {
-                                                                    newAssigned.push(strId);
-                                                                } else {
-                                                                    newAssigned = newAssigned.filter(id => id !== strId);
-                                                                }
-                                                                setNewTask({ ...newTask, assigned_to: newAssigned });
-                                                            }
-                                                            setFieldErrors(p => ({ ...p, assigned_to: '' }));
-                                                        }}
-                                                    />
-                                                    <span className="text-sm">{e.last_name} {e.first_name}</span>
-                                                </label>
-                                            );
-                                        })
-                                    )}
-                                </div>
+                                <select
+                                    className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+                                        fieldErrors.assigned_to ? "border-red-400 focus:ring-red-400" : "border-input focus:border-blue-500"
+                                    }`}
+                                    value={newTask.assigned_to[0] || ""}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setNewTask({ ...newTask, assigned_to: val ? [val] : [] });
+                                        setFieldErrors(p => ({ ...p, assigned_to: '' }));
+                                    }}
+                                >
+                                    <option value="" disabled>Select an employee</option>
+                                    {employees.map(e => (
+                                        <option key={e.id} value={e.id.toString()}>
+                                            {e.first_name} {e.last_name}
+                                        </option>
+                                    ))}
+                                </select>
                                 {fieldErrors.assigned_to && (
                                     <p className="text-xs text-red-500 flex items-center gap-1">
                                         <AlertTriangle className="h-3 w-3" /> {fieldErrors.assigned_to}
                                     </p>
                                 )}
-
                             </div>
                             <div className="space-y-1">
                                 <label className="text-sm font-medium">Priority</label>

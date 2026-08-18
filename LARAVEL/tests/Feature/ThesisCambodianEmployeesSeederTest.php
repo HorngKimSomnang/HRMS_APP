@@ -47,7 +47,14 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             'last_name' => 'Camary',
             'job_title' => 'Administrator',
             'joining_date' => '2026-01-05',
-            'basic_salary' => 0,
+        ]);
+        \App\Models\Contract::create([
+            'employee_id' => $hengCamary->id,
+            'type' => 'permanent',
+            'status' => 'active',
+            'start_date' => '2026-01-05',
+            'salary' => 0,
+            'position' => 'Administrator',
         ]);
         $hengPayslip = Payslip::create([
             'employee_id' => $hengCamary->id,
@@ -121,7 +128,7 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
         $this->assertSame($originalIds, $employeeIds->all());
         $this->assertSame($existingEmployeeCount + 10, Employee::count());
         $this->assertSame(10, User::where('email', 'like', '%.henchen@gmail.com')->count());
-        $this->assertSame('600.00', $hengCamary->fresh()->basic_salary);
+        $this->assertSame('600.00', $hengCamary->fresh()->activeContract->salary);
         $this->assertSame('600.00', $hengPayslip->fresh()->basic_salary);
         $this->assertSame('620.00', $hengPayslip->fresh()->net_salary);
         $this->assertStringStartsWith('Norton University', $hengAttendance->fresh()->address);
@@ -325,8 +332,8 @@ class ThesisCambodianEmployeesSeederTest extends TestCase
             $this->assertNotEmpty($employee->documents['name_kh'] ?? null);
             $this->assertNotEmpty($employee->department);
             $this->assertNotEmpty($employee->job_title);
-            $this->assertNotEmpty($employee->basic_salary);
-            $this->assertLessThanOrEqual(750, (float) $employee->basic_salary);
+            $this->assertNotEmpty($employee->activeContract->salary);
+            $this->assertLessThanOrEqual(750, (float) $employee->activeContract->salary);
             $this->assertSame(
                 0,
                 Attendance::where('employee_id', $employee->id)

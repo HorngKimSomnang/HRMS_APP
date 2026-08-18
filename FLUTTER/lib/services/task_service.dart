@@ -4,14 +4,20 @@ import 'api_service.dart';
 class TaskService {
   final ApiService _apiService = ApiService();
 
-  Future<List<dynamic>> fetchTasks() async {
+  Future<List<dynamic>> fetchTasks({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/tasks');
+      final response = await ApiService.instance.cachedGet('/tasks', forceRefresh: forceRefresh);
       final data = response.data;
       if (data is List) {
         return data;
       } else if (data is Map<String, dynamic> && data.containsKey('data')) {
-        return data['data'];
+        final innerData = data['data'];
+        if (innerData is List) {
+          return innerData;
+        } else if (innerData is Map<String, dynamic> && innerData.containsKey('data')) {
+          // Handle Laravel pagination wrapper
+          return innerData['data'] is List ? innerData['data'] : [];
+        }
       }
       return [];
     } on DioException {

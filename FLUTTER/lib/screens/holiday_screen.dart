@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class HolidayScreen extends StatefulWidget {
   const HolidayScreen({super.key});
@@ -14,20 +16,28 @@ class HolidayScreen extends StatefulWidget {
   State<HolidayScreen> createState() => _HolidayScreenState();
 }
 
-class _HolidayScreenState extends State<HolidayScreen> {
+class _HolidayScreenState extends State<HolidayScreen> with LiveRefreshMixin<HolidayScreen> {
   final ApiService _apiService = ApiService();
   List<dynamic> _holidays = [];
   bool _loading = true;
+  @override
+  List<String> get watchedResources => ['announcements'];
+
+  @override
+  void onLiveRefresh(String resource) => _fetchHolidays();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _fetchHolidays();
   }
 
   Future<void> _fetchHolidays() async {
     try {
-      final response = await _apiService.client.get('/announcements');
+      final response = await ApiService.instance.cachedGet('/announcements');
       // Handle standardized ApiResponse { status: true, data: [...] }
       final data = response.data['data'] is List ? response.data['data'] : response.data;
       
@@ -43,6 +53,12 @@ class _HolidayScreenState extends State<HolidayScreen> {
         );
       }
     }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
   
     @override
     Widget build(BuildContext context) {

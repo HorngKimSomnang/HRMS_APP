@@ -25,22 +25,27 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Models\Contract::observe(\App\Observers\ContractObserver::class);
+        \App\Models\Employee::observe(\App\Observers\EmployeeObserver::class);
+
         // Data safety: block destructive artisan commands (migrate:fresh,
         // migrate:refresh, migrate:reset, db:wipe) unless explicitly allowed
         // via ALLOW_DESTRUCTIVE_DB=true in .env. See DATA_SAFETY.md.
         DB::prohibitDestructiveCommands(! config('database.allow_destructive', false));
 
-        // Implicitly grant "Super Admin" role all permissions
-        // This works in the app by using gate-related functions like auth()->user->can() and @can()
+        // Instead of implicit Super Admin bypass, use the new Role-based permission checker
+        // for ALL abilities. Super Admin is now handled inside User::hasPermissionTo().
         Gate::before(function ($user, $ability) {
-            return $user->hasRole('Super Admin') ? true : null;
+            return $user->hasPermissionTo($ability) ? true : null;
         });
 
         // General baseline for every authenticated/API request (per-user when
         // logged in via Sanctum, per-IP otherwise). Applied to the whole `api`
         // middleware group via bootstrap/app.php's throttleApi().
+        // 300/min: the React SPA makes many parallel calls on each page load
+        // (dashboard stats, notifications, contracts, etc.) so 60 was too low.
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(300)->by($request->user()?->id ?: $request->ip());
         });
 
         // Login/registration: keyed on email+IP (stops targeted credential

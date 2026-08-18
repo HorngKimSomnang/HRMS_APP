@@ -37,6 +37,17 @@ class AttendanceController extends Controller
 
         $today = Carbon::today(self::BUSINESS_TIMEZONE)->toDateString();
 
+        // Block clock-in if there is an approved leave today
+        $hasApprovedLeaveToday = \App\Models\Leave::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->exists();
+
+        if ($hasApprovedLeaveToday) {
+            return $this->errorResponse('You cannot clock in because you have an approved leave for today.', 400);
+        }
+
         // Location validation
         $officeSettings = Setting::whereIn('key', [
             'office_latitude',
@@ -118,7 +129,9 @@ class AttendanceController extends Controller
             $attendance->refresh();
         }
 
-        $admins = User::role(['Admin', 'Super Admin'], 'web')->get();
+
+
+        $admins = User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
         Notification::send($admins, new EmployeeClockedIn($attendance));
 
         $msg = $isLate ? 'Clocked in successfully (Late)' : 'Clocked in successfully';
@@ -164,9 +177,9 @@ class AttendanceController extends Controller
         $user     = Auth::user();
         $employee = $user->employee;
 
-        $today      = Carbon::today();
+        $today      = Carbon::today(self::BUSINESS_TIMEZONE)->toDateString();
         $attendance = Attendance::where('employee_id', $employee->id)
-            ->where('date', $today)
+            ->whereDate('date', $today)
             ->first();
 
         if (!$attendance) {
@@ -238,13 +251,45 @@ class AttendanceController extends Controller
             $newStatus = 'early_out';
         }
 
+        $this->handleAutoOvertime($attendance, Carbon::now());
+
         $attendance->update([
             'clock_out'         => Carbon::now(),
             'status'            => $newStatus,
             'early_out_reason'  => $earlyReason,
         ]);
 
-        $admins = User::role(['Admin', 'Super Admin'], 'web')->get();
+        // Auto reject pending leave if employee clocked out today
+        $pendingLeaveToday = \App\Models\Leave::where('employee_id', $employee->id)
+            ->where('status', 'pending')
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->first();
+
+        if ($pendingLeaveToday) {
+            $pendingLeaveToday->update([
+                'status' => 'rejected',
+                'rejection_reason' => 'Auto-processed: Employee completed their shift and clocked out today.',
+            ]);
+            
+            \App\Services\AuditLogger::log($request, 'LEAVE_STATUS_CHANGED', $pendingLeaveToday, [
+                'from_status'      => 'pending',
+                'status'           => 'rejected',
+                'leave_type'       => $pendingLeaveToday->leave_type,
+                'employee'         => $employee->user?->name,
+                'rejection_reason' => 'Auto-processed: Employee completed their shift and clocked out today.',
+            ]);
+
+            try {
+                $employee->user?->notify(new \App\Notifications\LeaveStatusUpdated($pendingLeaveToday));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send auto-leave status notification: ' . $e->getMessage());
+            }
+
+            \App\Services\LiveDataVersion::bump('leaves');
+        }
+
+        $admins = User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
         Notification::send($admins, new EmployeeClockedIn($attendance, 'clocked out'));
 
         return $this->successResponse($attendance, 'Clocked out successfully');
@@ -290,7 +335,7 @@ class AttendanceController extends Controller
         }
 
         $attendance = Attendance::where('employee_id', $employee->id)
-            ->where('date', Carbon::today())
+            ->whereDate('date', Carbon::today(self::BUSINESS_TIMEZONE)->toDateString())
             ->first();
 
         return response()->json(['data' => $attendance]);
@@ -311,84 +356,114 @@ class AttendanceController extends Controller
         return response()->json(['data' => $history]);
     }
 
-    public function manualClockOut(Request $request, int $id)
+    public function manualUpdate(Request $request, int $id)
     {
-        /** @var User $user */
         $user = Auth::user();
-        if (!$user->hasRole(['Admin', 'Super Admin'])) {
-            return $this->errorResponse('Unauthorized.', 403);
-        }
 
-        $request->validate(['clock_out_time' => 'required|date_format:H:i']);
+        $request->validate([
+            'clock_in_time'  => 'nullable|date_format:H:i',
+            'clock_out_time' => 'nullable|date_format:H:i',
+        ]);
 
         $attendance = Attendance::findOrFail($id);
 
         $tz   = self::BUSINESS_TIMEZONE;
         $date = Carbon::parse($attendance->date)->format('Y-m-d');
 
-        $clockOutDateTime = Carbon::createFromFormat(
-            'Y-m-d H:i',
-            $date . ' ' . $request->clock_out_time,
-            $tz
-        )->setTimezone('UTC');
+        $updates = [];
+        $newStatus = $attendance->status;
+        $earlyOutReason = $attendance->early_out_reason;
+        $lateReason = $attendance->late_reason;
+        $isLate = $attendance->is_late;
 
-        $clockInTime = Carbon::parse($attendance->clock_in);
+        // Process Clock In
+        if ($request->clock_in_time) {
+            $clockInDateTime = Carbon::createFromFormat('Y-m-d H:i', $date . ' ' . $request->clock_in_time, $tz)->setTimezone('UTC');
+            $updates['clock_in'] = $clockInDateTime;
 
-        // If the entered time is before clock-in, assume the employee worked past midnight
-        // (e.g. clocked in at 08:00 AM, admin enters 00:30 → means next day 00:30)
-        if ($clockOutDateTime->lessThanOrEqualTo($clockInTime)) {
-            $clockOutDateTime->addDay();
-        }
+            // Re-evaluate late status
+            if ($attendance->employee && $attendance->employee->shift_id && $attendance->employee->shift) {
+                $shift = $attendance->employee->shift;
+                $startTime = is_array($shift) ? ($shift['start_time'] ?? null) : $shift->start_time;
+                $graceMinutes = is_array($shift) ? (int)($shift['grace_period_minutes'] ?? 15) : (int)($shift->grace_period_minutes ?? 15);
 
-        // After next-day adjustment, if still invalid reject it
-        if ($clockOutDateTime->lessThanOrEqualTo($clockInTime)) {
-            return $this->errorResponse(
-                'Clock-out time (' . $request->clock_out_time . ') cannot be before or equal to clock-in time (' .
-                $clockInTime->setTimezone($tz)->format('H:i') . ').',
-                400
-            );
-        }
-
-        // Reject if duration would exceed 14 h (almost certainly a data error)
-        if ($clockInTime->diffInMinutes($clockOutDateTime) > 840) {
-            return $this->errorResponse(
-                'Clock-out time results in more than 14 hours worked. Please check the time and try again.',
-                400
-            );
-        }
-
-        // Determine if early-out and set reason accordingly
-        $newStatus        = $attendance->status;
-        $earlyOutReason   = null;
-
-        if ($attendance->employee && $attendance->employee->shift_id && $attendance->employee->shift) {
-            $shift   = $attendance->employee->shift;
-            $endTime = is_array($shift) ? ($shift['end_time'] ?? null) : $shift->end_time;
-            if ($endTime) {
-                $shiftEnd = Carbon::parse($date . ' ' . $endTime, self::BUSINESS_TIMEZONE);
-                if ($clockOutDateTime->lessThan($shiftEnd)) {
-                    $newStatus      = 'early_out';
-                    $earlyOutReason = 'Manually set by Admin/HR (early out)';
+                if ($startTime) {
+                    $shiftStart = Carbon::parse($date . ' ' . $startTime, $tz)->addMinutes($graceMinutes);
+                    $clockInTz = $clockInDateTime->copy()->setTimezone($tz);
+                    $isLate = $clockInTz->greaterThan($shiftStart);
+                    
+                    if ($isLate && !$lateReason) {
+                        $lateReason = 'Manually set by Admin/HR (late)';
+                    }
+                    if (!$isLate) {
+                        $lateReason = null;
+                        if ($newStatus === 'late') $newStatus = 'present';
+                    }
                 }
+            }
+            $updates['is_late'] = $isLate;
+            $updates['late_reason'] = $lateReason;
+            if ($isLate && !in_array($newStatus, ['early_out', 'absent', 'day_off', 'on_leave'])) {
+                $newStatus = 'late';
             }
         }
 
-        $attendance->update([
-            'clock_out'        => $clockOutDateTime,
-            'status'           => $newStatus,
-            'early_out_reason' => $earlyOutReason,
-        ]);
+        // Process Clock Out
+        $clockOutDateTime = null;
+        if ($request->clock_out_time) {
+            $clockOutDateTime = Carbon::createFromFormat('Y-m-d H:i', $date . ' ' . $request->clock_out_time, $tz)->setTimezone('UTC');
+            
+            $baseClockIn = isset($updates['clock_in']) ? $updates['clock_in'] : Carbon::parse($attendance->clock_in);
 
-        return $this->successResponse($attendance->fresh(), 'Manual clock-out time saved.');
+            // If the entered time is before clock-in, assume the employee worked past midnight
+            if ($clockOutDateTime->lessThanOrEqualTo($baseClockIn)) {
+                $clockOutDateTime->addDay();
+            }
+
+            if ($clockOutDateTime->lessThanOrEqualTo($baseClockIn)) {
+                return $this->errorResponse('Clock-out time cannot be before or equal to clock-in time.', 400);
+            }
+
+            if ($baseClockIn->diffInMinutes($clockOutDateTime) > 840) {
+                return $this->errorResponse('Clock-out time results in more than 14 hours worked. Please check the time and try again.', 400);
+            }
+
+            $updates['clock_out'] = $clockOutDateTime;
+
+            if ($attendance->employee && $attendance->employee->shift_id && $attendance->employee->shift) {
+                $shift   = $attendance->employee->shift;
+                $endTime = is_array($shift) ? ($shift['end_time'] ?? null) : $shift->end_time;
+                if ($endTime) {
+                    $shiftEnd = Carbon::parse($date . ' ' . $endTime, $tz);
+                    $clockOutTz = $clockOutDateTime->copy()->setTimezone($tz);
+                    if ($clockOutTz->lessThan($shiftEnd)) {
+                        $newStatus      = 'early_out';
+                        $earlyOutReason = 'Manually set by Admin/HR (early out)';
+                    } else {
+                        $earlyOutReason = null;
+                        if ($newStatus === 'early_out') {
+                            $newStatus = $isLate ? 'late' : 'present';
+                        }
+                    }
+                }
+            }
+            
+            $this->handleAutoOvertime($attendance, $clockOutDateTime);
+        }
+
+        $updates['status'] = $newStatus;
+        $updates['early_out_reason'] = $earlyOutReason;
+
+        $attendance->update($updates);
+
+        return $this->successResponse($attendance->fresh(), 'Manual update saved.');
     }
 
     public function destroy(int $id)
     {
         /** @var User $user */
         $user = Auth::user();
-        if (!$user->hasRole(['Admin', 'Super Admin'])) {
-            return $this->errorResponse('Unauthorized.', 403);
-        }
+        // Authorization handled by permission:attendance.delete middleware on the route.
 
         $attendance = Attendance::findOrFail($id);
         $attendance->delete();
@@ -403,5 +478,63 @@ class AttendanceController extends Controller
         $dLon        = deg2rad($lon2 - $lon1);
         $a           = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
         return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    private function handleAutoOvertime($attendance, $clockOutTime)
+    {
+        $employee = $attendance->employee;
+        if (!$employee) return;
+
+        if (!$employee->shift_id || !$employee->shift) return;
+        
+        $shift = $employee->shift;
+        $start = is_array($shift) ? ($shift['start_time'] ?? null) : $shift->start_time;
+        $end = is_array($shift) ? ($shift['end_time'] ?? null) : $shift->end_time;
+        
+        if (!$start || !$end) return;
+
+        $attendanceDate = Carbon::parse($attendance->date)->format('Y-m-d');
+        $shiftStart = Carbon::parse($attendanceDate . ' ' . $start, self::BUSINESS_TIMEZONE);
+        $shiftEnd = Carbon::parse($attendanceDate . ' ' . $end, self::BUSINESS_TIMEZONE);
+
+        if ($shiftEnd->lessThan($shiftStart)) {
+            $shiftEnd->addDay();
+        }
+
+        $clockOutTimeTz = Carbon::parse($clockOutTime)->setTimezone(self::BUSINESS_TIMEZONE);
+        $overtimeMinutes = $shiftEnd->diffInMinutes($clockOutTimeTz, false);
+
+        if ($overtimeMinutes > 0) {
+            $overtimeHours = round($overtimeMinutes / 60, 2);
+            
+            $existing = \App\Models\Overtime::where('employee_id', $employee->id)
+                ->where('date', $attendance->date)
+                ->first();
+            
+            if (!$existing) {
+                $overtime = \App\Models\Overtime::create([
+                    'employee_id' => $employee->id,
+                    'date'        => $attendance->date,
+                    'start_time'  => $shiftEnd->format('H:i'),
+                    'end_time'    => $clockOutTimeTz->format('H:i'),
+                    'hours'       => $overtimeHours,
+                    'reason'      => 'Auto-detected from late clock-out',
+                    'status'      => 'pending',
+                    'origin'      => 'attendance_auto',
+                ]);
+                
+                try {
+                    $overtime->loadMissing('employee.user');
+                    $reviewers = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
+                    \Illuminate\Support\Facades\Notification::send($reviewers, new \App\Notifications\OvertimeRequested($overtime));
+                } catch (\Exception $exception) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send overtime request notification: '.$exception->getMessage());
+                }
+                
+                try {
+                    \App\Services\LiveDataVersion::bump('overtimes');
+                } catch (\Throwable $e) {}
+            }
+        }
     }
 }

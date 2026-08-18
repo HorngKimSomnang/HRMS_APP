@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Scopes\ManagementScope;
+
 use App\Support\HrCatalog;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,9 +15,8 @@ class Employee extends Model
 
     protected $fillable = [
         'user_id',
-        // 'branch_id', // Removed
-        // 'department_id', // Removed
-        'department', // Added as string
+        // 'department_id', // Removed earlier, adding back
+        'department_id',
         'job_title',
         'employee_code',
         'first_name',
@@ -30,6 +31,7 @@ class Employee extends Model
         'basic_salary',
         'shift_id',
         'documents',
+        'manager_id',
     ];
 
     protected $casts = [
@@ -42,7 +44,7 @@ class Employee extends Model
 
     public function getNameAttribute()
     {
-        return "{$this->first_name} {$this->last_name}";
+        return trim("{$this->last_name} {$this->first_name}");
     }
 
     public function contracts()
@@ -50,14 +52,29 @@ class Employee extends Model
         return $this->hasMany(Contract::class);
     }
 
+    public function activeContract()
+    {
+        return $this->hasOne(Contract::class)->where('status', 'active')->latestOfMany();
+    }
+
     public function getProfilePictureUrlAttribute()
     {
-        return $this->profile_picture ? asset('storage/' . $this->profile_picture) : null;
+        return $this->profile_picture ? url('/api/file/' . $this->profile_picture) : null;
     }
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function manager()
+    {
+        return $this->belongsTo(Employee::class, 'manager_id');
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
 
     // Relationships removed: branch, department
@@ -102,15 +119,54 @@ class Employee extends Model
         \App\Models\Leave::where('employee_id', $this->id)->delete();
         \App\Models\Overtime::where('employee_id', $this->id)->delete();
         \App\Models\Task::where('assigned_to', $this->id)->delete();
-        \App\Models\Payslip::where('employee_id', $this->id)->delete();
+        // We no longer soft-delete payslips here, so unpaid ones stay payable.
+        // \App\Models\Payslip::where('employee_id', $this->id)->delete();
+
+        $contracts = \App\Models\Contract::where('employee_id', $this->id)
+            ->whereIn('status', ['active', 'pending'])
+            ->get();
+
+        foreach ($contracts as $contract) {
+            $contract->update(['status' => 'expired', 'end_date' => now()]);
+            \App\Models\ContractStatusLog::create([
+                'contract_id' => $contract->id,
+                'employee_id' => $this->id,
+                'status'      => 'expired',
+                'changed_at'  => now(),
+            ]);
+        }
+
+        // Lock all non-paid payslips so they cannot be marked paid
+        // while the employee is archived. They are unlocked automatically on restore().
+        \App\Models\Payslip::where('employee_id', $this->id)
+            ->whereIn('status', ['draft', 'pending', 'approved'])
+            ->update([
+                'status'        => 'locked',
+                'locked_reason' => 'Employee archived on ' . now()->toDateString(),
+            ]);
+
+        \App\Models\Offboarding::create([
+            'employee_id' => $this->id,
+            'resignation_date' => now(),
+            'last_working_day' => now(),
+            'reason' => 'Deleted',
+            'status' => 'deleted',
+            'checklist' => [],
+            'created_by' => auth()->id() ?? \App\Models\User::first()->id ?? 1,
+        ]);
 
         if ($this->user) {
-            $this->user->syncRoles([]);
+
             $this->user->tokens()->delete();
             $this->user->delete(); // soft delete
         }
 
         $this->update(['status' => 'terminated']);
         $this->delete(); // soft delete
+    }
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new ManagementScope);
     }
 }

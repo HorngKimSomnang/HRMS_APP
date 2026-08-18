@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Scopes\ManagementScope;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,6 +16,8 @@ class Payslip extends Model
         'employee_id',
         'month',
         'year',
+        'period_start',
+        'period_end',
         'basic_salary',
         'overtime_amount',
         'commission',
@@ -32,6 +36,32 @@ class Payslip extends Model
         'signed_document_path',
     ];
 
+    protected $appends = ['can_mark_paid'];
+
+    public function getCanMarkPaidAttribute()
+    {
+        if (!in_array($this->status, ['draft', 'pending', 'approved'])) {
+            return false;
+        }
+
+        // If the employee's contract is expired (offboarded), allow mark paid immediately
+        if ($this->employee) {
+            $hasExpiredContract = $this->employee->contracts()
+                ->where('status', 'expired')
+                ->exists();
+            if ($hasExpiredContract) {
+                return true;
+            }
+        }
+
+        // Otherwise require the pay period to have ended
+        if (!$this->period_end) {
+            return false;
+        }
+
+        return \Carbon\Carbon::now()->startOfDay()->gte(\Carbon\Carbon::parse($this->period_end)->startOfDay());
+    }
+
     protected $casts = [
         'basic_salary' => 'decimal:2',
         'overtime_amount' => 'decimal:2',
@@ -49,6 +79,11 @@ class Payslip extends Model
 
     public function employee()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(Employee::class)->withTrashed();
+    }
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new ManagementScope);
     }
 }

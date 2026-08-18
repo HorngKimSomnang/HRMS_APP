@@ -8,16 +8,6 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('contracts', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('employee_id')->constrained()->cascadeOnDelete();
-            $table->enum('type', ['probation', 'fixed_term', 'permanent']);
-            $table->date('start_date');
-            $table->date('end_date')->nullable(); // null = open-ended (permanent)
-            $table->enum('status', ['active', 'expired', 'terminated'])->default('active');
-            $table->text('notes')->nullable();
-            $table->timestamps();
-        });
 
         Schema::create('employee_events', function (Blueprint $table) {
             $table->id();
@@ -50,6 +40,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('offboardings');
         Schema::dropIfExists('employee_events');
-        Schema::dropIfExists('contracts');
     }
 };

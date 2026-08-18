@@ -1,0 +1,15 @@
+// ————— External Entities —————
+super_admin [shape: rectangle, icon: shield, color: blue, label: "Super Admin"]
+employee [shape: rectangle, icon: user, color: green, label: "Employee"]
+
+// ————— Central Process —————
+hrms [shape: oval, color: purple, label: "HR Management System (Process 0.0)"]
+
+// ————— Super Admin Data Flows —————
+super_admin > hrms [label: "Manage Users, Roles, Org Structure, Contracts & Payroll", color: blue]
+super_admin > hrms [label: "Approve Leaves & Overtimes, Assign Assets, Create Announcements", color: blue]
+hrms > super_admin [label: "Audit Logs, System Reports, Dashboard Metrics", color: blue]
+
+// ————— Employee Data Flows —————
+employee > hrms [label: "Submit Attendance (Clock-in/out), Apply Leaves, Overtime Requests, Task Submissions", color: green]
+hrms > employee [label: "Payslips, Assigned Tasks, Asset Assignments, Notifications & Announcements", color: green]

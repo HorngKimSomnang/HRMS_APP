@@ -162,6 +162,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Email Field
                         TextFormField(
                           controller: _emailController,
+                          autofocus: true,
+                          textInputAction: TextInputAction.next,
                           style: GoogleFonts.notoSansKhmer(),
                           decoration: InputDecoration(
                             labelText: AppLocalizations.of(context)!.email,
@@ -190,6 +192,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => _handleLogin(),
                           style: GoogleFonts.notoSansKhmer(),
                           decoration: InputDecoration(
                             labelText: AppLocalizations.of(context)!.password,

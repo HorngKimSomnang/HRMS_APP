@@ -16,6 +16,18 @@ use Illuminate\Support\Facades\DB;
 
 class LifecycleController extends Controller
 {
+    public function pendingCount()
+    {
+        // Placeholder for pending contracts count
+        $count = Contract::where('status', 'active')
+            ->whereNotNull('end_date')
+            ->whereDate('end_date', '<=', Carbon::today()->addDays(30))
+            ->whereDate('end_date', '>=', Carbon::today())
+            ->count();
+            
+        return response()->json(['count' => $count]);
+    }
+
     /**
      * Overview for the lifecycle dashboard: expiring contracts,
      * probations ending soon, and open offboardings.
@@ -24,7 +36,7 @@ class LifecycleController extends Controller
     {
         $soon = Carbon::today()->addDays(30);
 
-        $expiringContracts = Contract::with('employee:id,first_name,last_name,job_title,department')
+        $expiringContracts = Contract::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
             ->where('status', 'active')
             ->whereNotNull('end_date')
             ->whereDate('end_date', '<=', $soon)
@@ -32,14 +44,14 @@ class LifecycleController extends Controller
             ->orderBy('end_date')
             ->get();
 
-        $probations = Contract::with('employee:id,first_name,last_name,job_title,department')
+        $probations = Contract::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
             ->where('status', 'active')
             ->where('type', 'probation')
             ->orderBy('end_date')
             ->get();
 
-        $openOffboardings = Offboarding::with('employee:id,first_name,last_name,job_title,department')
-            ->whereIn('status', ['pending', 'in_progress'])
+        $openOffboardings = Offboarding::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
+            ->whereIn('status', ['pending', 'in_progress', 'deleted'])
             ->orderBy('last_working_day')
             ->get();
 
@@ -81,7 +93,7 @@ class LifecycleController extends Controller
 
     public function contractsIndex(Request $request)
     {
-        $query = Contract::with('employee:id,first_name,last_name,job_title,department')
+        $query = Contract::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
             ->orderBy('start_date', 'desc');
 
         if ($request->filled('employee_id')) {
@@ -102,24 +114,29 @@ class LifecycleController extends Controller
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
             'type' => 'required|in:probation,fixed_term,permanent',
-            'start_date' => 'required|date',
+            'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
+            'salary' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
-        // A new active contract supersedes previous active ones for this employee.
-        Contract::where('employee_id', $validated['employee_id'])
-            ->where('status', 'active')
-            ->update(['status' => 'expired']);
+        $initialStatus = $validated['type'] === 'fixed_term' ? 'pending' : 'active';
 
-        $contract = Contract::create($validated + ['status' => 'active']);
+        if ($initialStatus === 'active') {
+            // A new active contract supersedes previous active ones for this employee.
+            Contract::where('employee_id', $validated['employee_id'])
+                ->where('status', 'active')
+                ->update(['status' => 'expired']);
+        }
+
+        $contract = Contract::create($validated + ['status' => $initialStatus]);
         $employeeAlertSent = $contractAlerts
             ->notifyEmployeeForSavedContract($contract);
 
         AuditLogger::log($request, 'CONTRACT_CREATED', $contract, ['type' => $contract->type, 'employee_id' => $contract->employee_id]);
 
         return response()->json([
-            'data' => $contract->load('employee:id,first_name,last_name,job_title,department'),
+            'data' => $contract->load('employee:id,first_name,last_name,job_title'),
             'message' => 'Contract created.',
             'employee_alert_sent' => $employeeAlertSent,
         ], 201);
@@ -135,10 +152,14 @@ class LifecycleController extends Controller
             'type' => 'sometimes|in:probation,fixed_term,permanent',
             'start_date' => 'sometimes|date',
             'end_date' => 'nullable|date',
-            'status' => 'sometimes|in:active,expired,terminated',
+            'salary' => 'nullable|numeric|min:0',
+            'status' => 'sometimes|in:active,expired,terminated,pending',
             'notes' => 'nullable|string',
         ]);
 
+        $status = $validated['status'] ?? $contract->status;
+        // The old block was here. We just leave it empty or remove it.
+        
         $contract->update($validated);
         $employeeAlertSent = $contractAlerts
             ->notifyEmployeeForSavedContract($contract->fresh());
@@ -146,9 +167,35 @@ class LifecycleController extends Controller
         AuditLogger::log($request, 'CONTRACT_UPDATED', $contract, $validated);
 
         return response()->json([
-            'data' => $contract->fresh()->load('employee:id,first_name,last_name,job_title,department'),
+            'data' => $contract->fresh()->load('employee:id,first_name,last_name,job_title'),
             'message' => 'Contract updated.',
             'employee_alert_sent' => $employeeAlertSent,
+        ]);
+    }
+
+    public function contractsConfirm(Request $request, Contract $contract)
+    {
+        $updateData = ['status' => 'active'];
+
+        if ($contract->type === 'fixed_term') {
+            $startDate = \Carbon\Carbon::now('Asia/Phnom_Penh')->startOfDay();
+            $endDate = $startDate->copy()->addDays(30);
+            
+            $updateData['start_date'] = $startDate->toDateString();
+            $updateData['end_date'] = $endDate->toDateString();
+        }
+
+        // A new active contract supersedes previous active ones for this employee.
+        Contract::where('employee_id', $contract->employee_id)
+            ->where('status', 'active')
+            ->update(['status' => 'expired']);
+
+        $contract->update($updateData);
+        
+        AuditLogger::log($request, 'CONTRACT_ACTIVATED', $contract, []);
+        return response()->json([
+            'message' => 'Contract activated successfully',
+            'data' => $contract->fresh()->load('employee:id,first_name,last_name,job_title')
         ]);
     }
 
@@ -163,7 +210,7 @@ class LifecycleController extends Controller
 
     public function eventsIndex(Request $request)
     {
-        $query = EmployeeEvent::with(['employee:id,first_name,last_name,job_title,department', 'creator:id,name'])
+        $query = EmployeeEvent::with(['employee:id,first_name,last_name,job_title', 'creator:id,name'])
             ->orderBy('effective_date', 'desc');
 
         if ($request->filled('employee_id')) {
@@ -197,14 +244,18 @@ class LifecycleController extends Controller
                 if ($validated['type'] === 'promotion') {
                     $employee->update(['job_title' => $validated['new_value']]);
                 } elseif ($validated['type'] === 'transfer') {
-                    $employee->update(['department' => $validated['new_value']]);
+                    // department_id now lives on users, not employees
+                    $dept = \App\Models\Department::where('name', $validated['new_value'])->first();
+                    if ($dept && $employee->user_id) {
+                        \App\Models\User::where('id', $employee->user_id)->update(['department_id' => $dept->id]);
+                    }
                 }
             }
         }
 
         AuditLogger::log($request, 'EMPLOYEE_EVENT_RECORDED', $event, ['type' => $event->type, 'employee_id' => $event->employee_id, 'new_value' => $event->new_value]);
 
-        return response()->json(['data' => $event->load(['employee:id,first_name,last_name,job_title,department', 'creator:id,name']), 'message' => 'Event recorded.'], 201);
+        return response()->json(['data' => $event->load(['employee:id,first_name,last_name,job_title', 'creator:id,name']), 'message' => 'Event recorded.'], 201);
     }
 
     public function eventsDestroy(Request $request, EmployeeEvent $event)
@@ -219,7 +270,8 @@ class LifecycleController extends Controller
     public function offboardingsIndex(Request $request)
     {
         $query = Offboarding::with([
-            'employee' => fn ($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title', 'department'),
+            'employee' => fn ($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title', 'joining_date'),
+            'employee.contracts' => fn ($q) => $q->orderBy('start_date', 'desc'),
             'creator:id,name',
         ])->orderBy('last_working_day');
 
@@ -254,7 +306,7 @@ class LifecycleController extends Controller
 
         AuditLogger::log($request, 'OFFBOARDING_STARTED', $offboarding, ['employee_id' => $offboarding->employee_id, 'last_working_day' => $offboarding->last_working_day->toDateString()]);
 
-        return response()->json(['data' => $offboarding->load('employee:id,first_name,last_name,job_title,department'), 'message' => 'Offboarding started.'], 201);
+        return response()->json(['data' => $offboarding->load('employee:id,first_name,last_name,job_title'), 'message' => 'Offboarding started.'], 201);
     }
 
     public function offboardingsUpdate(Request $request, Offboarding $offboarding)
@@ -294,7 +346,7 @@ class LifecycleController extends Controller
         );
 
         return response()->json([
-            'data' => $offboarding->fresh()->load(['employee' => fn ($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title', 'department')]),
+            'data' => $offboarding->fresh()->load(['employee' => fn ($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')]),
             'message' => 'Offboarding updated.',
         ]);
     }

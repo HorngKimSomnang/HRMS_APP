@@ -47,8 +47,10 @@ class LiveDataVersion
             $affected[] = 'leaves';
         }
 
-        if ($resource === 'users' || $resource === 'profile') {
+        if ($resource === 'users' || $resource === 'profile' || $resource === 'permissions' || $resource === 'roles') {
             $affected[] = 'admins';
+            $affected[] = 'permissions';
+            $affected[] = 'users';
         }
 
         return array_values(array_unique($affected));
@@ -62,6 +64,13 @@ class LiveDataVersion
 
         foreach (self::affectedResources($resource) as $affectedResource) {
             Cache::forever(self::key($affectedResource), $version);
+        }
+
+        // Broadcast instantly to all connected WebSocket clients
+        try {
+            broadcast(new \App\Events\LiveDataChanged(self::normalizeResource($resource)));
+        } catch (\Throwable) {
+            // If Reverb is not running, fail silently — polling still works as fallback
         }
     }
 

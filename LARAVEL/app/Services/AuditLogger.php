@@ -86,7 +86,6 @@ class AuditLogger
     private static function resolveRole(mixed $user): string
     {
         if ($user->hasRole('Super Admin')) return 'Super Admin';
-        if ($user->hasRole('Admin'))       return 'Admin';
         return 'Employee';
     }
 

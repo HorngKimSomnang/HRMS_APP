@@ -1,0 +1,308 @@
+Created At: 2026-08-17T17:56:16+07:00
+Completed At: 2026-08-17T17:56:16+07:00
+File Path: `file:///Users/mac/Downloads/HR_Application-master/REACT/src/pages/employees/EmployeeList.tsx`
+Total Lines: 744
+Total Bytes: 47864
+Showing lines 1 to 300
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import { useEffect, useState } from 'react';
+2: import { useNavigate } from 'react-router-dom';
+3: import { Pencil, UserMinus, Plus, Search, Eye, Archive, KeyRound, RotateCcw, Users, Mail, Shield, Building2, Briefcase, Info, Save } from 'lucide-react';
+4: import { useTranslation } from 'react-i18next';
+5: 
+6: import { useAuth } from '@/context/AuthContext';
+7: import api from '@/services/api';
+8: import { Button } from '@/components/ui/Button';
+9: import { Input } from '@/components/ui/Input';
+10: import {
+11:     Table,
+12:     TableBody,
+13:     TableCell,
+14:     TableHead,
+15:     TableHeader,
+16:     TableRow,
+17: } from '@/components/ui/table';
+18: import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+19: import { PageHeader } from '@/components/ui/PageHeader';
+20: import { useLiveRefresh } from '@/hooks/useLiveRefresh';
+21: import { toast } from 'sonner';
+22: 
+23: 
+24: interface Employee {
+25:     id: number;
+26:     employee_code: string;
+27:     first_name: string;
+28:     last_name: string;
+29:     email?: string;
+30:     phone?: string;
+31:     job_title?: string;
+32:     profile_picture_url?: string;
+33:     user_id?: number;
+34:     status?: string;
+35:     archived_at?: string | null;
+36:     restore_conflict?: boolean;
+37:     conflicting_employee_code?: string | null;
+38:     department?: string;
+39:     department_id?: number;
+40:     managed_departments?: string[];
+41:     all_departments?: string[];
+42:     roles?: any[];
+43:     role?: string;
+44: }
+45: 
+46: export default function EmployeeList() {
+47:     const { t } = useTranslation();
+48:     const { user, hasPermission } = useAuth();
+49:     const navigate = useNavigate();
+50:     const [currentEmployees, setCurrentEmployees] = useState<Employee[]>([]);
+51:     const [archivedEmployees, setArchivedEmployees] = useState<Employee[]>([]);
+52:     const [loading, setLoading] = useState(true);
+53:     const [searchTerm, setSearchTerm] = useState('');
+54:     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+55:     const [resendEmployee, setResendEmployee] = useState<Employee | null>(null);
+56:     const [isResending, setIsResending] = useState(false);
+57:     const [restoreEmployee, setRestoreEmployee] = useState<Employee | null>(null);
+58:     const [isRestoring, setIsRestoring] = useState(false);
+59:     const [viewMode, setViewMode] = useState<'current' | 'archived'>('current');
+60: 
+61:     // Access Modal state (mirrors RoleManagement)
+62:     const [selectedAccessEmployee, setSelectedAccessEmployee] = useState<Employee | null>(null);
+63:     const [accessModalOpen, setAccessModalOpen] = useState(false);
+64:     const [accessLoading, setAccessLoading] = useState(false);
+65:     const [accessRoles, setAccessRoles] = useState<any[]>([]);
+66:     const [accessDepartments, setAccessDepartments] = useState<any[]>([]);
+67:     const [accessFormData, setAccessFormData] = useState({
+68:         role_ids: [] as number[],
+69:         department_id: '' as string | number,
+70:         managed_departments: [] as number[],
+71:     });
+72:     // Track the matching user object from admin/users endpoint
+73:     const [accessUserObj, setAccessUserObj] = useState<any>(null);
+74: 
+75:     useEffect(() => {
+76:         fetchEmployees();
+77:         fetchAccessRoles();
+78:         fetchAccessDepartments();
+79:     }, []);
+80: 
+81:     const fetchAccessRoles = async () => {
+82:         try {
+83:             const res = await api.get('/admin/roles');
+84:             setAccessRoles(res.data);
+85:         } catch { /* silent */ }
+86:     };
+87: 
+88:     const fetchAccessDepartments = async () => {
+89:         try {
+90:             const res = await api.get('/departments');
+91:             const data = Array.isArray(res.data) ? res.data : res.data.data;
+92:             setAccessDepartments(data || []);
+93:         } catch { /* silent */ }
+94:     };
+95: 
+96:     const openAccessModal = async (employee: Employee) => {
+97:         setSelectedAccessEmployee(employee);
+98:         try {
+99:             // Fetch full user detail from admin/users endpoint
+100:             const res = await api.get('/admin/users');
+101:             const userObj = res.data.find((u: any) => u.id === employee.user_id);
+102:             setAccessUserObj(userObj || null);
+103:             if (userObj) {
+104:                 const initialDepts = userObj.managed_departments?.map((d: any) => d.id) || [];
+105:                 const initialRoleIds = userObj.roles?.map((r: any) => r.id) || (userObj.role_id ? [userObj.role_id] : []);
+106:                 setAccessFormData({
+107:                     role_ids: initialRoleIds,
+108:                     department_id: userObj.department_id || userObj.employee?.department_id || '',
+109:                     managed_departments: initialDepts,
+110:                 });
+111:             } else {
+112:                 setAccessFormData({ role_ids: [], department_id: '', managed_departments: [] });
+113:             }
+114:         } catch {
+115:             setAccessUserObj(null);
+116:             setAccessFormData({ role_ids: [], department_id: '', managed_departments: [] });
+117:         }
+118:         setAccessModalOpen(true);
+119:     };
+120: 
+121:     const handleAccessSave = async () => {
+122:         if (!accessUserObj?.employee) return;
+123:         if (accessFormData.role_ids.length === 0) {
+124:             toast.error('At least one role is required.');
+125:             return;
+126:         }
+127:         const targetRoleIsSuperAdmin = accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.is_super_admin);
+128:         const isEmployeeOnly = accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.name === 'Employee') && !accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.name !== 'Employee');
+129:         const payload = {
+130:             role_ids: accessFormData.role_ids,
+131:             department_id: accessFormData.department_id,
+132:             managed_departments: targetRoleIsSuperAdmin ? accessDepartments.map(d => d.id) : (isEmployeeOnly ? [] : accessFormData.managed_departments),
+133:         };
+134:         setAccessLoading(true);
+135:         try {
+136:             await api.post(`/employees/${accessUserObj.employee.id}/permissions/bulk`, payload);
+137:             toast.success('Access updated successfully!');
+138:             setAccessModalOpen(false);
+139:             fetchEmployees();
+140:         } catch (error: any) {
+141:             toast.error(error.response?.data?.message || 'Failed to update access');
+142:         }
+143:         setAccessLoading(false);
+144:     };
+145: 
+146:     const getAccessInitials = (name: string) => {
+147:         if (!name) return 'U';
+148:         const parts = name.trim().split(' ');
+149:         return parts.length >= 2 ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase() : name.slice(0, 2).toUpperCase();
+150:     };
+151: 
+152:     const confirmOffboard = async () => {
+153:         if (!selectedEmployee) return;
+154:         const employee = selectedEmployee;
+155:         const previousCurrent = currentEmployees;
+156:         const previousArchived = archivedEmployees;
+157: 
+158:         setCurrentEmployees(current => current.filter(item => item.id !== employee.id));
+159:         setArchivedEmployees(current => [
+160:             { ...employee, archived_at: new Date().toISOString() },
+161:             ...current,
+162:         ]);
+163:         setSelectedEmployee(null);
+164: 
+165:         try {
+166:             await api.delete(`/employees/${employee.id}`);
+167:             toast.error("Employee deleted");
+168:         } catch (error: any) {
+169:             setCurrentEmployees(previousCurrent);
+170:             setArchivedEmployees(previousArchived);
+171:             console.error("Failed to delete/offboard employee", error);
+172:             const message = error.response?.data?.message || "Failed to offboard employee";
+173:             toast(message);
+174:         }
+175:     };
+176: 
+177:     const confirmRestore = async () => {
+178:         if (!restoreEmployee) return;
+179:         const employee = restoreEmployee;
+180:         const previousCurrent = currentEmployees;
+181:         const previousArchived = archivedEmployees;
+182: 
+183:         setIsRestoring(true);
+184:         setArchivedEmployees(current => current.filter(item => item.id !== employee.id));
+185:         setCurrentEmployees(current => [
+186:             { ...employee, archived_at: null },
+187:             ...current,
+188:         ]);
+189:         setRestoreEmployee(null);
+190: 
+191:         try {
+192:             await api.post(`/employees/${employee.id}/restore`);
+193:             toast.success("Employee record restored successfully");
+194:             toast.warning("Payslips unlocked. Check Payroll for any flagged payslips that were paid while this employee was archived.", { duration: 6000 });
+195:         } catch (error: any) {
+196:             setCurrentEmployees(previousCurrent);
+197:             setArchivedEmployees(previousArchived);
+198:             console.error("Failed to restore employee", error);
+199:             toast.error(error.response?.data?.message || "Failed to restore employee");
+200:         } finally {
+201:             setIsRestoring(false);
+202:         }
+203:     };
+204: 
+205:     const confirmResend = async () => {
+206:         if (!resendEmployee) return;
+207:         setIsResending(true);
+208:         try {
+209:             const res = await api.post(`/employees/${resendEmployee.id}/resend-credentials`);
+210:             toast.success(res.data.message);
+211:             setResendEmployee(null);
+212:         } catch (error: any) {
+213:             console.error("Failed to resend credentials", error);
+214:             const message = error.response?.data?.message || "Failed to resend credentials";
+215:             toast.error(message);
+216:         } finally {
+217:             setIsResending(false);
+218:         }
+219:     };
+220: 
+221:     const fetchEmployees = async (silent = false) => {
+222:         if (!silent) setLoading(true);
+223:         try {
+224:             const [currentResponse, archivedResponse] = await Promise.all([
+225:                 api.get('/employees', { params: { all: true } }),
+226:                 api.get('/employees', {
+227:                     params: { archived: true, all: true },
+228:                 }),
+229:             ]);
+230:             setCurrentEmployees(currentResponse.data.data);
+231:             setArchivedEmployees(archivedResponse.data.data);
+232:         } catch (error) {
+233:             console.error('Failed to fetch employees', error);
+234:             toast.error('Failed to refresh employee records');
+235:         } finally {
+236:             if (!silent) setLoading(false);
+237:         }
+238:     };
+239: 
+240:     useLiveRefresh(() => fetchEmployees(true), { resources: 'employees' });
+241: 
+242:     const isSuperAdmin = user?.roles?.some((r: any) => r?.is_super_admin);
+243: 
+244:     const employees = viewMode === 'current' ? currentEmployees : archivedEmployees;
+245:     const filteredEmployees = employees.filter(emp => {
+246:         return emp.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+247:             emp.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+248:             emp.employee_code.toLowerCase().includes(searchTerm.toLowerCase());
+249:     });
+250: 
+251:     return (
+252:         <div className="space-y-6">
+253:             {/* Sticky Wrapper to hide scrolling content */}
+254:             <div className="sticky top-0 z-40 -mx-6 px-6 py-4 lg:-mx-8 lg:px-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+255:                 <PageHeader
+256:                     className="mb-4"
+257:                     title={t('employees.title')}
+258:                     subtitle={t('employees.subtitle')}
+259:                     gradient="from-blue-600 via-indigo-600 to-violet-600"
+260:                     action={
+261:                         viewMode === 'current' ? (
+262:                             <div className="flex items-center gap-2">
+263:                                 <Button
+264:                                     className={`gap-2 border shadow-sm transition-all ${
+265:                                         selectedAccessEmployee
+266:                                             ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+267:                                             : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+268:                                     }`}
+269:                                     disabled={!selectedAccessEmployee}
+270:                                     onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+271:                                     title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+272:                                 >
+273:                                     <Shield className="h-4 w-4" />
+274:                                     {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+275:                                 </Button>
+276:                                 {hasPermission('employees.create') && (
+277:                                     <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+278:                                         <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+279:                                     </Button>
+280:                                 )}
+281:                             </div>
+282:                         ) : undefined
+283:                     }
+284:                 />
+285:             </div>
+286: 
+287:             <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+288:                 <div className="relative max-w-sm w-full">
+289:                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+290:                     <Input
+291:                         placeholder="Search employees..."
+292:                         value={searchTerm}
+293:                         onChange={(e) => setSearchTerm(e.target.value)}
+294:                         className="pl-8"
+295:                     />
+296:                 </div>
+297:                 <div className="inline-flex w-fit rounded-lg border bg-muted/40 p-1">
+298:                     <button
+299:                         type="button"
+300:                         onClick={() => setViewMode('current')}
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

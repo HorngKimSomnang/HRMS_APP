@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/Input";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Package, Plus, Trash2, Search, UserCheck, Undo2, History, Laptop, Smartphone, Car, Armchair, Wrench, Box } from "lucide-react";
+import { Package, Plus, Trash2, Search, UserCheck, Undo2, History, Laptop, Smartphone, Car, Armchair, Wrench, Box, Eye, Pencil } from "lucide-react";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useAuth } from "@/context/AuthContext";
 
 const statusBadge: Record<string, string> = {
     available: "bg-green-100 text-green-700",
@@ -33,6 +34,7 @@ const emptyAsset = { name: '', code: '', category: 'laptop', serial_no: '', purc
 
 export default function Assets() {
     const { t } = useTranslation();
+    const { hasPermission } = useAuth();
     const [assets, setAssets] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
     const [employees, setEmployees] = useState<any[]>([]);
@@ -45,6 +47,7 @@ export default function Assets() {
     const [assignForm, setAssignForm] = useState<any | null>(null);   // { asset, employee_id, assigned_at, notes }
     const [returnForm, setReturnForm] = useState<any | null>(null);   // { asset, returned_condition, notes }
     const [historyFor, setHistoryFor] = useState<any | null>(null);   // { asset, rows }
+    const [viewAsset, setViewAsset] = useState<any | null>(null);
 
     useEffect(() => {
         api.get('/employees?status=active&all=true')
@@ -163,14 +166,21 @@ export default function Assets() {
 
     return (
         <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-foreground">{t('assets.title', 'Asset Management')}</h1>
-                    <p className="text-sm text-muted-foreground">{t('assets.subtitle', 'Track company property — who holds what, and its condition.')}</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-stone-600 via-neutral-600 to-gray-600 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">{t('assets.title', 'Asset Directory')}</h1>
+                    <p className="text-stone-200 mt-2 text-sm font-medium">{t('assets.subtitle', 'Manage company properties and assignments.')}</p>
                 </div>
-                <Button onClick={() => setAssetForm({ ...emptyAsset })}>
-                    <Plus className="h-4 w-4 mr-1" /> {t('assets.new_asset', 'New Asset')}
-                </Button>
+                <div className="relative z-10">
+                    {hasPermission('assets.create') && (
+                        <Button onClick={() => setAssetForm({ ...emptyAsset })} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm">
+                            <Plus className="mr-2 h-4 w-4" /> {t('assets.new_asset', 'New Asset')}
+                        </Button>
+                    )}
+                </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             {/* Summary strip */}
@@ -219,9 +229,11 @@ export default function Assets() {
                     <div className="p-12 text-center">
                         <Package className="h-10 w-10 text-slate-300 mx-auto mb-3" />
                         <p className="text-sm text-muted-foreground mb-4">{t('assets.empty', 'No assets yet. Register the first company asset.')}</p>
-                        <Button variant="outline" onClick={() => setAssetForm({ ...emptyAsset })}>
-                            <Plus className="h-4 w-4 mr-1" /> {t('assets.new_asset', 'New Asset')}
-                        </Button>
+                        {hasPermission('assets.create') && (
+                            <Button variant="outline" onClick={() => setAssetForm({ ...emptyAsset })}>
+                                <Plus className="h-4 w-4 mr-1" /> {t('assets.new_asset', 'New Asset')}
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -267,24 +279,29 @@ export default function Assets() {
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center justify-end gap-0.5">
                                                     {a.status === 'available' && (
-                                                        <Button variant="ghost" size="sm" className="text-blue-600" title={t('assets.assign', 'Assign')}
+                                                        <Button variant="ghost" size="sm" className="text-blue-600" title={!hasPermission('assets.assign') ? 'No permission' : t('assets.assign', 'Assign')}
+                                                            disabled={!hasPermission('assets.assign')}
                                                             onClick={() => setAssignForm({ asset: a, employee_id: employees[0]?.id ?? '', assigned_at: new Date().toISOString().slice(0, 10), notes: '' })}>
                                                             <UserCheck className="h-4 w-4" />
                                                         </Button>
                                                     )}
                                                     {a.status === 'assigned' && (
-                                                        <Button variant="ghost" size="sm" className="text-orange-500" title={t('assets.return', 'Return')}
+                                                        <Button variant="ghost" size="sm" className="text-orange-500" title={!hasPermission('assets.return') ? 'No permission' : t('assets.return', 'Return')}
+                                                            disabled={!hasPermission('assets.return')}
                                                             onClick={() => setReturnForm({ asset: a, returned_condition: a.condition, notes: '' })}>
                                                             <Undo2 className="h-4 w-4" />
                                                         </Button>
                                                     )}
-                                                    <Button variant="ghost" size="sm" title={t('assets.history', 'History')} onClick={() => openHistory(a)}>
+                                                    <Button variant="ghost" size="sm" disabled={!hasPermission('assets.view')} title={!hasPermission('assets.view') ? 'No permission' : t('assets.history', 'History')} onClick={() => openHistory(a)}>
                                                         <History className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="sm" onClick={() => setAssetForm({ ...a, purchase_date: a.purchase_date?.slice(0, 10) ?? '', purchase_cost: a.purchase_cost ?? '' })}>
-                                                        {t('common.edit', 'Edit')}
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-50" disabled={!hasPermission('assets.view')} title={!hasPermission('assets.view') ? 'No permission' : t('common.view', 'View')} onClick={() => setViewAsset(a)}>
+                                                        <Eye className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="sm" className="text-red-500" onClick={() => deleteAsset(a)}>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50" disabled={!hasPermission('assets.edit')} title={!hasPermission('assets.edit') ? 'No permission' : t('common.edit', 'Edit')} onClick={() => setAssetForm({ ...a, purchase_date: a.purchase_date?.slice(0, 10) ?? '', purchase_cost: a.purchase_cost ?? '' })}>
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" disabled={!hasPermission('assets.delete')} title={!hasPermission('assets.delete') ? 'No permission' : t('common.delete', 'Delete')} onClick={() => deleteAsset(a)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </div>
@@ -468,6 +485,66 @@ export default function Assets() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setHistoryFor(null)}>{t('common.close', 'Close')}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ---------- View Asset Dialog ---------- */}
+            <Dialog open={!!viewAsset} onOpenChange={(open) => !open && setViewAsset(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{t('assets.view_asset', 'View Asset')} — {viewAsset?.name}</DialogTitle>
+                    </DialogHeader>
+                    {viewAsset && (
+                        <div className="space-y-3 py-2">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.name', 'Name')}</Label>
+                                    <p className="font-medium">{viewAsset.name || '—'}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.code', 'Asset code')}</Label>
+                                    <p className="font-medium">{viewAsset.code || '—'}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.category', 'Category')}</Label>
+                                    <p className="font-medium capitalize">{String(t(`assets.cat_${viewAsset.category}`, viewAsset.category)) || '—'}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.serial', 'Serial no.')}</Label>
+                                    <p className="font-medium">{viewAsset.serial_no || '—'}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.purchase_date', 'Purchase date')}</Label>
+                                    <p className="font-medium">{viewAsset.purchase_date ? new Date(viewAsset.purchase_date).toLocaleDateString() : '—'}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.cost', 'Cost')} ($)</Label>
+                                    <p className="font-medium tabular-nums">{money(viewAsset.purchase_cost)}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.condition', 'Condition')}</Label>
+                                    <p className="font-medium capitalize">{String(t(`assets.cond_${viewAsset.condition}`, viewAsset.condition)) || '—'}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase">{t('assets.status', 'Status')}</Label>
+                                    <p className="font-medium capitalize">{String(t(`assets.status_${viewAsset.status}`, viewAsset.status)) || '—'}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <Label className="text-xs text-muted-foreground uppercase">{t('assets.notes', 'Notes')}</Label>
+                                <p className="font-medium whitespace-pre-line">{viewAsset.notes || '—'}</p>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setViewAsset(null)}>{t('common.close', 'Close')}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

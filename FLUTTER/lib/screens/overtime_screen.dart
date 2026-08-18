@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../services/overtime_service.dart';
+import '../services/api_service.dart';
 import '../core/theme.dart';
 import '../l10n/app_localizations.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
@@ -15,23 +18,39 @@ class OvertimeScreen extends StatefulWidget {
   State<OvertimeScreen> createState() => _OvertimeScreenState();
 }
 
-class _OvertimeScreenState extends State<OvertimeScreen> {
+class _OvertimeScreenState extends State<OvertimeScreen> with LiveRefreshMixin<OvertimeScreen> {
   final OvertimeService _overtimeService = OvertimeService();
   List<dynamic> _overtimes = [];
   bool _isLoading = true;
+  bool _isContractPending = false;
+  @override
+  List<String> get watchedResources => ['overtimes'];
+
+  @override
+  void onLiveRefresh(String resource) => _loadOvertimes();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _loadOvertimes();
   }
 
   Future<void> _loadOvertimes() async {
     setState(() => _isLoading = true);
     try {
+      final res = await ApiService.instance.cachedGet('/user');
+      final user = res.data['user'];
+      final contractsList = user?['employee']?['contracts'] as List? ?? [];
+      final hasActiveContract = contractsList.any((c) => c['status'] == 'active');
+      final hasPendingContract = contractsList.any((c) => c['status'] == 'pending');
+
       final overtimes = await _overtimeService.getOvertimes();
       if (mounted) {
         setState(() {
+          _isContractPending = !hasActiveContract && hasPendingContract;
           _overtimes = overtimes;
           _isLoading = false;
         });
@@ -260,6 +279,12 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primary, width: 1.5)),
   );
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -274,8 +299,26 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _overtimes.isEmpty
+          : _isContractPending
               ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.fileClock, size: 64, color: Colors.orange),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Your contract is pending activation by HR. You cannot request overtime at this time.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.notoSansKhmer(fontSize: 16, color: Colors.orange[800], fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _overtimes.isEmpty
+                  ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -345,7 +388,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _isContractPending ? null : FloatingActionButton.extended(
         onPressed: _showRequestDialog,
         backgroundColor: AppTheme.primary,
         icon: const Icon(LucideIcons.plus, color: Colors.white),

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Scopes\ManagementScope;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -31,5 +33,10 @@ class AssetAssignment extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new ManagementScope);
     }
 }

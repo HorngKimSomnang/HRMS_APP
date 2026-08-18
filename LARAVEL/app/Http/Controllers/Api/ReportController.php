@@ -5,8 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
-use App\Models\CustomEntity;
-use App\Models\CustomEntityRecord;
+
 use App\Models\Employee;
 use App\Services\AttendanceReconciliationService;
 use Carbon\Carbon;
@@ -16,19 +15,12 @@ use Illuminate\Validation\ValidationException;
 
 class ReportController extends Controller
 {
-    /** Shared RBAC guard for all report endpoints */
-    private function authorizeAdmin()
-    {
-        if (!Auth::user()->hasAnyRole(['Admin', 'Super Admin'])) {
-            abort(403, 'Unauthorized. Only Admin or Super Admin can access reports.');
-        }
-    }
+
     public function attendanceReport(
         Request $request,
         AttendanceReconciliationService $reconciliation
     )
     {
-        $this->authorizeAdmin();
 
         $request->validate([
             'start_date' => 'required|date',
@@ -47,8 +39,18 @@ class ReportController extends Controller
             $reconciliation->reconcileRange($startDate, $reconciliationEndDate);
         }
 
+        $user = Auth::user();
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+
         $query = Attendance::with(['employee.user'])
                     ->whereBetween('date', [$request->start_date, $request->end_date]);
+
+        // Scope to managed departments unless caller manages zero departments
+        if (!empty($managedDepartmentIds)) {
+            $query->whereHas('employee.user', function ($q) use ($managedDepartmentIds) {
+                $q->whereIn('department_id', $managedDepartmentIds);
+            });
+        }
 
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
@@ -77,7 +79,6 @@ class ReportController extends Controller
     }
     public function leavesReport(Request $request)
     {
-        $this->authorizeAdmin();
 
         $request->validate([
             'start_date' => 'required|date',
@@ -85,11 +86,20 @@ class ReportController extends Controller
             'employee_id' => 'nullable|exists:employees,id'
         ]);
 
+        $user = Auth::user();
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+
         $query = \App\Models\Leave::with(['employee.user'])
                     ->where(function($q) use ($request) {
                         $q->whereBetween('start_date', [$request->start_date, $request->end_date])
                           ->orWhereBetween('end_date', [$request->start_date, $request->end_date]);
                     });
+
+        if (!empty($managedDepartmentIds)) {
+            $query->whereHas('employee.user', function ($q) use ($managedDepartmentIds) {
+                $q->whereIn('department_id', $managedDepartmentIds);
+            });
+        }
 
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
@@ -110,14 +120,23 @@ class ReportController extends Controller
 
     public function employeesReport(Request $request)
     {
-        $this->authorizeAdmin();
 
         $request->validate([
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
         ]);
 
+        $user = Auth::user();
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+
         $query = Employee::with('user');
+
+        // Scope to managed departments
+        if (!empty($managedDepartmentIds)) {
+            $query->whereHas('user', function ($q) use ($managedDepartmentIds) {
+                $q->whereIn('department_id', $managedDepartmentIds);
+            });
+        }
 
         // Removing the date filter so the Employees Report shows ALL employees, 
         // rather than only employees who joined within this specific date range.
@@ -136,7 +155,6 @@ class ReportController extends Controller
 
     public function payrollReport(Request $request)
     {
-        $this->authorizeAdmin();
 
         $request->validate([
             'start_date' => 'nullable|date',
@@ -144,7 +162,16 @@ class ReportController extends Controller
             'employee_id' => 'nullable|exists:employees,id'
         ]);
 
+        $user = Auth::user();
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+
         $query = \App\Models\Payslip::with(['employee.user']);
+
+        if (!empty($managedDepartmentIds)) {
+            $query->whereHas('employee.user', function ($q) use ($managedDepartmentIds) {
+                $q->whereIn('department_id', $managedDepartmentIds);
+            });
+        }
 
         if ($request->start_date && $request->end_date) {
             // Compare created_at since month/year are strings
@@ -168,7 +195,6 @@ class ReportController extends Controller
 
     public function overtimeReport(Request $request)
     {
-        $this->authorizeAdmin();
 
         $request->validate([
             'start_date' => 'required|date',
@@ -176,9 +202,18 @@ class ReportController extends Controller
             'employee_id' => 'nullable|exists:employees,id'
         ]);
 
+        $user = Auth::user();
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+
         $query = \App\Models\Overtime::with(['employee.user'])
                     ->whereBetween('date', [$request->start_date, $request->end_date]);
-        
+
+        if (!empty($managedDepartmentIds)) {
+            $query->whereHas('employee.user', function ($q) use ($managedDepartmentIds) {
+                $q->whereIn('department_id', $managedDepartmentIds);
+            });
+        }
+
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
         }
@@ -195,98 +230,7 @@ class ReportController extends Controller
         ]);
     }
 
-    public function customEntityReport(Request $request)
-    {
-        $this->authorizeAdmin();
 
-        $validated = $request->validate([
-            'entity_slug' => 'required|string|exists:custom_entities,slug',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'employee_id' => 'nullable|exists:employees,id',
-            'field_key' => 'nullable|string|max:100',
-            'field_value' => 'nullable|string|max:500',
-        ]);
-
-        $entity = CustomEntity::where('slug', $validated['entity_slug'])
-            ->with('fields')
-            ->firstOrFail();
-
-        $field = null;
-        if (!empty($validated['field_key'])) {
-            $field = $entity->fields->firstWhere('key', $validated['field_key']);
-            if (!$field) {
-                throw ValidationException::withMessages([
-                    'field_key' => 'The selected filter field does not belong to this custom entity.',
-                ]);
-            }
-        }
-
-        $query = $entity->records()
-            ->with('creator:id,name,email')
-            ->whereBetween('created_at', [
-                Carbon::parse($validated['start_date'])->startOfDay(),
-                Carbon::parse($validated['end_date'])->endOfDay(),
-            ])
-            ->latest();
-
-        if (!empty($validated['employee_id'])) {
-            $employee = Employee::findOrFail($validated['employee_id']);
-            $query->where('created_by', $employee->user_id);
-        }
-
-        $records = $query->get();
-        $filterValue = trim((string) ($validated['field_value'] ?? ''));
-
-        if ($field && $filterValue !== '') {
-            $records = $records
-                ->filter(function (CustomEntityRecord $record) use ($field, $filterValue): bool {
-                    $value = $record->data[$field->key] ?? null;
-
-                    if ($field->type === 'file' && is_array($value)) {
-                        $value = $value['name'] ?? '';
-                    }
-
-                    if ($field->type === 'boolean') {
-                        if ($value === null) {
-                            return false;
-                        }
-
-                        $expected = in_array(
-                            Str::lower($filterValue),
-                            ['1', 'true', 'yes'],
-                            true
-                        );
-
-                        return (bool) $value === $expected;
-                    }
-
-                    if (in_array($field->type, ['number', 'date', 'dropdown'], true)) {
-                        return Str::lower((string) $value) === Str::lower($filterValue);
-                    }
-
-                    return Str::contains(
-                        Str::lower((string) $value),
-                        Str::lower($filterValue)
-                    );
-                })
-                ->values();
-        }
-
-        return response()->json([
-            'summary' => [
-                'total_records' => $records->count(),
-                'entity' => $entity->name,
-            ],
-            'entity' => [
-                'id' => $entity->id,
-                'name' => $entity->name,
-                'slug' => $entity->slug,
-            ],
-            'fields' => $entity->fields,
-            'data' => $records,
-        ]);
-    }
 
     public function attendanceOvertimeReport(Request $request)
     {

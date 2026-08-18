@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/notification_service.dart';
 import '../services/local_notification_service.dart';
+import '../services/websocket_service.dart';
 import '../core/notification_navigation.dart';
 
 import 'package:flutter/services.dart';
@@ -19,6 +20,7 @@ class NotificationProvider with ChangeNotifier {
   String? _lastSeenId;
   bool _lastSeenIdLoaded = false;
   Timer? _pollingTimer;
+  StreamSubscription<String>? _wsSubscription;
   String? _notificationVersion;
   bool _checkingVersion = false;
 
@@ -26,19 +28,29 @@ class NotificationProvider with ChangeNotifier {
   int get unreadCount => _unreadCount;
   bool get loading => _loading;
 
-  /// Start background polling for real-time alerts
+  /// Start background polling and WebSocket listener for real-time alerts
   void startPolling() {
+    // WebSocket (primary) — instant notification on 'notifications' resource change
+    _wsSubscription ??= WebSocketService.instance.liveDataStream.listen((resource) {
+      if (resource == 'notifications') {
+        fetchNotifications(isPolling: true);
+      }
+    });
+
+    // Polling (fallback) — still poll as safety net
     if (_pollingTimer != null && _pollingTimer!.isActive) return;
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _pollForChanges();
     });
     _pollForChanges();
   }
 
-  /// Stop background polling
+  /// Stop background polling and WebSocket listener
   void stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
+    _wsSubscription?.cancel();
+    _wsSubscription = null;
   }
 
   Future<void> _pollForChanges() async {
@@ -54,6 +66,9 @@ class NotificationProvider with ChangeNotifier {
         await fetchNotifications(isPolling: true);
       }
     } catch (e) {
+      if (e.toString().contains('401') || e.toString().contains('Unauthenticated')) {
+        stopPolling();
+      }
       debugPrint('NotificationProvider: version check error: $e');
     } finally {
       _checkingVersion = false;

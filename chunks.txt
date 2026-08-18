@@ -1,0 +1,297 @@
+==============
+multi_replace_file_content
+--- CHUNK ---
+        $validator = Validator::make($request->all(), [
+            'type'       => 'required|in:probation,permanent,fixed_term,part_time,contractor',
+            'salary'     => 'required|numeric',
+            'start_date' => 'required|date',
+            'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'status'     => 'required|in:draft,pending,active,expired,terminated',
+            'notes'      => 'nullable|string',
+            'document'   => 'nullable|file|mimes:pdf,doc,docx|max:10240',
+        ]);
+--- CHUNK ---
+        $contract->update($data);
+
+        return response()->json(['message' => 'Contract updated successfully', 'data' => $contract]);
+    }
+
+    /**
+     * Confirm a pending contract — transitions it to 'active'.
+     * Only Super Admin or a Manager whose managed department matches the employee's department.
+     */
+    public function confirm(Request $request, Contract $contract)
+    {
+        if ($contract->status !== 'pending') {
+            return response()->json(['message' => 'Only pending contracts can be confirmed.'], 422);
+        }
+
+        $actor = $request->user();
+        $isSuperAdmin = $actor?->hasRole('Super Admin');
+
+        if (!$isSuperAdmin) {
+            // Manager must have the employee's department in their managed departments
+            $employee    = $contract->employee()->with('department')->first();
+            $managedIds  = $actor?->managedDepartments()->pluck('departments.id')->toArray() ?? [];
+            if (empty($managedIds) || !in_array($employee?->department_id, $managedIds, true)) {
+                return response()->json(['message' => 'You are not authorized to confirm this contract.'], 403);
+            }
+        }
+
+        $contract->update([
+            'status'       => 'active',
+            'confirmed_by' => $actor?->id,
+            'confirmed_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Contract confirmed and activated.',
+            'data'    => $contract->fresh(),
+        ]);
+    }
+
+    /**
+     * Count of pending contracts the authenticated user can confirm.
+     * Super Admin sees all; Managers see only their department(s).
+     */
+    public function pendingCount(Request $request)
+    {
+        $actor = $request->user();
+        $query = Contract::where('status', 'pending');
+
+        if (!$actor?->hasRole('Super Admin')) {
+            $managedIds = $actor?->managedDepartments()->pluck('departments.id')->toArray() ?? [];
+            if (empty($managedIds)) {
+                return response()->json(['count' => 0]);
+            }
+            $query->whereHas('employee', fn($q) => $q->whereIn('department_id', $managedIds));
+        }
+
+        return response()->json(['count' => $query->count()]);
+    }
+}
+==============
+replace_file_content
+        $validator = Validator::make($request->all(), [
+            'status' => 'sometimes|required|in:draft,pending,active,expired',
+            'notes' => 'nullable|string',
+            'document' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $actor = $request->user();
+        if (!$actor?->hasRole('Super Admin')) {
+            $employee = clone $contract->employee;
+            $managedIds = $actor?->managedDepartments()->pluck('departments.id')->toArray() ?? [];
+            if (empty($managedIds) || !in_array($employee?->department_id, $managedIds, true)) {
+                return response()->json(['message' => 'You are not authorized to edit this contract.'], 403);
+            }
+        }
+==============
+replace_file_content
+        $validator = Validator::make($request->all(), [
+            'status' => 'sometimes|required|in:draft,pending,active,expired',
+            'start_date' => 'sometimes|required|date',
+            'end_date' => 'sometimes|nullable|date|after_or_equal:start_date',
+            'notes' => 'nullable|string',
+            'document' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $actor = $request->user();
+        if (!$actor?->hasRole('Super Admin')) {
+            $employee = clone $contract->employee;
+            $managedIds = $actor?->managedDepartments()->pluck('departments.id')->toArray() ?? [];
+            if (empty($managedIds) || !in_array($employee?->department_id, $managedIds, true)) {
+                return response()->json(['message' => 'You are not authorized to edit this contract.'], 403);
+            }
+        }
+
+        $data = $request->only(['status', 'start_date', 'end_date', 'notes']);
+==============
+write_to_file
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Contract;
+use App\Models\ContractStatusLog;
+use App\Services\PayrollService;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class ContractController extends Controller
+{
+    public function activate(Request $request, Contract $contract)
+    {
+        if ($contract->status !== 'pending') {
+            return response()->json(['message' => 'Contract is not pending.'], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            $now = Carbon::now();
+            
+            $contract->update([
+                'status' => 'active',
+                'start_date' => $now->toDateString(),
+                'end_date' => $now->copy()->addMonth()->toDateString(),
+            ]);
+
+            ContractStatusLog::create([
+                'contract_id' => $contract->id,
+                'employee_id' => $contract->employee_id,
+                'status' => 'active',
+                'changed_at' => $now,
+            ]);
+
+            // Now that the contract is active, generate the initial payslip
+            $payrollService = app(PayrollService::class);
+            $payrollService->generateForEmployee($contract->employee, $now->month, $now->year, true);
+
+            DB::commit();
+            return response()->json(['message' => 'Contract activated successfully.', 'contract' => $contract]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to activate contract: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function destroy(Request $request, Contract $contract)
+    {
+        DB::beginTransaction();
+        try {
+            // Log deletion
+            ContractStatusLog::create([
+                'contract_id' => $contract->id,
+                'employee_id' => $contract->employee_id,
+                'status' => 'deleted',
+                'changed_at' => Carbon::now(),
+            ]);
+
+            // Soft-delete contract
+            $contract->delete();
+
+            // Hard-delete the current draft payslip
+            $contract->employee->payslips()->where('status', 'draft')->forceDelete();
+
+            DB::commit();
+            return response()->json(['message' => 'Contract deleted and auto-operations halted.']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to delete contract: ' . $e->getMessage()], 500);
+        }
+    }
+}
+
+==============
+multi_replace_file_content
+--- CHUNK ---
+use App\Models\Contract;
+use App\Models\Employee;
+use App\Models\ContractStatusLog;
+use App\Services\PayrollService;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+--- CHUNK ---
+        DB::beginTransaction();
+        try {
+            $now = Carbon::now();
+            
+            $contract->update([
+                'status'       => 'active',
+                'start_date'   => $now->toDateString(),
+                'end_date'     => $now->copy()->addMonth()->toDateString(),
+                'confirmed_by' => $actor?->id,
+                'confirmed_at' => $now,
+            ]);
+
+            ContractStatusLog::create([
+                'contract_id' => $contract->id,
+                'employee_id' => $contract->employee_id,
+                'status'      => 'active',
+                'changed_at'  => $now,
+            ]);
+
+            // Generate the initial payslip live-mirroring the new dates
+            $payrollService = app(PayrollService::class);
+            $payrollService->generateForEmployee($contract->employee, $now->month, $now->year, true);
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Contract confirmed and activated.',
+                'data'    => $contract->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to confirm contract: ' . $e->getMessage()], 500);
+        }
+--- CHUNK ---
+        return response()->json(['count' => $query->count()]);
+    }
+
+    /**
+     * Superadmin manual contract deletion.
+     * Soft-deletes the contract, hard-deletes the current draft payslip, and stops auto-operations.
+     */
+    public function destroy(Request $request, Contract $contract)
+    {
+        $actor = $request->user();
+        if (!$actor?->hasRole('Super Admin')) {
+            return response()->json(['message' => 'Only Super Admin can delete contracts.'], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Log deletion
+            ContractStatusLog::create([
+                'contract_id' => $contract->id,
+                'employee_id' => $contract->employee_id,
+                'status'      => 'deleted',
+                'changed_at'  => Carbon::now(),
+            ]);
+
+            // Soft-delete contract
+            $contract->delete();
+
+            // Hard-delete the current draft payslip
+            $contract->employee->payslips()->where('status', 'draft')->forceDelete();
+
+            DB::commit();
+            return response()->json(['message' => 'Contract deleted and auto-operations halted.']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to delete contract: ' . $e->getMessage()], 500);
+        }
+    }
+}
+==============
+multi_replace_file_content
+--- CHUNK ---
+            // Generate the initial payslip live-mirroring the new dates
+            $payrollService = app(PayrollService::class);
+            $payrollService->generateForEmployee($contract->employee, $now->month, $now->year, true);
+
+            \App\Services\LiveDataVersion::bump('lifecycle');
+            \App\Services\LiveDataVersion::bump('payslips');
+
+            DB::commit();
+--- CHUNK ---
+            // Hard-delete the current draft payslip
+            $contract->employee->payslips()->where('status', 'draft')->forceDelete();
+
+            \App\Services\LiveDataVersion::bump('lifecycle');
+            \App\Services\LiveDataVersion::bump('payslips');
+
+            DB::commit();

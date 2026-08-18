@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/Label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import api from '@/services/api';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
@@ -22,6 +22,7 @@ export default function Shifts() {
     const [shifts, setShifts] = useState<Shift[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [viewShift, setViewShift] = useState<Shift | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     
     const [formData, setFormData] = useState({
@@ -123,9 +124,17 @@ export default function Shifts() {
 
     return (
         <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Shift & Schedule Management</h1>
-                <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" /> Add Shift</Button>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">Shift & Schedule Management</h1>
+                    <p className="text-cyan-100 mt-2 text-sm font-medium">Configure and manage employee work shifts and timing rules.</p>
+                </div>
+                <div className="relative z-10">
+                    <Button onClick={openCreate} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm"><Plus className="w-4 h-4 mr-2" /> Add Shift</Button>
+                </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             <div className="bg-gradient-to-br from-amber-50/50 via-card to-card text-card-foreground rounded-xl border border-amber-100 shadow-sm flex flex-col">
@@ -154,6 +163,9 @@ export default function Shifts() {
                                         <TableCell>{shift.work_days ? shift.work_days.map(d => d.substring(0, 3)).join(', ') : 'Mon, Tue, Wed, Thu, Fri, Sat'}</TableCell>
                                         <TableCell>{shift.grace_period_minutes}</TableCell>
                                         <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => setViewShift(shift)}>
+                                                <Eye className="w-4 h-4 text-slate-500" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" onClick={() => openEdit(shift)}>
                                                 <Edit className="w-4 h-4 text-blue-500" />
                                             </Button>
@@ -225,6 +237,40 @@ export default function Shifts() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
                         <Button onClick={handleSubmit}>Save Shift</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* View Modal */}
+            <Dialog open={!!viewShift} onOpenChange={(open) => !open && setViewShift(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Shift Details</DialogTitle>
+                    </DialogHeader>
+                    {viewShift && (
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                                <div className="font-semibold text-muted-foreground">Shift Name:</div>
+                                <div className="col-span-2">{viewShift.name}</div>
+                                
+                                <div className="font-semibold text-muted-foreground">Start Time:</div>
+                                <div className="col-span-2">{viewShift.start_time}</div>
+                                
+                                <div className="font-semibold text-muted-foreground">End Time:</div>
+                                <div className="col-span-2">{viewShift.end_time}</div>
+                                
+                                <div className="font-semibold text-muted-foreground">Grace Period:</div>
+                                <div className="col-span-2">{viewShift.grace_period_minutes} minutes</div>
+                                
+                                <div className="font-semibold text-muted-foreground">Working Days:</div>
+                                <div className="col-span-2">
+                                    {viewShift.work_days ? viewShift.work_days.join(', ') : 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday'}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setViewShift(null)}>Close</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

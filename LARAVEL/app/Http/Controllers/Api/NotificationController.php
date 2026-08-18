@@ -56,5 +56,54 @@ class NotificationController extends Controller
         $request->user()->notifications()->delete();
         return $this->successResponse(null, 'All notifications cleared');
     }
+
+    public function send(Request $request)
+    {
+        $request->validate([
+            'target_user_id' => 'required|exists:users,id',
+            'title' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+        $targetUser = \App\Models\User::findOrFail($request->target_user_id);
+        
+        $expectedTitle = "Incident Report: {$request->title}";
+        $expectedMessage = "{$request->user()->name} reported: {$request->message}";
+
+        $exists = \Illuminate\Support\Facades\DB::table('notifications')
+            ->where('notifiable_id', $targetUser->id)
+            ->where('type', 'App\Notifications\IncidentReportedNotification')
+            ->where('data->title', $expectedTitle)
+            ->where('data->message', $expectedMessage)
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'You have already submitted an identical report to this user.'], 422);
+        }
+        
+        $targetUser->notify(new \App\Notifications\IncidentReportedNotification(
+            $request->title,
+            $request->message,
+            $request->user()->name
+        ));
+
+        if ($targetUser->hasRole('Super Admin')) {
+            \App\Models\Announcement::create([
+                'type' => 'Report',
+                'title' => $request->title,
+                'content' => "Reported by: " . $request->user()->name . "\n\n" . $request->message,
+                'start_date' => now(),
+                'end_date' => now()->addDays(3),
+                'is_published' => true,
+                'created_by' => $request->user()->id,
+            ]);
+            // Bump the announcements resource
+            try {
+                \App\Services\LiveDataVersion::bump('announcements');
+            } catch (\Throwable $e) {}
+        }
+
+        return $this->successResponse(null, 'Notification sent successfully');
+    }
 }
 

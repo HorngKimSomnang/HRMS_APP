@@ -38,6 +38,10 @@ class ForgotPasswordController extends Controller
             ]
         );
 
+        if (config('app.env') === 'local') {
+            Log::info("LOCAL DEV - OTP for {$request->email}: {$otp}");
+        }
+
         // Send OTP via Email
         try {
             Mail::to($request->email)->send(new OtpMail($otp));

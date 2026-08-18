@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Support\HrCatalog;
 use Illuminate\Validation\Rule;
+use App\Models\Employee;
 
 class ShiftController extends Controller
 {
@@ -90,6 +91,10 @@ class ShiftController extends Controller
 
     public function destroy(int|string $id)
     {
+        if (Employee::where('shift_id', $id)->exists()) {
+            return response()->json(['message' => "Cannot delete this shift because it is currently assigned to employees."], 400);
+        }
+
         $shifts = array_values(array_filter(
             HrCatalog::getShifts(),
             fn ($shift) => (int) ($shift['id'] ?? 0) !== (int) $id

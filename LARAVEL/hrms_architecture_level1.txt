@@ -1,0 +1,57 @@
+// ————— External Entities —————
+super_admin [shape: rectangle, icon: shield, color: blue, label: "Super Admin (Client Browser)"]
+employee [shape: rectangle, icon: user, color: green, label: "Employee (Mobile / Web Browser)"]
+
+// ————— React Frontend Components —————
+subgraph React_Frontend [label: "React Client App", color: orange] {
+  ui_auth [shape: rectangle, label: "Login / Session Page"]
+  ui_dept [shape: rectangle, label: "Departments Page (Departments.tsx)"]
+  ui_employee [shape: rectangle, label: "Employees Page"]
+  ui_attendance [shape: rectangle, label: "Attendance Page"]
+}
+
+// ————— Laravel API Controllers —————
+subgraph Laravel_Backend [label: "Laravel API (Controllers & Middlewares)", color: purple] {
+  api_auth [shape: oval, label: "AuthController"]
+  api_dept [shape: oval, label: "DepartmentController"]
+  api_employee [shape: oval, label: "EmployeeController"]
+  api_attendance [shape: oval, label: "AttendanceController"]
+}
+
+// ————— PostgreSQL Database —————
+subgraph Postgres_DB [label: "PostgreSQL Database Tables", color: gray] {
+  db_users [shape: cylinder, label: "users & roles tables"]
+  db_depts [shape: cylinder, label: "departments & department_manager tables"]
+  db_employees [shape: cylinder, label: "employees & contracts tables"]
+  db_attendances [shape: cylinder, label: "attendances table"]
+}
+
+// ————— Dataflows —————
+
+// 1. Authentication Flow
+super_admin > ui_auth [label: "Enter Credentials", color: blue]
+employee > ui_auth [label: "Enter Credentials", color: green]
+ui_auth > api_auth [label: "POST /api/login (credentials JSON)", color: orange]
+api_auth > db_users [label: "Verify email & password hash", color: purple]
+db_users > api_auth [label: "User info & Role record", color: purple]
+api_auth > ui_auth [label: "Response: 200 OK + Sanctum Token", color: orange]
+
+// 2. Department Management Flow (Active View)
+super_admin > ui_dept [label: "View / Edit Departments", color: blue]
+ui_dept > api_dept [label: "GET /api/departments (fetch list)", color: orange]
+api_dept > db_depts [label: "Query departments with managers", color: purple]
+db_depts > api_dept [label: "Department data rows", color: purple]
+api_dept > ui_dept [label: "Response: Department List JSON", color: orange]
+
+// Fetch employees within department modal (Departments.tsx lines 116-129)
+ui_dept > api_employee [label: "GET /api/employees?department_id={id}&all=true", color: orange]
+api_employee > db_employees [label: "Query employees by department_id", color: purple]
+db_employees > api_employee [label: "Employee list data", color: purple]
+api_employee > ui_dept [label: "Response: Employee List JSON", color: orange]
+
+// 3. Attendance Logging Flow
+employee > ui_attendance [label: "Clock In/Out Button click", color: green]
+ui_attendance > api_attendance [label: "POST /api/attendances (GPS Coordinates & Time)", color: orange]
+api_attendance > db_attendances [label: "Insert attendance row", color: purple]
+db_attendances > api_attendance [label: "Write Confirmation", color: purple]
+api_attendance > ui_attendance [label: "Response: 201 Created Status", color: orange]

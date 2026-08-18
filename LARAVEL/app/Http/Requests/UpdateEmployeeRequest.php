@@ -35,7 +35,7 @@ class UpdateEmployeeRequest extends FormRequest
             'last_name' => 'sometimes|required|string',
             'email' => 'sometimes|required|email', // Unique check is complex here due to user relation, handled in controller or custom rule if strict
             'employee_code' => 'sometimes|required', // Unique check likewise
-            'job_title' => 'sometimes|string',
+            'role' => 'sometimes|string',
             'department' => 'nullable|string',
             'joining_date' => 'sometimes|required|date',
             'salary' => 'nullable|numeric',
@@ -45,6 +45,7 @@ class UpdateEmployeeRequest extends FormRequest
             'dob' => 'nullable|date',
             'profile_picture' => 'nullable|image|max:10240',
             'shift_id' => 'nullable|integer|min:1',
+            'manager_id' => 'nullable|exists:employees,id',
             // Admin resetting an employee's password — was previously read straight off
             // the request in the controller with zero validation of any kind.
             'password' => ['nullable', 'string', PasswordPolicy::rule()],

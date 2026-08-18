@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Scopes\ManagementScope;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -30,5 +32,10 @@ class Task extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new ManagementScope);
     }
 }

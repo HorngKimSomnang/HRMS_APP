@@ -42,7 +42,7 @@ class AttendanceService {
     }
   }
 
-  Future<void> undoClockOut() async {
+  Future<void> undoClockOut({bool forceRefresh = false}) async {
     try {
       await _apiService.client.post('/attendance/undo-clock-out');
     } on DioException catch (e) {
@@ -60,9 +60,9 @@ class AttendanceService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchToday() async {
+  Future<Map<String, dynamic>?> fetchToday({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/attendance/today');
+      final response = await ApiService.instance.cachedGet('/attendance/today', forceRefresh: forceRefresh);
       final data = response.data;
       if (data is Map && data['data'] != null) return Map<String, dynamic>.from(data['data']);
       return null;
@@ -71,9 +71,9 @@ class AttendanceService {
     }
   }
 
-  Future<List<dynamic>> fetchAttendanceHistory() async {
+  Future<List<dynamic>> fetchAttendanceHistory({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/attendance/history');
+      final response = await ApiService.instance.cachedGet('/attendance/history', forceRefresh: forceRefresh);
       final data = response.data;
       if (data is Map && data['data'] is List) return data['data'];
       if (data is List) return data;

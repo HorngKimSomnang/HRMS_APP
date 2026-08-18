@@ -20,6 +20,9 @@ class AttendanceTest extends TestCase
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
+        Setting::updateOrCreate(['key' => 'office_latitude'], ['value' => '13.7563']);
+        Setting::updateOrCreate(['key' => 'office_longitude'], ['value' => '100.5018']);
+        Setting::updateOrCreate(['key' => 'attendance_allowed_radius'], ['value' => '1000']);
     }
 
     protected function tearDown(): void
@@ -73,7 +76,7 @@ class AttendanceTest extends TestCase
 
         $response = $this->actingAs($user, 'sanctum')
                          ->postJson('/api/attendance/clock-in', [
-                             'latitude' => 13.8000,
+                             'latitude' => 13.7563,
                              'longitude' => 100.5018,
                          ]);
 

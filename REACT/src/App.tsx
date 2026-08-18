@@ -9,7 +9,11 @@ import ViewEmployee from '@/pages/employees/ViewEmployee';
 import AdminList from '@/pages/admin/AdminList';
 import CreateAdmin from '@/pages/admin/CreateAdmin';
 import EditAdmin from '@/pages/admin/EditAdmin';
+import RolesList from '@/pages/admin/RolesList';
+import RoleManagement from '@/pages/admin/RoleManagement';
+
 import AttendanceList from '@/pages/attendance/AttendanceList';
+import Departments from '@/pages/departments/Departments';
 
 import LeaveList from '@/pages/leaves/LeaveList';
 import DocumentList from '@/pages/documents/DocumentList';
@@ -25,8 +29,6 @@ import OvertimeList from '@/pages/overtime/OvertimeList';
 import AuditLogs from '@/pages/audit/AuditLogs';
 import Lifecycle from '@/pages/lifecycle/Lifecycle';
 import Assets from '@/pages/assets/Assets';
-import EntityList from '@/pages/entities/EntityList';
-import EntityRecords from '@/pages/entities/EntityRecords';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 
@@ -43,19 +45,20 @@ function SuperAdminRoute() {
 
   if (loading) return <div>Loading...</div>;
 
-  const isSuperAdmin = user?.roles?.some((r: any) => r?.name === 'Super Admin');
+  const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin');
 
   return isSuperAdmin ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
 
-function AdminRoute() {
-  const { user, loading } = useAuth();
+function PermissionRoute({ permission }: { permission: string }) {
+  const { user, loading, hasPermission } = useAuth();
 
   if (loading) return <div>Loading...</div>;
 
-  const isAdminOrSuper = user?.roles?.some((r: any) => r?.name === 'Super Admin' || r?.name === 'Admin');
+  const isSuperAdmin = user?.roles?.some((r: any) => r?.name === 'Super Admin');
+  const allowed = isSuperAdmin || hasPermission(permission);
 
-  return isAdminOrSuper ? <Outlet /> : <Navigate to="/dashboard" replace />;
+  return allowed ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
 
 function PublicRoute() {
@@ -86,28 +89,45 @@ function App() {
             <Route path="/documents" element={<DocumentList />} />
             <Route path="/holidays" element={<HolidayList />} />
 
-            {/* Admin & Super Admin Access */}
-            <Route element={<AdminRoute />}>
+            {/* Permission-Based Operations */}
+            <Route element={<PermissionRoute permission="employees.view" />}>
               <Route path="/employees" element={<EmployeeList />} />
-              <Route path="/employees/create" element={<CreateEmployee />} />
-              <Route path="/employees/edit/:id" element={<EditEmployee />} />
               <Route path="/employees/:id" element={<ViewEmployee />} />
-              
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/notices" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/payroll" element={<PayrollAdmin />} />
-              <Route path="/overtime" element={<OvertimeList />} />
-              <Route path="/lifecycle" element={<Lifecycle />} />
-              <Route path="/assets" element={<Assets />} />
-              <Route path="/entities" element={<EntityList />} />
-              <Route path="/entities/:slug" element={<EntityRecords />} />
             </Route>
+            <Route element={<PermissionRoute permission="employees.create" />}>
+              <Route path="/employees/create" element={<CreateEmployee />} />
+            </Route>
+            <Route element={<PermissionRoute permission="employees.edit" />}>
+              <Route path="/employees/edit/:id" element={<EditEmployee />} />
+            </Route>
+            <Route element={<PermissionRoute permission="departments.view" />}>
+              <Route path="/departments" element={<Departments />} />
+            </Route>
+            <Route element={<PermissionRoute permission="reports.view" />}>
+              <Route path="/reports" element={<Reports />} />
+            </Route>
+            <Route element={<PermissionRoute permission="payroll.view" />}>
+              <Route path="/payroll" element={<PayrollAdmin />} />
+            </Route>
+            <Route element={<PermissionRoute permission="overtime.view" />}>
+              <Route path="/overtime" element={<OvertimeList />} />
+            </Route>
+            <Route element={<PermissionRoute permission="contracts.view" />}>
+              <Route path="/lifecycle" element={<Lifecycle />} />
+            </Route>
+            <Route element={<PermissionRoute permission="assets.view" />}>
+              <Route path="/assets" element={<Assets />} />
+            </Route>
+            <Route path="/notices" element={<Navigate to="/dashboard" replace />} />
 
             {/* Super Admin Only Access */}
             <Route element={<SuperAdminRoute />}>
               <Route path="/admins" element={<AdminList />} />
               <Route path="/admins/create" element={<CreateAdmin />} />
               <Route path="/admins/edit/:id" element={<EditAdmin />} />
+              <Route path="/roles" element={<RolesList />} />
+              <Route path="/roles/manage" element={<RoleManagement />} />
+
 
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/shifts" element={<Shifts />} />

@@ -34,13 +34,13 @@ class EmployeeService {
     // For now, I will write this service assuming I'll fix the backend.
     
     await _apiService.client.post(
-       '/employees/$employeeId?_method=PUT', 
+       '/profile/update?_method=PUT', 
        data: formData
     );
   }
 
-  Future<List<dynamic>> fetchHolidays() async {
-    final response = await _apiService.client.get('/holidays');
+  Future<List<dynamic>> fetchHolidays({bool forceRefresh = false}) async {
+    final response = await ApiService.instance.cachedGet('/holidays', forceRefresh: forceRefresh);
     return response.data;
   }
 }

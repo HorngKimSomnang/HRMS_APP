@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { Trash2, Plus, Calendar, PartyPopper, Pencil } from "lucide-react";
+import { Trash2, Plus, Calendar, PartyPopper, Pencil, Eye } from "lucide-react";
 import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
@@ -25,13 +25,14 @@ interface Holiday {
 }
 
 export default function HolidayList() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const isAdminOrSuper = user?.roles?.some((r: any) => r.name === 'Super Admin' || r.name === 'Admin') ?? false;
     const [holidays, setHolidays] = useState<Holiday[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [viewHoliday, setViewHoliday] = useState<Holiday | null>(null);
 
     // Form State
     const [newName, setNewName] = useState('');
@@ -171,21 +172,26 @@ export default function HolidayList() {
 
     return (
         <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Holidays & Announcements</h1>
-                    <p className="text-muted-foreground mt-1">Manage public holidays and company events.</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-500 via-rose-500 to-pink-500 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">Holidays & Announcements</h1>
+                    <p className="text-red-100 mt-2 text-sm font-medium">Manage public holidays and company events.</p>
                 </div>
-                {isAdminOrSuper && (
-                    <Button onClick={openCreate}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Holiday
-                    </Button>
-                )}
-                {!isAdminOrSuper && (
-                    <span className="text-xs text-muted-foreground bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg">
-                        🔒 Holiday management is restricted to Admin & Super Admin
-                    </span>
-                )}
+                <div className="relative z-10">
+                    {hasPermission('holidays.create') && (
+                        <Button onClick={openCreate} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm">
+                            <Plus className="mr-2 h-4 w-4" /> Add Holiday
+                        </Button>
+                    )}
+                    {!hasPermission('holidays.create') && (
+                        <span className="text-xs text-white/80 bg-black/20 border border-white/20 px-3 py-2 rounded-lg backdrop-blur-sm inline-block">
+                            🔒 Holiday creation is restricted to authorized roles
+                        </span>
+                    )}
+                </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             {/* Highlight Card for Next Holiday */}
@@ -225,7 +231,7 @@ export default function HolidayList() {
                             <TableHead className="pl-6">Date</TableHead>
                             <TableHead>Holiday Name</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead className="text-right pr-6">Actions</TableHead>
+                            <TableHead className="text-center">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -258,17 +264,18 @@ export default function HolidayList() {
                                             {holiday.type}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right pr-6">
-                                        {isAdminOrSuper && (
-                                            <>
-                                                <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-blue-600 hover:bg-blue-50" onClick={() => openEdit(holiday)}>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteId(holiday.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </>
-                                        )}
+                                    <TableCell className="text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-100" onClick={() => setViewHoliday(holiday)} disabled={!hasPermission('holidays.view')} title={!hasPermission('holidays.view') ? 'No permission' : 'View Details'}>
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEdit(holiday)} disabled={!hasPermission('holidays.edit')} title={!hasPermission('holidays.edit') ? 'No permission' : 'Edit'}>
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteId(holiday.id)} disabled={!hasPermission('holidays.delete')} title={!hasPermission('holidays.delete') ? 'No permission' : 'Delete'}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -331,6 +338,50 @@ export default function HolidayList() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
                         <Button variant="destructive" onClick={confirmDelete}>Delete Holiday</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* View Details Modal */}
+            <Dialog open={!!viewHoliday} onOpenChange={(open) => !open && setViewHoliday(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Holiday Details</DialogTitle>
+                    </DialogHeader>
+                    {viewHoliday && (
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-3 gap-2">
+                                <span className="font-semibold text-sm text-gray-500">Name:</span>
+                                <span className="col-span-2 text-sm text-gray-900">{viewHoliday.name}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <span className="font-semibold text-sm text-gray-500">Start Date:</span>
+                                <span className="col-span-2 text-sm text-gray-900">{new Date(viewHoliday.start_date).toLocaleDateString()}</span>
+                            </div>
+                            {viewHoliday.end_date && (
+                                <div className="grid grid-cols-3 gap-2">
+                                    <span className="font-semibold text-sm text-gray-500">End Date:</span>
+                                    <span className="col-span-2 text-sm text-gray-900">{new Date(viewHoliday.end_date).toLocaleDateString()}</span>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-3 gap-2">
+                                <span className="font-semibold text-sm text-gray-500">Type:</span>
+                                <span className="col-span-2">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide border inline-block ${viewHoliday.type === 'public' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
+                                        {viewHoliday.type}
+                                    </span>
+                                </span>
+                            </div>
+                            {viewHoliday.description && viewHoliday.description !== viewHoliday.name && (
+                                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-100">
+                                    <span className="font-semibold text-sm text-gray-500">Description:</span>
+                                    <span className="col-span-2 text-sm text-gray-700 whitespace-pre-wrap">{viewHoliday.description}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setViewHoliday(null)}>Close</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -33,7 +33,7 @@ class DashboardTest extends TestCase
 
         $response->assertStatus(200)
                  ->assertJsonPath('role', 'superadmin')
-                 ->assertJsonPath('stats.total_employees', 2);
+                 ->assertJsonPath('stats.total_employees', 3);
     }
 
     public function test_employee_dashboard_stats()

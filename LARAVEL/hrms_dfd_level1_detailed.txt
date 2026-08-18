@@ -1,0 +1,40 @@
+// ————— External Entities —————
+user [shape: rectangle, icon: user, color: green, label: "Employee / User"]
+super_admin [shape: rectangle, icon: shield, color: blue, label: "Super Admin"]
+
+// ————— Process Bubbles —————
+p1_login [shape: oval, color: purple, label: "1.1 Validate Credentials"]
+p2_attendance [shape: oval, color: purple, label: "2.1 Verify Location & Save Clock-in"]
+p3_apply_leave [shape: oval, color: purple, label: "3.1 Process Leave Application"]
+p4_approve_leave [shape: oval, color: purple, label: "3.2 Review & Decide Leave"]
+
+// ————— Data Stores (Databases) —————
+ds_users [shape: cylinder, color: gray, label: "D1: Users & Roles Database"]
+ds_attendances [shape: cylinder, color: gray, label: "D2: Attendances Database"]
+ds_leaves [shape: cylinder, color: gray, label: "D3: Leaves Database"]
+
+// ————— Dataflows —————
+
+// 1.0 Login Process Detail
+user > p1_login [label: "1. Input Email & Password", color: green]
+p1_login > ds_users [label: "2. Search for User Account & Retrieve Hash", color: purple]
+ds_users > p1_login [label: "3. Return User Record / Password Hash", color: purple]
+p1_login > user [label: "4. Output Access Token or Validation Error", color: green]
+
+// 2.0 Attendance Process Detail
+user > p2_attendance [label: "1. Submit GPS Coordinates & Timestamp", color: green]
+p2_attendance > ds_attendances [label: "2. Write Clock-in Record (date, time, late flag)", color: purple]
+ds_attendances > p2_attendance [label: "3. Confirm Write Status", color: purple]
+p2_attendance > user [label: "4. Output Confirmation Status (Late / On-time)", color: green]
+
+// 3.0 Apply Leave Detail
+user > p3_apply_leave [label: "1. Submit Leave Type, Dates & Reason", color: green]
+p3_apply_leave > ds_leaves [label: "2. Insert Pending Leave Application", color: purple]
+ds_leaves > p3_apply_leave [label: "3. Confirm Insertion", color: purple]
+p3_apply_leave > user [label: "4. Output Application Status (Pending Approval)", color: green]
+
+// 4.0 Leave Approval Detail
+super_admin > p4_approve_leave [label: "1. Submit Approve/Reject Decision", color: blue]
+p4_approve_leave > ds_leaves [label: "2. Update Leave Record Status", color: purple]
+ds_leaves > p4_approve_leave [label: "3. Confirm Status Updated", color: purple]
+p4_approve_leave > user [label: "4. Output Notification of Decision", color: green]

@@ -1,0 +1,364 @@
+offboardings {
+  id int [pk]
+  employee_id int
+  resignation_date datetime
+  last_working_day datetime
+  reason string
+  status string
+  checklist json
+  settlement_notes string
+  completed_at datetime
+  created_by int
+  created_at datetime
+  updated_at datetime
+}
+
+employee_events {
+  id int [pk]
+  employee_id int
+  type string
+  old_value string
+  new_value string
+  effective_date datetime
+  notes string
+  created_by int
+  created_at datetime
+  updated_at datetime
+}
+
+employees {
+  id int [pk]
+  user_id int
+  employee_code string
+  first_name string
+  last_name string
+  job_title string
+  phone string
+  gender string
+  dob datetime
+  joining_date datetime
+  address string
+  profile_picture string
+  status string
+  shift_id int
+  documents json
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+  manager_id int
+}
+
+attendances {
+  id int [pk]
+  employee_id int
+  date datetime
+  clock_in datetime
+  clock_out datetime
+  latitude string
+  longitude string
+  address string
+  location_accuracy string
+  status string
+  late_reason string
+  early_out_reason string
+  is_late bool
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+}
+
+users {
+  id int [pk]
+  name string
+  email string
+  email_verified_at datetime
+  password string
+  remember_token string
+  password_changed_at datetime
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+  role_id int
+  department_id int
+}
+
+leaves {
+  id int [pk]
+  employee_id int
+  leave_type string
+  start_date datetime
+  end_date datetime
+  days_count int
+  reason string
+  status string
+  approved_by int
+  rejection_reason string
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+}
+
+notifications {
+  id string [pk]
+  type string
+  notifiable_type string
+  notifiable_id int
+  data string
+  read_at datetime
+  created_at datetime
+  updated_at datetime
+}
+
+overtimes {
+  id int [pk]
+  employee_id int
+  date datetime
+  start_time string
+  end_time string
+  hours decimal
+  reason string
+  status string
+  approved_by int
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+  origin string
+}
+
+tasks {
+  id int [pk]
+  title string
+  description string
+  assigned_to int
+  assigned_by int
+  status string
+  priority string
+  due_date datetime
+  attachment_path string
+  submission_path string
+  submission_note string
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+}
+
+settings {
+  id int [pk]
+  key string
+  value string
+  type string
+  group string
+  created_at datetime
+  updated_at datetime
+}
+
+announcements {
+  id int [pk]
+  type string
+  title string
+  content string
+  start_date datetime
+  end_date datetime
+  is_published bool
+  created_by int
+  created_at datetime
+  updated_at datetime
+}
+
+audit_logs {
+  id int [pk]
+  user_id int
+  role string
+  action string
+  model_type string
+  model_id int
+  context json
+  ip_address string
+  created_at datetime
+  updated_at datetime
+}
+
+payslips {
+  id int [pk]
+  employee_id int
+  month string
+  year string
+  basic_salary decimal
+  overtime_amount decimal
+  commission decimal
+  attendance_bonus decimal
+  allowances decimal
+  advance_deduction decimal
+  unpaid_leave_deduction decimal
+  deductions decimal
+  net_salary decimal
+  status string
+  notes string
+  pdf_path string
+  requires_signature bool
+  is_signed bool
+  signed_at datetime
+  signed_document_path string
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+  period_start datetime
+  period_end datetime
+}
+
+assets {
+  id int [pk]
+  name string
+  code string
+  category string
+  serial_no string
+  purchase_date datetime
+  purchase_cost decimal
+  status string
+  condition string
+  notes string
+  deleted_at datetime
+  created_at datetime
+  updated_at datetime
+}
+
+asset_assignments {
+  id int [pk]
+  asset_id int
+  employee_id int
+  assigned_at datetime
+  returned_at datetime
+  returned_condition string
+  notes string
+  created_at datetime
+  updated_at datetime
+  assigned_condition string
+}
+
+departments {
+  id int [pk]
+  name string
+  description string
+  created_at datetime
+  updated_at datetime
+}
+
+department_manager {
+  id int [pk]
+  department_id int
+  user_id int
+  created_at datetime
+  updated_at datetime
+}
+
+features {
+  id int [pk]
+  key string
+  label string
+  created_at datetime
+  updated_at datetime
+}
+
+contracts {
+  id int [pk]
+  employee_id int
+  type string
+  salary decimal
+  start_date datetime
+  end_date datetime
+  status string
+  document_path string
+  notes string
+  created_by int
+  created_at datetime
+  updated_at datetime
+  deleted_at datetime
+  position string
+  confirmed_by int
+  confirmed_at datetime
+}
+
+contract_status_logs {
+  id int [pk]
+  contract_id int
+  employee_id int
+  status string
+  changed_at datetime
+  created_at datetime
+  updated_at datetime
+}
+
+leave_bonus_payouts {
+  id int [pk]
+  employee_id int
+  leave_year_start datetime
+  paid_at datetime
+  amount decimal
+  created_at datetime
+  updated_at datetime
+}
+
+payroll_adjustments {
+  id int [pk]
+  employee_id int
+  adjustment_date datetime
+  type string
+  amount decimal
+  source_event_id string
+  created_at datetime
+  updated_at datetime
+}
+
+role_has_permissions {
+  role_id int
+  permission_id int
+}
+
+permissions {
+  id int [pk]
+  feature string
+  action string
+  created_at datetime
+  updated_at datetime
+}
+
+roles {
+  id int [pk]
+  name string
+  is_system bool
+  created_at datetime
+  updated_at datetime
+  is_super_admin bool
+}
+
+users.id < employees.user_id
+employees.id < attendances.employee_id
+employees.id < leaves.employee_id
+users.id < leaves.approved_by
+employees.id < tasks.assigned_to
+users.id < tasks.assigned_by
+employees.id < payslips.employee_id
+users.id < announcements.created_by
+users.id < contracts.confirmed_by
+employees.id < overtimes.employee_id
+users.id < overtimes.approved_by
+users.id < audit_logs.user_id
+employees.id < employee_events.employee_id
+users.id < employee_events.created_by
+employees.id < offboardings.employee_id
+users.id < offboardings.created_by
+assets.id < asset_assignments.asset_id
+employees.id < asset_assignments.employee_id
+employees.id < employees.manager_id
+employees.id < contracts.employee_id
+users.id < contracts.created_by
+departments.id < department_manager.department_id
+users.id < department_manager.user_id
+contracts.id < contract_status_logs.contract_id
+employees.id < contract_status_logs.employee_id
+employees.id < leave_bonus_payouts.employee_id
+employees.id < payroll_adjustments.employee_id
+roles.id < role_has_permissions.role_id
+permissions.id < role_has_permissions.permission_id
+roles.id < users.role_id
+departments.id < users.department_id

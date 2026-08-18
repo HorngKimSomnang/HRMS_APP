@@ -52,7 +52,27 @@ class AuthController extends Controller
         }
 
         $user = User::where('email', $request->email)->firstOrFail();
-        $user->load(['roles', 'employee']);
+        $user->load(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
+
+        // Resolve active role at login if necessary
+        $assignedRoles = $user->assignedRoles;
+        $superAdminRole = $assignedRoles->firstWhere('is_super_admin', true);
+        if ($superAdminRole) {
+            if (!$user->role || !$user->role->is_super_admin) {
+                $user->update(['role_id' => $superAdminRole->id]);
+                $user->load('role');
+            }
+        } else {
+            if (!$user->role || $user->role->permissions()->count() === 0) {
+                foreach ($assignedRoles as $assignedRole) {
+                    if ($assignedRole->permissions()->count() > 0) {
+                        $user->update(['role_id' => $assignedRole->id]);
+                        $user->load('role');
+                        break;
+                    }
+                }
+            }
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -63,6 +83,8 @@ class AuthController extends Controller
                'access_token' => $token,
                'token_type'   => 'Bearer',
                'user'         => $user,
+               'permissions'  => $user->getAllPermissions()->pluck('name'),
+               'direct_permissions' => $user->getDirectPermissions()->pluck('name'),
         ]);
     }
 
@@ -76,7 +98,13 @@ class AuthController extends Controller
     }
 
     public function me(Request $request) {
-        return $request->user()->load(['roles', 'employee']);
+        $user = $request->user()->load(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
+        // Return plain name strings for permissions — same shape as login(), avoids Eloquent object bleed
+        return response()->json([
+            'user'               => $user,
+            'permissions'        => $user->getAllPermissions()->pluck('name')->values(),
+            'direct_permissions' => $user->getDirectPermissions()->pluck('name')->values(),
+        ]);
     }
 
     public function changePassword(Request $request) {
@@ -104,6 +132,8 @@ class AuthController extends Controller
         $user->password_changed_at = now();
         $user->save();
 
+        \App\Services\LiveDataVersion::bump('user');
+
         AuditLogger::logAuth($request, 'PASSWORD_CHANGED', $user);
 
         return response()->json(['message' => 'Password changed successfully.']);
@@ -129,10 +159,30 @@ class AuthController extends Controller
 
         // Employee fields — only when an employee record exists
         if ($employee) {
-            if ($request->filled('name')) $employee->name = $request->name;
-            if ($request->has('phone')) $employee->phone = $request->phone;
-            if ($request->has('address')) $employee->address = $request->address;
+            if ($request->filled('first_name')) $employee->first_name = $request->first_name;
+            if ($request->filled('last_name')) $employee->last_name = $request->last_name;
+            
+            // In case a generic name is passed instead of first/last
+            if ($request->filled('name') && !$request->filled('first_name')) {
+                $parts = explode(' ', $request->name, 2);
+                $employee->first_name = $parts[0] ?? '';
+                if (isset($parts[1])) {
+                    $employee->last_name = $parts[1];
+                }
+            }
+
+            if ($request->filled('phone')) $employee->phone = $request->phone;
+            if ($request->filled('address')) $employee->address = $request->address;
             if ($request->has('documents')) $employee->documents = $request->documents;
+            
+            if ($request->hasFile('profile_picture')) {
+                if ($employee->profile_picture) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($employee->profile_picture);
+                }
+                $path = $request->file('profile_picture')->store('profile_pictures', 'public');
+                $employee->profile_picture = $path;
+            }
+            
             $employee->save();
         }
 
@@ -141,7 +191,40 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profile updated successfully',
-            'user' => $user->fresh(['roles', 'employee'])
+            'user' => $user->fresh(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments'])
+        ]);
+    }
+
+    public function switchRole(Request $request)
+    {
+        $request->validate([
+            'role_id' => 'required|exists:roles,id'
+        ]);
+
+        $user = $request->user();
+        
+        // Ensure the user actually has this role assigned to them
+        $hasRole = $user->assignedRoles()->where('roles.id', $request->role_id)->exists();
+        if (!$hasRole) {
+            return response()->json(['message' => 'You are not assigned to this role.'], 403);
+        }
+
+        // Update the active role
+        $user->update(['role_id' => $request->role_id]);
+        
+        $user->load(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
+        
+        AuditLogger::logAuth($request, 'ROLE_SWITCHED', $user, [
+            'switched_role_id' => $request->role_id,
+            'switched_role_name' => $user->role->name,
+            'message' => "Switched active role to '{$user->role->name}'"
+        ]);
+
+        return response()->json([
+            'message' => 'Role switched successfully',
+            'user' => $user,
+            'permissions' => $user->getAllPermissions()->pluck('name')->values(),
+            'direct_permissions' => $user->getDirectPermissions()->pluck('name')->values(),
         ]);
     }
 }

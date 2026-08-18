@@ -16,7 +16,7 @@ class HrCatalog
         return [
             ['id' => 1, 'name' => 'Annual Leave', 'days_allowed' => 18, 'is_paid' => true],
             ['id' => 2, 'name' => 'Sick Leave', 'days_allowed' => 7, 'is_paid' => true],
-            ['id' => 3, 'name' => 'Unpaid Leave', 'days_allowed' => 0, 'is_paid' => false],
+            ['id' => 3, 'name' => 'Absent Leave', 'days_allowed' => 0, 'is_paid' => false],
             ['id' => 4, 'name' => 'Maternity Leave', 'days_allowed' => 90, 'is_paid' => true],
             ['id' => 5, 'name' => 'Paternity Leave', 'days_allowed' => 5, 'is_paid' => true],
         ];

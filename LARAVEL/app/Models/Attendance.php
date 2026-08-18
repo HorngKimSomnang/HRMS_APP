@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Scopes\ManagementScope;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -69,5 +71,10 @@ class Attendance extends Model
         $tz = config('app.timezone');
         return \Carbon\Carbon::parse($this->clock_out)->setTimezone($tz)->toDateString()
              > \Carbon\Carbon::parse($this->clock_in)->setTimezone($tz)->toDateString();
+    }
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new ManagementScope);
     }
 }

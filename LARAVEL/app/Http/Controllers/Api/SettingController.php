@@ -32,9 +32,28 @@ class SettingController extends Controller
      */
     public function update(Request $request)
     {
-        // Only Super Admin can change system-wide settings
-        if (!Auth::user()->hasRole('Super Admin')) {
-            return response()->json(['message' => 'Unauthorized. Only Super Admin can modify system settings.'], 403);
+        $keyPermissions = [
+            'company_name' => 'settings.edit_general',
+            'company_currency' => 'settings.edit_general',
+            'office_lat' => 'settings.edit_attendance',
+            'office_lng' => 'settings.edit_attendance',
+            'office_radius' => 'settings.edit_attendance',
+            'payroll_overtime_rate' => 'settings.edit_payroll',
+            'payroll_bonus_flat' => 'settings.edit_payroll',
+            'payroll_attendance_allowance' => 'settings.edit_payroll',
+            'payroll_allowances' => 'settings.edit_payroll',
+            'payroll_deduction_leave' => 'settings.edit_payroll',
+            'payroll_deduction_late' => 'settings.edit_payroll',
+            'payroll_deduction_other' => 'settings.edit_payroll',
+        ];
+
+        $user = Auth::user();
+        foreach ($request->input('settings', []) as $item) {
+            $key = $item['key'] ?? '';
+            $requiredPerm = $keyPermissions[$key] ?? 'settings.edit_general';
+            if (!$user->hasPermissionTo($requiredPerm)) {
+                return response()->json(['message' => "Unauthorized to modify setting: {$key}. Requires permission: {$requiredPerm}."], 403);
+            }
         }
 
         $data = $request->validate([
@@ -73,9 +92,9 @@ class SettingController extends Controller
      */
     public function uploadLogo(Request $request)
     {
-        // Only Super Admin can change branding/system identity
-        if (!Auth::user()->hasRole('Super Admin')) {
-            return response()->json(['message' => 'Unauthorized. Only Super Admin can update the company logo.'], 403);
+        // Only users with settings.edit_general can change branding/system identity
+        if (!Auth::user()->hasPermissionTo('settings.edit_general')) {
+            return response()->json(['message' => 'Unauthorized. Requires settings.edit_general permission.'], 403);
         }
 
         $request->validate([

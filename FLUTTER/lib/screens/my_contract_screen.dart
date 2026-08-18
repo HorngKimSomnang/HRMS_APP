@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class MyContractScreen extends StatefulWidget {
   const MyContractScreen({super.key});
@@ -12,22 +14,30 @@ class MyContractScreen extends StatefulWidget {
   State<MyContractScreen> createState() => _MyContractScreenState();
 }
 
-class _MyContractScreenState extends State<MyContractScreen> {
+class _MyContractScreenState extends State<MyContractScreen> with LiveRefreshMixin<MyContractScreen> {
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _current;
   List<dynamic> _history = [];
   bool _loading = true;
   String? _error;
+  @override
+  List<String> get watchedResources => ['lifecycle'];
+
+  @override
+  void onLiveRefresh(String resource) => _fetchContract();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _fetchContract();
   }
 
   Future<void> _fetchContract() async {
     try {
-      final response = await _apiService.client.get('/my/contract');
+      final response = await ApiService.instance.cachedGet('/my/contract');
       final data = response.data['data'];
       setState(() {
         _current = data['current'];
@@ -88,6 +98,12 @@ class _MyContractScreenState extends State<MyContractScreen> {
         return Colors.grey;
     }
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {

@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
@@ -28,11 +28,18 @@ export default function NoticeBoard({ embedded = false }: NoticeBoardProps) {
     const [notices, setNotices] = useState<Notice[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [viewNotice, setViewNotice] = useState<Notice | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
-    const { user } = useAuth();
-    const isSuperAdmin = user?.roles?.some((role: any) => role.name === 'Super Admin');
-    const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin');
-    const canManageNotices = Boolean(isSuperAdmin || isAdmin);
+    const { user, hasPermission } = useAuth();
+    const isSuperAdmin = user?.roles?.some((r: any) => r.is_super_admin);
+    const canViewNotices = hasPermission('notice_board.view');
+    const canCreateNotices = hasPermission('notice_board.create');
+    const canEditNotices = hasPermission('notice_board.edit');
+    const canDeleteNotices = hasPermission('notice_board.delete');
+    
+    // Fallback logic for legacy admin roles if no strict perms are setup
+    const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin' || role.name === 'Super Admin');
+    const canManageNotices = Boolean(isSuperAdmin || isAdmin || canCreateNotices || canEditNotices || canDeleteNotices);
     
     const [formData, setFormData] = useState({
         id: null as number | null,
@@ -55,17 +62,17 @@ export default function NoticeBoard({ embedded = false }: NoticeBoardProps) {
     };
 
     useLiveRefresh(
-        () => canManageNotices ? fetchNotices() : Promise.resolve(),
+        () => canViewNotices ? fetchNotices() : Promise.resolve(),
         { resources: 'announcements' }
     );
 
     useEffect(() => {
-        if (canManageNotices) {
+        if (canViewNotices) {
             fetchNotices();
         } else {
             setLoading(false);
         }
-    }, [canManageNotices]);
+    }, [canViewNotices]);
 
     const handleSubmit = async () => {
         const previousNotices = notices;
@@ -156,13 +163,24 @@ export default function NoticeBoard({ embedded = false }: NoticeBoardProps) {
         setIsDialogOpen(true);
     };
 
-    if (!canManageNotices) return null;
+    if (!canViewNotices && !canManageNotices) return null;
 
     return (
         <div className={embedded ? "pt-2" : "p-6"}>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Notice Board</h1>
-                <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" /> Publish Notice</Button>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">Notice Board</h1>
+                    <p className="text-amber-100 mt-2 text-sm font-medium">Manage and view system-wide announcements</p>
+                </div>
+                {(canCreateNotices || isAdmin) && (
+                    <div className="relative z-10">
+                        <Button onClick={openCreate} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm">
+                            <Plus className="w-4 h-4 mr-2" /> Publish Notice
+                        </Button>
+                    </div>
+                )}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             <div className="bg-gradient-to-br from-amber-50/50 via-card to-card text-card-foreground rounded-xl border border-amber-100 shadow-sm flex flex-col">
@@ -206,12 +224,19 @@ export default function NoticeBoard({ embedded = false }: NoticeBoardProps) {
                                             )}
                                             {(!notice.creator || notice.creator.name !== 'Super Admin' || isSuperAdmin) && (
                                                 <>
-                                                    <Button variant="ghost" size="icon" onClick={() => openEdit(notice)}>
-                                                        <Edit className="w-4 h-4 text-blue-500" />
+                                                    <Button variant="ghost" size="icon" onClick={() => setViewNotice(notice)}>
+                                                        <Eye className="w-4 h-4 text-slate-500" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(notice.id)}>
-                                                        <Trash2 className="w-4 h-4 text-red-500" />
-                                                    </Button>
+                                                    {(canEditNotices || isAdmin) && (
+                                                        <Button variant="ghost" size="icon" onClick={() => openEdit(notice)} title="Edit Notice">
+                                                            <Edit className="w-4 h-4 text-blue-500" />
+                                                        </Button>
+                                                    )}
+                                                    {(canDeleteNotices || isAdmin) && (
+                                                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(notice.id)} title="Delete Notice">
+                                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                                        </Button>
+                                                    )}
                                                 </>
                                             )}
                                         </TableCell>
@@ -292,6 +317,30 @@ export default function NoticeBoard({ embedded = false }: NoticeBoardProps) {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
                         <Button variant="destructive" onClick={confirmDelete}>Delete Notice</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* View Notice Modal */}
+            <Dialog open={!!viewNotice} onOpenChange={(open) => !open && setViewNotice(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{viewNotice?.title}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <span className="font-semibold text-foreground">Author:</span> {viewNotice?.creator?.name}
+                            <span className="mx-2">•</span>
+                            <span className="font-semibold text-foreground">Type:</span> {viewNotice?.type}
+                            <span className="mx-2">•</span>
+                            <span className="font-semibold text-foreground">Date:</span> {viewNotice ? new Date(viewNotice.created_at).toLocaleDateString() : ''}
+                        </div>
+                        <div className="bg-muted p-4 rounded-md whitespace-pre-wrap text-sm">
+                            {viewNotice?.content}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setViewNotice(null)}>Close</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

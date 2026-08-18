@@ -50,7 +50,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
     public function run(): void
     {
-        $approver = User::role('Super Admin')->first() ?? User::role('Admin')->first();
+        $approver = User::role('Super Admin')->first();
 
         if (!$approver) {
             throw new \RuntimeException(
@@ -136,7 +136,6 @@ class ThesisCambodianEmployeesSeeder extends Seeder
         if (!$user) {
             $user = new User();
             $user->password = Hash::make($demoPassword);
-            $user->email_verified_at = now();
             $user->password_changed_at = now();
         } elseif ($user->trashed()) {
             $user->restore();
@@ -173,14 +172,12 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             'first_name' => $profile['first_name'],
             'last_name' => $profile['last_name'],
             'job_title' => $profile['job_title'],
-            'department' => $profile['department'],
             'phone' => $profile['phone'],
             'gender' => $profile['gender'],
             'dob' => $profile['dob'],
             'joining_date' => $profile['joining_date'],
             'address' => $profile['address'],
             'status' => 'active',
-            'basic_salary' => $profile['basic_salary'],
             'shift_id' => 1,
             'documents' => [
                 'name_kh' => $profile['name_kh'],
@@ -189,7 +186,20 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'attachments' => [],
             ],
         ]);
+        
+        $dept = \App\Models\Department::firstOrCreate(['name' => $profile['department']]);
+        $employee->department_id = $dept->id;
         $employee->save();
+
+        Contract::updateOrCreate(
+            ['employee_id' => $employee->id, 'status' => 'active'],
+            [
+                'type' => 'permanent',
+                'salary' => $profile['basic_salary'],
+                'start_date' => $profile['joining_date'],
+                'position' => $profile['job_title']
+            ]
+        );
 
         return [$employee, $wasCreated];
     }
@@ -830,7 +840,7 @@ class ThesisCambodianEmployeesSeeder extends Seeder
 
     private function seedPayslips(Employee $employee, int $index, Carbon $today): void
     {
-        $basicSalary = (float) $employee->basic_salary;
+        $basicSalary = (float) ($employee->activeContract?->salary ?? 0);
         $joiningDate = Carbon::parse($employee->joining_date)->startOfDay();
 
         // Earlier seeder versions created six months for everyone. Archive any
@@ -923,7 +933,8 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             return;
         }
 
-        $employee->update(['basic_salary' => 600]);
+        $contract = \App\Models\Contract::where('employee_id', $employee->id)->where('status', 'active')->first();
+        if ($contract) { $contract->update(['salary' => 600]); }
 
         Payslip::where('employee_id', $employee->id)
             ->where('basic_salary', 0)
@@ -1012,15 +1023,14 @@ class ThesisCambodianEmployeesSeeder extends Seeder
             default => null,
         };
 
-        Contract::updateOrCreate(
-            ['employee_id' => $employee->id, 'type' => $contractType],
-            [
-                'start_date' => $joiningDate->toDateString(),
+        $activeContract = Contract::where('employee_id', $employee->id)->where('status', 'active')->first();
+        if ($activeContract) {
+            $activeContract->update([
+                'type' => $contractType,
                 'end_date' => $endDate,
-                'status' => 'active',
                 'notes' => 'Standard employment contract issued by Human Resources',
-            ]
-        );
+            ]);
+        }
 
         EmployeeEvent::updateOrCreate(
             [
@@ -1029,8 +1039,8 @@ class ThesisCambodianEmployeesSeeder extends Seeder
                 'notes' => 'Annual performance and salary review',
             ],
             [
-                'old_value' => number_format(max(0, (float) $employee->basic_salary - 50), 2, '.', ''),
-                'new_value' => number_format((float) $employee->basic_salary, 2, '.', ''),
+                'old_value' => number_format(max(0, (float) ($employee->activeContract?->salary ?? 0) - 50), 2, '.', ''),
+                'new_value' => number_format((float) ($employee->activeContract?->salary ?? 0), 2, '.', ''),
                 'effective_date' => $this->realisticSalaryReviewDate($joiningDate, $today),
                 'created_by' => $creator->id,
             ]

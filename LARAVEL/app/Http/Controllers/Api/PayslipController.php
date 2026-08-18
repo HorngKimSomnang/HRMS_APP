@@ -12,30 +12,112 @@ use Illuminate\Support\Facades\Auth;
 
 class PayslipController extends Controller
 {
-    public function index()
+    public function preview(Request $request)
     {
         $user = Auth::user();
-        if ($this->isAdmin($user)) {
-            $payslips = Payslip::with(['employee.user'])->orderBy('year', 'desc')->orderBy('month', 'desc')->get();
-        } else {
-            if (!$user->employee) {
-                return response()->json([]);
-            }
-
-            $payslips = Payslip::with(['employee'])
-                ->where('employee_id', $user->employee->id)
-                ->where('status', 'paid')
-                ->orderBy('year', 'desc')
-                ->orderBy('month', 'desc')
-                ->get();
+        if (!$user->hasRole('Super Admin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
+
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'month'       => ['required', 'string', 'regex:/^(0[1-9]|1[0-2])$/'],
+            'year'        => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        $employee = \App\Models\Employee::findOrFail($request->employee_id);
+        $month = $request->month;
+        $year = $request->year;
+
+        $contract = \App\Models\Contract::where('employee_id', $employee->id)
+            ->whereIn('status', ['active', 'pending'])
+            ->orderBy('start_date', 'desc')
+            ->first();
+        $basic = $contract ? $contract->salary : 0;
+
+        // Calculate cycle dates
+        if (!$contract) {
+            $periodStart = \Carbon\Carbon::createFromDate((int)$year, (int)$month, 1)->startOfMonth();
+            $periodEnd   = $periodStart->copy()->endOfMonth();
+        } else {
+            $cycleDay = \Carbon\Carbon::parse($contract->start_date)->day;
+            $daysInMonth = \Carbon\Carbon::createFromDate((int)$year, (int)$month, 1)->daysInMonth;
+            $actualDay = min($cycleDay, $daysInMonth);
+
+            $periodStart = \Carbon\Carbon::createFromDate((int)$year, (int)$month, $actualDay)->startOfDay();
+            $periodEnd = $periodStart->copy()->addMonth()->subDay()->endOfDay();
+
+            if ($contract->end_date && $periodEnd->gt(\Carbon\Carbon::parse($contract->end_date)->endOfDay())) {
+                $periodEnd = \Carbon\Carbon::parse($contract->end_date)->endOfDay();
+            }
+        }
+
+        $payrollService = app(\App\Services\PayrollService::class);
+        $calc = $payrollService->calculateDynamicData($employee, $periodStart, $periodEnd);
+
+        $settings = \App\Models\Setting::where('group', 'payroll')->pluck('value', 'key')->toArray();
+        $reduceOther = (float) ($settings['payroll_reduce_other'] ?? 0);
+
+        $totalDeductions = $calc['unpaid_leave_amt'] + $calc['late_penalty_amt'] + $reduceOther;
+        $net_salary = max(0, $basic + $calc['overtime_amt'] + $calc['attendance_bonus_amt'] + $calc['allowances_amt'] - $totalDeductions);
+
+        return response()->json([
+            'basic_salary'           => $basic,
+            'overtime_amount'        => $calc['overtime_amt'],
+            'unpaid_leave_deduction' => $calc['unpaid_leave_amt'],
+            'net_salary'             => $net_salary,
+            'summary'                => [
+                'absent_unpaid_days' => $calc['absent_unpaid_days'],
+                'calc_unpaid_leave'  => $calc['unpaid_leave_amt'],
+                'late_days'          => $calc['late_days'],
+                'calc_late_penalty'  => $calc['late_penalty_amt'],
+                'ot_hours'           => $calc['ot_hours'],
+                'calc_ot_amount'     => $calc['overtime_amt'],
+                'on_time_days'       => $calc['on_time_days'],
+                'calc_bonus'         => $calc['attendance_bonus_amt'],
+                'present_days'       => $calc['present_days'],
+                'calc_allowances'    => $calc['allowances_amt'],
+            ]
+        ]);
+    }
+
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+        $personal = $request->query('personal') || $request->query('mine');
+        
+        $query = Payslip::with(['employee' => fn($q) => $q->withTrashed()->with('user')])
+            ->orderBy('year', 'desc')
+            ->orderBy('month', 'desc');
+
+        if ($personal) {
+            $query->where('employee_id', $user->employee?->id ?? -1)
+                  ->where('status', 'paid');
+        } else if (!$user->hasRole('Super Admin')) {
+            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            if (empty($managedDepartmentIds)) {
+                $query->where('employee_id', $user->employee?->id ?? -1)
+                      ->where('status', 'paid');
+            } else {
+                $query->where(function ($q) use ($managedDepartmentIds, $user) {
+                    $q->whereHas('employee.user', function ($q2) use ($managedDepartmentIds) {
+                        $q2->whereIn('department_id', $managedDepartmentIds);
+                    })->orWhere(function ($q3) use ($user) {
+                        $q3->where('employee_id', $user->employee?->id ?? -1)
+                           ->where('status', 'paid');
+                    });
+                });
+            }
+        }
+        
+        $payslips = $query->get();
         return response()->json($payslips);
     }
 
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
+        if (!$user->hasRole('Super Admin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -122,7 +204,7 @@ class PayslipController extends Controller
     public function batchStore(Request $request)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
+        if (!$user->hasRole('Super Admin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -224,7 +306,7 @@ class PayslipController extends Controller
         $payslip = Payslip::with(['employee.user'])->findOrFail($id);
         $user = Auth::user();
         
-        if (!$this->isAdmin($user) && !$this->belongsToUser($payslip, $user)) {
+        if (!$user->hasRole('Super Admin') && !$this->belongsToUser($payslip, $user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -234,21 +316,29 @@ class PayslipController extends Controller
     public function update(Request $request, int|string $id)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
+        if (!$user->hasRole('Super Admin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $payslip = Payslip::findOrFail($id);
 
+        // Locked payslips belong to archived employees — block all status changes.
+        // The lock is automatically lifted when the employee is restored.
+        if ($payslip->status === 'locked') {
+            return response()->json([
+                'message' => 'This payslip is locked because the employee is currently archived. Restore the employee first.',
+            ], 422);
+        }
+
         $request->validate([
-            'status' => 'sometimes|in:draft,pending,approved,paid',
+            'status' => 'sometimes|in:draft,pending,approved,paid,locked',
         ]);
         
-        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
+        $isSuperAdmin = $user->hasRole('Super Admin');
 
         $payslip->load('employee');
         if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
-            return response()->json(['message' => 'Admins cannot modify their own payslips. Super Admin must do it.'], 403);
+            return response()->json(['message' => 'Super Admins cannot modify their own payslips. Super Admin must do it.'], 403);
         }
 
         if ($request->has('status') && $request->status !== $payslip->status) {
@@ -300,16 +390,16 @@ class PayslipController extends Controller
     public function destroy(int|string $id)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
+        if (!$user->hasRole('Super Admin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $payslip = Payslip::findOrFail($id);
         
-        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
+        $isSuperAdmin = $user->hasRole('Super Admin');
         $payslip->load('employee');
         if (!$isSuperAdmin && $payslip->employee && $payslip->employee->user_id === $user->id) {
-            return response()->json(['message' => 'Admins cannot delete their own payslips.'], 403);
+            return response()->json(['message' => 'Super Admins cannot delete their own payslips.'], 403);
         }
 
         AuditLogger::log(request(), 'PAYSLIP_DELETED', $payslip, [
@@ -324,8 +414,8 @@ class PayslipController extends Controller
     public function sign(Request $request, int|string $id)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
-            return response()->json(['message' => 'Only Admins can mark payslips as signed.'], 403);
+        if (!$user->hasRole('Super Admin')) {
+            return response()->json(['message' => 'Only Super Admins can mark payslips as signed.'], 403);
         }
 
         $payslip = Payslip::findOrFail($id);
@@ -360,8 +450,8 @@ class PayslipController extends Controller
     public function signBatch(Request $request)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
-            return response()->json(['message' => 'Only Admins can mark payslips as signed.'], 403);
+        if (!$user->hasRole('Super Admin')) {
+            return response()->json(['message' => 'Only Super Admins can mark payslips as signed.'], 403);
         }
 
         $request->validate([
@@ -370,7 +460,7 @@ class PayslipController extends Controller
             'signed_document'  => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
         ]);
 
-        $isSuperAdmin = $user->roles->contains('name', 'Super Admin');
+        $isSuperAdmin = $user->hasRole('Super Admin');
         $path = $request->file('signed_document')->store('payslip_signatures', 'public');
 
         $verifiedCount = 0;
@@ -424,8 +514,8 @@ class PayslipController extends Controller
     public function detectSignatures(Request $request)
     {
         $user = Auth::user();
-        if (!$this->isAdmin($user)) {
-            return response()->json(['message' => 'Only Admins can do this.'], 403);
+        if (!$user->hasRole('Super Admin')) {
+            return response()->json(['message' => 'Only Super Admins can do this.'], 403);
         }
 
         $request->validate([
@@ -515,15 +605,7 @@ class PayslipController extends Controller
         return response()->json(['suggestions' => $suggestions, 'ratios' => $ratios]);
     }
 
-    private function isAdmin(\App\Models\User $user): bool
-    {
-        return $user->roles->pluck('name')->intersect(['Admin', 'Super Admin'])->isNotEmpty();
-    }
 
-    private function isSuperAdmin(\App\Models\User $user): bool
-    {
-        return $user->roles->contains('name', 'Super Admin');
-    }
 
     private function belongsToUser(Payslip $payslip, \App\Models\User $user): bool
     {

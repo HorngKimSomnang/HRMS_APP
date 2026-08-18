@@ -50,7 +50,7 @@ class ContractExpiryNotificationTest extends TestCase
         );
 
         $this->assertSame(1, $result['contracts_found']);
-        $this->assertSame(2, $result['notifications_sent']);
+        $this->assertSame(4, $result['notifications_sent']);
         Notification::assertSentTo(
             $employeeUser,
             ContractExpiring::class,

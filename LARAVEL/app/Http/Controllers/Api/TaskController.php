@@ -15,29 +15,28 @@ class TaskController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // If employee, only show assigned tasks
-        if ($user->hasRole('Employee')) {
-            $employee = $user->employee;
-            if (!$employee) return $this->successResponse([], 'No employee profile found');
+        $query = Task::with(['employee', 'creator']);
 
-            $tasks = Task::where('assigned_to', $employee->id)
-                ->with(['creator'])
-                ->orderByRaw("CASE 
-                    WHEN status = 'pending' THEN 1 
-                    WHEN status = 'in_progress' THEN 2 
-                    WHEN status = 'completed' THEN 3 
-                    ELSE 4 END")
-                ->orderBy('due_date', 'asc')
-                ->get();
-                
-            return $this->successResponse($tasks, 'Tasks retrieved successfully');
+        if (!$user->hasRole('Super Admin')) {
+            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            if (empty($managedDepartmentIds)) {
+                $query->where('assigned_to', $user->employee?->id ?? -1)
+                      ->orderByRaw("CASE 
+                          WHEN status = 'pending' THEN 1 
+                          WHEN status = 'in_progress' THEN 2 
+                          WHEN status = 'completed' THEN 3 
+                          ELSE 4 END")
+                      ->orderBy('due_date', 'asc');
+            } else {
+                $query->where(function ($q) use ($managedDepartmentIds, $user) {
+                    $q->whereHas('employee.user', function ($q2) use ($managedDepartmentIds) {
+                        $q2->whereIn('department_id', $managedDepartmentIds);
+                    })->orWhere('assigned_to', $user->employee?->id ?? -1);
+                })->orderBy('created_at', 'desc');
+            }
+        } else {
+            $query->orderBy('created_at', 'desc');
         }
-        
-        // Super Admin / Admin may request the complete task collection so the
-        // task board can separate active and completed work without older tasks
-        // silently disappearing behind the first pagination page.
-        $query = Task::with(['employee', 'creator'])
-            ->orderBy('created_at', 'desc');
 
         if ($request->filled('status')) {
             $request->validate([
@@ -91,6 +90,8 @@ class TaskController extends Controller
             }
         }
 
+        \App\Services\LiveDataVersion::bump('tasks');
+
         // Return multiple tasks created to handle frontend easily, or just a success message
         return $this->successResponse($tasks, 'Tasks assigned successfully', 201);
     }
@@ -101,15 +102,11 @@ class TaskController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Employee submitting their own task — branch on ROLE, never on which fields
-        // were sent (a request that merely includes a "title" key must not be able to
-        // fall through into the unrestricted admin-update path below).
-        if ($user->hasRole('Employee')) {
-            $employee = $user->employee;
-            if (!$employee || (int) $task->assigned_to !== (int) $employee->id) {
-                return $this->errorResponse('You are not authorized to update this task.', 403);
-            }
+        // 1. Employee assigned to the task is allowed to update status/submission
+        $employee = $user->employee;
+        $isAssignedEmployee = $employee && (int) $task->assigned_to === (int) $employee->id;
 
+        if ($isAssignedEmployee) {
             if ($request->has('status')) {
                 $request->validate(['status' => 'required|in:pending,in_progress,completed']);
                 $task->status = $request->status;
@@ -125,10 +122,11 @@ class TaskController extends Controller
             }
 
             $task->save();
+            \App\Services\LiveDataVersion::bump('tasks');
 
             // Notify admins when task is completed
             if ($request->status === 'completed') {
-                $admins = \App\Models\User::role('Super Admin')->get();
+                $admins = \App\Models\User::whereHas('role', fn($q) => $q->where('name', 'Super Admin'))->get();
                 \Illuminate\Support\Facades\Notification::send(
                     $admins,
                     new \App\Notifications\TaskCompleted($task)
@@ -138,7 +136,8 @@ class TaskController extends Controller
             return $this->successResponse($task, 'Task updated successfully');
         }
 
-        if (!$user->hasRole(['Super Admin', 'Admin'])) {
+        // 2. Otherwise, check if user has Admin rights (Super Admin role OR tasks.edit permission)
+        if (!$user->hasRole(['Super Admin']) && !$user->hasPermissionTo('tasks.edit')) {
             return $this->errorResponse('Unauthorized', 403);
         }
 
@@ -160,6 +159,7 @@ class TaskController extends Controller
         }
 
         $task->load(['employee', 'creator']);
+        \App\Services\LiveDataVersion::bump('tasks');
         return $this->successResponse($task, 'Task updated successfully');
     }
 
@@ -167,12 +167,13 @@ class TaskController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (!$user->hasRole(['Super Admin', 'Admin'])) {
+        if (!$user->hasRole(['Super Admin'])) {
             return $this->errorResponse('Unauthorized', 403);
         }
 
         $task = Task::findOrFail($id);
         $task->delete();
+        \App\Services\LiveDataVersion::bump('tasks');
         return $this->successResponse(null, 'Task deleted successfully');
     }
 }

@@ -1,0 +1,50 @@
+// ————— External Entities —————
+super_admin [shape: rectangle, icon: shield, color: blue, label: "Super Admin"]
+employee [shape: rectangle, icon: user, color: green, label: "Employee"]
+
+// ————— Process Bubbles —————
+p1 [shape: oval, color: purple, label: "1.0 Auth & RBAC Management"]
+p2 [shape: oval, color: purple, label: "2.0 Org & Employee Management"]
+p3 [shape: oval, color: purple, label: "3.0 Time & Leave Tracking"]
+p4 [shape: oval, color: purple, label: "4.0 Payroll & Payslip Processing"]
+p5 [shape: oval, color: purple, label: "5.0 Asset & Task Management"]
+
+// ————— Data Stores (Databases) —————
+ds_users [shape: cylinder, color: gray, label: "D1: Users & Roles DB"]
+ds_employees [shape: cylinder, color: gray, label: "D2: Employees DB"]
+ds_ops [shape: cylinder, color: gray, label: "D3: Attendance & Leaves DB"]
+ds_payroll [shape: cylinder, color: gray, label: "D4: Payroll DB"]
+ds_assets [shape: cylinder, color: gray, label: "D5: Assets DB"]
+
+// ————— Dataflows —————
+
+// 1.0 Auth & RBAC Flows
+super_admin > p1 [label: "Create User / Assign Role", color: blue]
+employee > p1 [label: "Credentials / Login Request", color: green]
+p1 > super_admin [label: "Audit Logs", color: blue]
+p1 > employee [label: "Access Token & Perms", color: green]
+p1 > ds_users [label: "Read/Write User & Role Data", color: purple]
+
+// 2.0 Org & Employee Flows
+super_admin > p2 [label: "Create Department / Contract Details", color: blue]
+p2 > ds_employees [label: "Store Employee Profile & Dept Data", color: purple]
+p2 > ds_users [label: "Link User to Employee Record", color: purple]
+
+// 3.0 Time & Leave Tracking Flows
+employee > p3 [label: "Clock-in/out, Leave & Overtime Requests", color: green]
+super_admin > p3 [label: "Approve Leaves & Overtimes", color: blue]
+p3 > employee [label: "Approval Notifications", color: green]
+p3 > ds_ops [label: "Write Timecard / Leave Details", color: purple]
+
+// 4.0 Payroll Flows
+super_admin > p4 [label: "Process Monthly Payroll", color: blue]
+p4 > ds_payroll [label: "Write Payslips & Adjustments", color: purple]
+ds_ops > p4 [label: "Fetch Attendance & Approved Leaves/Overtimes", color: purple]
+ds_employees > p4 [label: "Fetch Employee Basic Salaries & Bank details", color: purple]
+p4 > employee [label: "Deliver Digital Payslip", color: green]
+
+// 5.0 Asset & Task Flows
+super_admin > p5 [label: "Assign Asset / Create Task", color: blue]
+employee > p5 [label: "Submit Task Completion / Return Asset", color: green]
+p5 > ds_assets [label: "Update Asset Status & History", color: purple]
+p5 > ds_ops [label: "Update Task Progress", color: purple]

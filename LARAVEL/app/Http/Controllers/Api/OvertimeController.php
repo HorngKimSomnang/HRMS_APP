@@ -19,11 +19,13 @@ class OvertimeController extends Controller
         $user = Auth::user();
         $query = Overtime::with(['employee.user', 'approver'])->orderBy('created_at', 'desc');
 
-        if (!$user->hasAnyRole(['Admin', 'Super Admin'])) {
-            if (!$user->employee) {
-                return response()->json([]);
-            }
-            $query->where('employee_id', $user->employee->id);
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        if (empty($managedDepartmentIds)) {
+            $query->where('employee_id', $user->employee?->id ?? -1);
+        } else {
+            $query->whereHas('employee.user', function ($q) use ($managedDepartmentIds) {
+                $q->whereIn('department_id', $managedDepartmentIds);
+            });
         }
 
         return response()->json($query->get());
@@ -40,23 +42,68 @@ class OvertimeController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$user->employee) {
+        $employeeId = $request->input('employee_id');
+        
+        if ($employeeId && (int) $employeeId !== (int) ($user->employee?->id ?? 0)) {
+            if (!$user->hasPermissionTo('overtime.assign')) {
+                return response()->json(['message' => 'Forbidden. You do not have permission to assign overtime.'], 403);
+            }
+            $employee = \App\Models\Employee::find($employeeId);
+        } else {
+            if (!$user->hasPermissionTo('overtime.create')) {
+                return response()->json(['message' => 'Forbidden. You do not have permission to request overtime.'], 403);
+            }
+            $employee = $user->employee;
+        }
+
+        if (!$employee) {
             return response()->json(['message' => 'Employee profile not found.'], 400);
         }
 
+        // Prevent assigning overtime if it overlaps with the employee's shift hours on a work day
+        $shift = $employee->shift;
+        if ($shift && $request->filled('start_time') && $request->filled('end_time')) {
+            $dayOfWeek = \Carbon\Carbon::parse($request->date)->format('l');
+            $workDays = $shift['work_days'] ?? \App\Support\HrCatalog::defaultWorkDays();
+            
+            if (in_array($dayOfWeek, $workDays)) {
+                $shiftStartTime = \Carbon\Carbon::parse($shift['start_time'])->format('H:i');
+                $shiftEndTime = \Carbon\Carbon::parse($shift['end_time'])->format('H:i');
+                
+                $otStartTime = \Carbon\Carbon::parse($request->start_time)->format('H:i');
+                $otEndTime = \Carbon\Carbon::parse($request->end_time)->format('H:i');
+                
+                if ($otStartTime < $shiftEndTime && $shiftStartTime < $otEndTime) {
+                    return response()->json([
+                        'message' => "Cannot assign/request overtime because the requested period ({$otStartTime} - {$otEndTime}) overlaps with the employee's regular shift hours ({$shiftStartTime} - {$shiftEndTime}) on a work day."
+                    ], 422);
+                }
+            }
+        }
+
+        $existingAutoOT = Overtime::where('employee_id', $employee->id)
+            ->where('date', $request->date)
+            ->where('origin', 'attendance_auto')
+            ->exists();
+
+        if ($existingAutoOT) {
+            return response()->json(['message' => 'An auto-detected overtime record already exists for this date. Please review the existing record.'], 422);
+        }
+
         $overtime = Overtime::create([
-            'employee_id' => $user->employee->id,
+            'employee_id' => $employee->id,
             'date' => $request->date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
             'hours' => $request->hours,
             'reason' => $request->reason,
             'status' => 'pending',
+            'origin' => 'manual',
         ]);
 
         try {
             $overtime->loadMissing('employee.user');
-            $reviewers = User::role(['Admin', 'Super Admin'], 'web')->get();
+            $reviewers = User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
             Notification::send($reviewers, new OvertimeRequested($overtime));
         } catch (\Exception $exception) {
             Log::error('Failed to send overtime request notification: '.$exception->getMessage());
@@ -69,9 +116,19 @@ class OvertimeController extends Controller
     {
         $overtime = Overtime::findOrFail($id);
         $user = Auth::user();
-        $isAdmin = $user->hasAnyRole(['Admin', 'Super Admin']);
 
-        if ($isAdmin) {
+        if ($request->has('status') && in_array($request->status, ['approved', 'rejected', 'pending'])) {
+            $requiredPermission = $request->status === 'pending' ? 'overtime.return' : 'overtime.approve';
+            if (!$user->hasPermissionTo($requiredPermission)) {
+                return response()->json(['message' => "Forbidden. You do not have permission to {$request->status} overtime."], 403);
+            }
+
+            if ($request->status === 'pending') {
+                if ($overtime->status !== 'pending' && $overtime->updated_at && $overtime->updated_at->diffInMinutes(now()) > 30) {
+                    return response()->json(['message' => 'Cannot return overtime to pending status after 30 minutes.'], 422);
+                }
+            }
+
             $request->validate([
                 'status' => 'required|in:pending,approved,rejected',
             ]);
@@ -133,13 +190,13 @@ class OvertimeController extends Controller
     {
         $overtime = Overtime::findOrFail($id);
         $user = Auth::user();
-        $isAdmin = $user->hasAnyRole(['Admin', 'Super Admin']);
+        $isSuperAdmin = $user->hasRole('Super Admin');
 
-        if (!$isAdmin && (!$user->employee || $overtime->employee_id !== $user->employee->id)) {
+        if (!$isSuperAdmin && (!$user->employee || $overtime->employee_id !== $user->employee->id)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
-        if (!$isAdmin && $overtime->status !== 'pending') {
+        if (!$isSuperAdmin && $overtime->status !== 'pending') {
             return response()->json(['message' => 'Cannot delete processed request'], 400);
         }
 

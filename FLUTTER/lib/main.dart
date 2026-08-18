@@ -29,11 +29,29 @@ import 'screens/main_layout.dart';
 import 'core/constants.dart';
 import 'core/theme.dart';
 import 'services/local_notification_service.dart';
+import 'services/api_service.dart';
+import 'services/live_version_service.dart';
+
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final localNotifications = LocalNotificationService();
   await localNotifications.init(onNotificationTap: _openNotificationRoute);
+
+  ApiService.onUnauthenticated = (String message) {
+    final context = rootNavigatorKey.currentContext;
+    if (context != null) {
+      try {
+        Provider.of<NotificationProvider>(context, listen: false).stopPolling();
+      } catch (_) {}
+      LiveVersionService.instance.stopPolling();
+
+
+      GoRouter.of(context).go('/login');
+    }
+  };
+
   runApp(const MyApp());
   WidgetsBinding.instance.addPostFrameCallback((_) {
     localNotifications.openInitialNotification();
@@ -41,6 +59,7 @@ void main() async {
 }
 
 final _router = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
     GoRoute(path: '/', builder: (context, state) => const SplashScreen()),

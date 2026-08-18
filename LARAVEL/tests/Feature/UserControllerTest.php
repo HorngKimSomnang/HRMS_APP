@@ -130,6 +130,11 @@ class UserControllerTest extends TestCase
 
     public function test_last_super_admin_cannot_be_demoted(): void
     {
+        // Ensure there are no other Super Admins
+        foreach (User::role('Super Admin')->get() as $admin) {
+            $admin->removeRole('Super Admin');
+        }
+
         $boss = User::factory()->create();
         $boss->assignRole('Super Admin');
 

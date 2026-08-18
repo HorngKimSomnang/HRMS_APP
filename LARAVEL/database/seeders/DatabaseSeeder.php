@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -23,38 +24,86 @@ class DatabaseSeeder extends Seeder
             LeaveTypeSeeder::class,
         ]);
 
-        $user = User::factory()->create([
-            'name' => 'Super Admin',
-            'email' => 'superadmin@gmail.com', // Updated to @gmail.com
+        // 3. Create Admin User
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Admin User',
+                'password' => Hash::make('password'),
+            ]
+        );
+        $adminRole = \App\Models\Role::where('name', 'Super Admin')->first();
+        if ($adminRole) {
+            $admin->update(['role_id' => $adminRole->id]);
+        }
 
-            'password' => bcrypt('password'),
+        // 4. Create Employee User
+        $employeeUser = User::firstOrCreate(
+            ['email' => 'employee@example.com'],
+            [
+                'name' => 'John Doe',
+                'password' => Hash::make('password'),
+            ]
+        );
+        $employeeRole = \App\Models\Role::where('name', 'Employee')->first();
+        if ($employeeRole) {
+            $employeeUser->update(['role_id' => $employeeRole->id]);
+        }
+
+        $department = \App\Models\Department::create([
+            'name' => 'Administration',
         ]);
 
-        $user->assignRole('Super Admin');
+        $admin->update(['department_id' => $department->id]);
+        $employeeUser->update(['department_id' => $department->id]);
 
-        // Also create the test user for reference (optional, but good for backup)
-        $testUser = User::factory()->create([
-             'name' => 'Admin User',
-             'email' => 'admin@gmail.com', // Updated to @gmail.com
-
-             'password' => bcrypt('password'),
-        ]);
-        $testUser->assignRole('Admin');
-        
-        // Create an Employee record for the admin user so they can use leave/attendance features
+        // Create an Employee record for the super admin user
         \App\Models\Employee::create([
-            'user_id' => $testUser->id,
-            'first_name' => 'Admin',
-            'last_name' => 'User',
-            // 'email' => $testUser->email, // Removed as column does not exist on employees
-            'employee_code' => 'EMP001',
-            'job_title' => 'Administrator',
+            'user_id' => $admin->id,
+            'first_name' => 'Super',
+            'last_name' => 'Admin',
+            'employee_code' => 'EM001',
+            'job_title' => 'System Administrator',
             'joining_date' => now(),
             'phone' => '1234567890',
-            'address' => 'Admin Address',
+            'address' => 'HQ',
             'gender' => 'Other',
-            'dob' => '1990-01-01',
-            // 'salary' => 0, // Removed column
+            'dob' => '1990-01-01'
+        ]);
+
+        \App\Models\Contract::create([
+            'employee_id' => $admin->employee->id,
+            'type' => 'permanent',
+            'salary' => 5000,
+            'start_date' => now(),
+            'status' => 'active',
+            'position' => 'System Administrator',
+            'created_by' => $admin->id,
+        ]);
+
+        // Create an Employee record for the staff user
+        $staffEmployee = \App\Models\Employee::create([
+            'user_id' => $employeeUser->id,
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'employee_code' => 'EM002',
+            'job_title' => 'Staff',
+            'joining_date' => now(),
+            'phone' => '0987654321',
+            'address' => 'Phnom Penh',
+            'gender' => 'Male',
+            'dob' => '1995-06-15',
+            'status' => 'active',
+        ]);
+
+        \App\Models\Contract::create([
+            'employee_id' => $staffEmployee->id,
+            'type' => 'permanent',
+            'salary' => 800,
+            'start_date' => now(),
+            'status' => 'active',
+            'position' => 'Staff',
+            'created_by' => $admin->id,
         ]);
     }
 }

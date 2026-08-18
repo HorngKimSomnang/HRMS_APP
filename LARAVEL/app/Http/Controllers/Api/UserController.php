@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Spatie\Permission\Models\Role;
+use App\Models\Role;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 
@@ -14,10 +14,10 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $users = User::with(['roles', 'employee:id,user_id,employee_code,first_name,last_name'])
+        $users = User::with(['role', 'employee:id,user_id,employee_code,first_name,last_name'])
             ->when(! $request->boolean('all'), function ($query) {
-                $query->whereHas('roles', function ($roleQuery) {
-                    $roleQuery->whereIn('name', ['Admin', 'Super Admin']);
+                $query->whereHas('role', function ($roleQuery) {
+                    $roleQuery->whereIn('name', ['Super Admin']);
                 });
             })
             ->orderBy('name')
@@ -32,14 +32,14 @@ class UserController extends Controller
         $this->changeRole($user, $request->string('role')->toString());
 
         return $this->successResponse(
-            $user->fresh(['roles', 'employee']),
+            $user->fresh(['role', 'employee']),
             'User role updated successfully'
         );
     }
 
     public function show(User $user)
     {
-        $user->load('roles');
+        $user->load('role');
         return $this->successResponse($user);
     }
 
@@ -48,7 +48,7 @@ class UserController extends Controller
         $this->changeRole($user, $request->string('role')->toString());
 
         return $this->successResponse(
-            $user->fresh(['roles', 'employee']),
+            $user->fresh(['role', 'employee']),
             'User role updated successfully'
         );
     }
@@ -70,14 +70,24 @@ class UserController extends Controller
         if (
             $user->hasRole('Super Admin')
             && $role !== 'Super Admin'
-            && User::role('Super Admin')->count() <= 1
+            && User::whereHas('role', fn($q) => $q->where('name', 'Super Admin'))->count() <= 1
         ) {
             throw ValidationException::withMessages([
                 'role' => 'The last Super Admin cannot be changed to another role.',
             ]);
         }
 
-        Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
-        $user->syncRoles([$role]);
+        $newRole = Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
+        
+        if ($user->role_id !== $newRole->id) {
+            $user->update(['role_id' => $newRole->id]);
+            
+            // Broadcast permission changed so the target user's sidebar updates immediately
+            broadcast(new \App\Events\PermissionChanged($user, 'updated'))->toOthers();
+            
+            // Bump LiveData so tables like EmployeeList refresh automatically
+            \App\Services\LiveDataVersion::bump('users');
+            \App\Services\LiveDataVersion::bump('employees');
+        }
     }
 }

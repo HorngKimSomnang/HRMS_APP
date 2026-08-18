@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../services/payroll_service.dart';
 import '../core/theme.dart';
 import '../l10n/app_localizations.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class PayslipScreen extends StatefulWidget {
   const PayslipScreen({super.key});
@@ -12,20 +14,28 @@ class PayslipScreen extends StatefulWidget {
   State<PayslipScreen> createState() => _PayslipScreenState();
 }
 
-class _PayslipScreenState extends State<PayslipScreen> {
+class _PayslipScreenState extends State<PayslipScreen> with LiveRefreshMixin<PayslipScreen> {
   final PayrollService _payrollService = PayrollService();
   List<dynamic> _payslips = [];
   bool _isLoading = true;
+  @override
+  List<String> get watchedResources => ['payslips'];
+
+  @override
+  void onLiveRefresh(String resource) => _loadPayslips(forceRefresh: true);
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _loadPayslips();
   }
 
-  Future<void> _loadPayslips() async {
+  Future<void> _loadPayslips({bool forceRefresh = false}) async {
     try {
-      final payslips = await _payrollService.getPayslips();
+      final payslips = await _payrollService.getPayslips(forceRefresh: forceRefresh);
       if (mounted)
         setState(() {
           _payslips = payslips;
@@ -42,6 +52,12 @@ class _PayslipScreenState extends State<PayslipScreen> {
       builder: (_) => _PayslipDetailDialog(slip: slip),
     );
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -139,15 +155,20 @@ class _PayslipScreenState extends State<PayslipScreen> {
         ],
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _payslips.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.08),
+            : RefreshIndicator(
+                onRefresh: () => _loadPayslips(forceRefresh: true),
+                child: _payslips.isEmpty
+                ? Stack(
+                    children: [
+                      ListView(physics: const AlwaysScrollableScrollPhysics()),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.08),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -176,8 +197,10 @@ class _PayslipScreenState extends State<PayslipScreen> {
                     ),
                   ],
                 ),
-              )
+              ),
+            ])
             : ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                 itemCount: _payslips.length,
                 itemBuilder: (context, index) {
@@ -368,6 +391,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                   );
                 },
               ),
+            ),
       ),
     );
   }

@@ -11,10 +11,6 @@ class AuditLogController extends Controller
 {
     public function index(Request $request)
     {
-        // Strictly Super Admin only
-        if (!Auth::user()->hasRole('Super Admin')) {
-            return response()->json(['message' => 'Unauthorized. Audit Logs are restricted to Super Admin only.'], 403);
-        }
 
         $query = AuditLog::with('user')
             ->orderBy('created_at', 'desc');
@@ -38,5 +34,22 @@ class AuditLogController extends Controller
         $logs = $query->paginate(50);
 
         return response()->json($logs);
+    }
+
+    public function export(Request $request)
+    {
+
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'role' => Auth::user()->role->name ?? 'Super Admin',
+            'action' => 'AUDIT_EXPORTED',
+            'ip_address' => $request->ip(),
+            'context' => [
+                'user_agent' => $request->userAgent(),
+                'status' => 'success'
+            ]
+        ]);
+
+        return response()->json(['message' => 'Audit export logged.']);
     }
 }

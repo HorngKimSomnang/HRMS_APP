@@ -12,9 +12,11 @@ String friendlyError(BuildContext context, Object e) {
   if (e is DioException) {
     final status = e.response?.statusCode;
     final data = e.response?.data;
-    // A real reply from our API with a human message (validation etc.).
     if (status != null && status < 500 && data is Map && data['message'] is String) {
       return data['message'] as String;
+    }
+    if (status == 401) {
+      return 'Your session has expired. Please log in again.';
     }
     // Timeouts, no network, 5xx, bad gateway... -> connection message.
     return l10n.checkYourInternet;

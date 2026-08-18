@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/constants.dart';
 import '../services/document_service.dart';
 import '../l10n/app_localizations.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class DocumentScreen extends StatefulWidget {
   const DocumentScreen({super.key});
@@ -17,14 +19,22 @@ class DocumentScreen extends StatefulWidget {
   State<DocumentScreen> createState() => _DocumentScreenState();
 }
 
-class _DocumentScreenState extends State<DocumentScreen> {
+class _DocumentScreenState extends State<DocumentScreen> with LiveRefreshMixin<DocumentScreen> {
   final DocumentService _documentService = DocumentService();
   List<dynamic> _documents = [];
   bool _loading = true;
+  @override
+  List<String> get watchedResources => ['documents'];
+
+  @override
+  void onLiveRefresh(String resource) => _fetchDocuments();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _fetchDocuments();
   }
 
@@ -232,6 +242,12 @@ class _DocumentScreenState extends State<DocumentScreen> {
       ],
     );
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {

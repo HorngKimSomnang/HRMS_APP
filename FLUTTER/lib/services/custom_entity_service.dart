@@ -6,27 +6,27 @@ import 'api_service.dart';
 class CustomEntityService {
   final ApiService _apiService = ApiService();
 
-  Future<List<dynamic>> fetchSubmittableEntities() async {
+  Future<List<dynamic>> fetchSubmittableEntities({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/my/entities');
+      final response = await ApiService.instance.cachedGet('/my/entities', forceRefresh: forceRefresh);
       return response.data['data'] as List<dynamic>;
     } catch (e) {
       throw Exception('Failed to load forms');
     }
   }
 
-  Future<Map<String, dynamic>> fetchEntity(String slug) async {
+  Future<Map<String, dynamic>> fetchEntity(String slug, {bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/my/entities/$slug');
+      final response = await ApiService.instance.cachedGet('/my/entities/$slug', forceRefresh: forceRefresh);
       return response.data['data'] as Map<String, dynamic>;
     } catch (e) {
       throw Exception('Failed to load form');
     }
   }
 
-  Future<List<dynamic>> fetchMyRecords(String slug) async {
+  Future<List<dynamic>> fetchMyRecords(String slug, {bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/my/entities/$slug/records');
+      final response = await ApiService.instance.cachedGet('/my/entities/$slug/records', forceRefresh: forceRefresh);
       return response.data['data']['data'] as List<dynamic>;
     } catch (e) {
       throw Exception('Failed to load history');

@@ -123,15 +123,19 @@ class MoreScreen extends StatelessWidget {
                         onTap: () async {
                           final confirm = await showDialog<bool>(
                             context: context,
-                            builder: (_) => AlertDialog(
+                            builder: (dialogCtx) => AlertDialog(
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               title: Text(AppLocalizations.of(context)!.logout, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
                               content: Text(AppLocalizations.of(context)!.confirmSignOut, style: GoogleFonts.notoSansKhmer()),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.cancel, style: GoogleFonts.notoSansKhmer(color: Colors.grey))),
+                                TextButton(
+                                  style: TextButton.styleFrom(backgroundColor: Colors.grey[200], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                                  onPressed: () => Navigator.pop(dialogCtx, false), 
+                                  child: Text(AppLocalizations.of(context)!.cancel, style: GoogleFonts.notoSansKhmer(color: Colors.grey[800], fontWeight: FontWeight.w600))
+                                ),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                                  onPressed: () => Navigator.pop(context, true),
+                                  onPressed: () => Navigator.pop(dialogCtx, true),
                                   child: Text(AppLocalizations.of(context)!.logout, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
                                 ),
                               ],

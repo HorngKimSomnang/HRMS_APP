@@ -32,21 +32,41 @@ class AssetController extends Controller
                 ->orWhere('serial_no', 'like', "%{$s}%"));
         }
 
-        $assets = $query->orderBy('code')->get();
+        $user = auth()->user();
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        if (empty($managedDepartmentIds)) {
+            $query->whereHas('currentAssignment', function ($q) use ($user) {
+                $q->where('employee_id', $user->employee?->id ?? -1);
+            });
+            $stats = [];
+        } else {
+            $query->where(function ($q) use ($managedDepartmentIds) {
+                $q->whereHas('currentAssignment.employee.user', function ($q2) use ($managedDepartmentIds) {
+                    $q2->whereIn('users.department_id', $managedDepartmentIds);
+                })->orWhereDoesntHave('currentAssignment');
+            });
+            $stats = [
+                'total' => Asset::count(),
+                'available' => Asset::where('status', 'available')->count(),
+                'assigned' => Asset::where('status', 'assigned')->count(),
+                'maintenance' => Asset::where('status', 'maintenance')->count(),
+                'total_value' => (float) Asset::whereNot('status', 'retired')->sum('purchase_cost'),
+            ];
+        }
 
-        $stats = [
-            'total' => Asset::count(),
-            'available' => Asset::where('status', 'available')->count(),
-            'assigned' => Asset::where('status', 'assigned')->count(),
-            'maintenance' => Asset::where('status', 'maintenance')->count(),
-            'total_value' => (float) Asset::whereNot('status', 'retired')->sum('purchase_cost'),
-        ];
+        $assets = $query->orderBy('code')->get();
 
         return response()->json(['data' => $assets, 'stats' => $stats]);
     }
 
     public function store(Request $request)
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        if (!$user->hasPermissionTo('assets.create')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to create assets.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50|unique:assets,code',
@@ -67,6 +87,12 @@ class AssetController extends Controller
 
     public function update(Request $request, Asset $asset)
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        if (!$user->hasPermissionTo('assets.edit')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to edit assets.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'code' => 'sometimes|string|max:50|unique:assets,code,' . $asset->id,
@@ -93,8 +119,14 @@ class AssetController extends Controller
 
     public function destroy(Request $request, Asset $asset)
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        if (!$user->hasPermissionTo('assets.delete')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to delete assets.'], 403);
+        }
+
         if ($asset->currentAssignment) {
-            return response()->json(['message' => 'Asset is currently assigned. Return it first.'], 422);
+            return response()->json(['message' => 'Cannot delete this asset because it is currently assigned to an employee.'], 400);
         }
 
         AuditLogger::log($request, 'ASSET_DELETED', $asset, ['code' => $asset->code, 'name' => $asset->name]);
@@ -109,6 +141,12 @@ class AssetController extends Controller
      */
     public function assign(Request $request, Asset $asset)
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        if (!$user->hasPermissionTo('assets.assign')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to assign assets.'], 403);
+        }
+
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
             'assigned_at' => 'nullable|date',
@@ -126,6 +164,7 @@ class AssetController extends Controller
             'asset_id' => $asset->id,
             'employee_id' => $validated['employee_id'],
             'assigned_at' => $validated['assigned_at'] ?? now()->toDateString(),
+            'assigned_condition' => $asset->condition,
             'notes' => $validated['notes'] ?? null,
         ]);
 
@@ -142,6 +181,12 @@ class AssetController extends Controller
      */
     public function returnAsset(Request $request, Asset $asset)
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        if (!$user->hasPermissionTo('assets.return')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to return assets.'], 403);
+        }
+
         $validated = $request->validate([
             'returned_at' => 'nullable|date',
             'returned_condition' => 'nullable|in:new,good,fair,poor',

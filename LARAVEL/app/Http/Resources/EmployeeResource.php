@@ -29,23 +29,29 @@ class EmployeeResource extends JsonResource
             'dob' => $this->dob,
             'profile_picture_url' => $this->profile_picture ? url('/api/file/' . $this->profile_picture) : null,
 
-            // 'department_id' => $this->department_id,
-            'department' => $this->department,
+            'department_id' => $this->user?->department_id ?? $this->department_id,
+            'department' => $this->user?->department ? $this->user->department->name : ($this->department ? $this->department->name : null),
+            'all_departments' => ($this->user?->managedDepartments && $this->user->managedDepartments->count() > 0)
+                ? $this->user->managedDepartments->pluck('name')->toArray()
+                : collect([$this->user?->department ? $this->user->department->name : ($this->department ? $this->department->name : null)])->filter()->unique()->values()->toArray(),
+            'managed_departments' => $this->user?->managedDepartments ? $this->user->managedDepartments->pluck('name')->toArray() : [],
             'job_title' => $this->job_title,
             // 'branch_id' => $this->branch_id,
             // 'branch' => $this->branch ? $this->branch->name : null,
             // 'company_id' => $this->company_id,
             // 'company' => $this->company ? $this->company->name : null,
-            'salary' => $this->basic_salary,
+            'salary' => ($this->activeContract ?? $this->contracts()->latest('start_date')->first())?->salary ?? 0,
             'joining_date' => $this->joining_date,
             'status' => $this->status,
              // Include role from User
-            'role' => $this->user?->getRoleNames()->first(),
+            'role' => $this->user?->getRoleNames()->join(', '),
+            'roles' => $this->user?->assignedRoles,
             'archived_at' => $this->deleted_at?->toIso8601String(),
             'restore_conflict' => (bool) ($this->restore_conflict ?? false),
             'conflicting_employee_code' => $this->conflicting_employee_code ?? null,
             'shift_id' => $this->shift_id,
             'shift' => $this->shift,
+            'contracts' => $this->whenLoaded('contracts'),
             'documents' => $this->formatDocuments(),
         ];
     }

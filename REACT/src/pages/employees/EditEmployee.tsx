@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatShiftOption, type ShiftOption } from '@/utils/shift';
 
@@ -11,10 +12,15 @@ export default function EditEmployee() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    
+    const isSuperAdmin = user?.role?.is_super_admin === true || user?.role?.name === 'Super Admin';
+    
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [isSelf, setIsSelf] = useState(false);
     const [shifts, setShifts] = useState<ShiftOption[]>([]);
+    const [roles, setRoles] = useState<any[]>([]);
+    const [departments, setDepartments] = useState<any[]>([]);
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -74,19 +80,26 @@ export default function EditEmployee() {
         }
     }, [id, user?.id]);
 
-    const fetchShifts = useCallback(async () => {
+    const fetchOptions = useCallback(async () => {
         try {
-            const res = await api.get('/shifts');
-            setShifts(res.data.data);
+            const [shiftRes, roleRes, deptRes] = await Promise.allSettled([
+                api.get('/shifts'),
+                api.get('/admin/roles'),
+                api.get('/departments')
+            ]);
+            
+            setShifts(shiftRes.status === 'fulfilled' ? (shiftRes.value.data.data || []) : []);
+            setRoles(roleRes.status === 'fulfilled' ? (roleRes.value.data || []) : []);
+            setDepartments(deptRes.status === 'fulfilled' ? (deptRes.value.data || []) : []);
         } catch (error) {
-            console.error("Failed to fetch shifts", error);
+            console.error("Failed to fetch options", error);
         }
     }, []);
 
     useEffect(() => {
         fetchEmployee();
-        fetchShifts();
-    }, [fetchEmployee, fetchShifts]);
+        fetchOptions();
+    }, [fetchEmployee, fetchOptions]);
 
     useEffect(() => {
         if (!fetching && shifts.length > 0 && !formData.shift_id) {
@@ -155,57 +168,63 @@ export default function EditEmployee() {
 
     return (
         <div className="max-w-5xl mx-auto py-4">
+            <div className="flex items-center gap-4 mb-4 px-1">
+                <button type="button" onClick={() => navigate('/employees')} className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors shadow-sm">
+                    <ArrowLeft className="h-5 w-5" />
+                </button>
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900">Edit Employee</h2>
+            </div>
+            
             <div className="bg-gradient-to-br from-blue-50/40 via-white to-white rounded-2xl shadow-sm border border-blue-100 p-6 sm:p-8">
-                <h2 className="text-2xl font-bold tracking-tight mb-6 text-slate-900 border-b pb-4">Edit Employee</h2>
                 <form onSubmit={handleSubmit} className="space-y-5">
 
                 {/* Profile Picture Input */}
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Profile Picture / រូបថតប្រវត្តិរូប</label>
+                    <label className="text-sm font-medium">Profile Picture</label>
                     <Input type="file" onChange={handleFileChange} accept="image/*" />
                     <p className="text-xs text-muted-foreground">Leave blank to keep current picture.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">First Name / នាមខ្លួន</label>
+                        <label className="text-sm font-medium">First Name</label>
                         <Input name="first_name" value={formData.first_name} required onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Last Name / នាមត្រកូល</label>
+                        <label className="text-sm font-medium">Last Name</label>
                         <Input name="last_name" value={formData.last_name} required onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Name in Khmer / ឈ្មោះជាភាសាខ្មែរ</label>
+                        <label className="text-sm font-medium">Name in Khmer</label>
                         <Input name="name_kh" value={formData.name_kh} onChange={handleChange} placeholder="ឈ្មោះជាភាសាខ្មែរ" />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Emergency Contact / ទំនាក់ទំនងបន្ទាន់</label>
+                        <label className="text-sm font-medium">Emergency Contact</label>
                         <Input name="emergency_contact" value={formData.emergency_contact} onChange={handleChange} placeholder="Guardian/Parents Number" />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Email / អ៊ីមែល</label>
+                        <label className="text-sm font-medium">Email</label>
                         <Input name="email" type="email" value={formData.email} required onChange={handleChange} placeholder="name@example.com" />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
+                        <label className="text-sm font-medium">Phone Number</label>
                         <Input name="phone" value={formData.phone} onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Date of Birth / ថ្ងៃខែឆ្នាំកំណើត</label>
+                        <label className="text-sm font-medium">Date of Birth</label>
                         <Input name="dob" type="date" value={formData.dob} onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Gender / ភេទ</label>
+                        <label className="text-sm font-medium">Gender</label>
                         <select
                             name="gender"
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -219,7 +238,7 @@ export default function EditEmployee() {
                         </select>
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Marital Status / ស្ថានភាពគ្រួសារ</label>
+                        <label className="text-sm font-medium">Marital Status</label>
                         <select
                             name="marital_status"
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -240,22 +259,22 @@ export default function EditEmployee() {
                     <p className="text-xs text-muted-foreground -mt-2 mb-2">Uploading a new file will replace the existing document of that type.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">National ID / អត្តសញ្ញាណប័ណ្ណ</label>
+                            <label className="text-sm font-medium">National ID</label>
                             <Input type="file" onChange={handleNationalIdChange} />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Degree / សញ្ញាប័ត្រ</label>
+                            <label className="text-sm font-medium">Degree</label>
                             <Input type="file" onChange={handleDegreeChange} />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">CV / ប្រវត្តិរូបសង្ខេប</label>
+                            <label className="text-sm font-medium">CV</label>
                             <Input type="file" onChange={handleCvChange} />
                         </div>
                     </div>
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Address / អាសយដ្ឋាន</label>
+                    <label className="text-sm font-medium">Address</label>
                     <textarea
                         name="address"
                         className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -266,33 +285,56 @@ export default function EditEmployee() {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Employee Code (Read-only) / លេខកូដបុគ្គលិក</label>
+                        <label className="text-sm font-medium">Employee Code (Read-only)</label>
                         <Input name="employee_code" value={formData.employee_code} disabled className="bg-muted cursor-not-allowed" />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Joining Date / ថ្ងៃចូលធ្វើការ</label>
+                        <label className="text-sm font-medium">Joining Date</label>
                         <Input name="joining_date" type="date" value={formData.joining_date} required onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Job Title / មុខតំណែង {isSelf && "(Read-only for your own profile)"}</label>
-                        <Input name="job_title" value={formData.job_title} required onChange={handleChange} disabled={isSelf} className={isSelf ? "bg-muted cursor-not-allowed" : ""} />
+                                        <div className="space-y-1.5">
+                        <label className="text-sm font-medium">Role</label>
+                        <select
+                            name="role"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            onChange={handleChange}
+                            value={formData.role}
+                            disabled={isSelf}
+                            required
+                        >
+                            <option value="">Select Role</option>
+                            {roles.map(r => (
+                                <option key={r.id} value={r.name}>{r.name}</option>
+                            ))}
+                        </select>
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Department / ផ្នែក</label>
-                        <Input name="department" value={formData.department || ''} onChange={handleChange} placeholder="e.g. Engineering" />
+                        <label className="text-sm font-medium">Department</label>
+                        <select
+                            name="department"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            onChange={handleChange}
+                            value={formData.department}
+                            required
+                        >
+                            <option value="">Select Department</option>
+                            {departments.map(d => (
+                                <option key={d.id} value={d.name}>{d.name}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Salary (Monthly) / ប្រាក់ខែ {isSelf && "(Read-only for your own profile)"}</label>
-                        <Input name="salary" type="number" value={formData.salary} onChange={handleChange} disabled={isSelf} className={isSelf ? "bg-muted cursor-not-allowed" : ""} />
+                        <label className="text-sm font-medium">Salary (Monthly){(isSelf && !isSuperAdmin) && "(Read-only for your own profile)"}</label>
+                        <Input name="salary" type="number" value={formData.salary} onChange={handleChange} disabled={isSelf && !isSuperAdmin} className={(isSelf && !isSuperAdmin) ? "bg-muted cursor-not-allowed" : ""} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Assigned Shift / វេនការងារ</label>
+                        <label className="text-sm font-medium">Assigned Shift</label>
                         <select
                             name="shift_id"
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -314,23 +356,7 @@ export default function EditEmployee() {
                     </div>
                 </div>
 
-                {user?.roles?.some((r: any) => r.name === 'Super Admin') && (
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">System Role / តួនាទីក្នុងប្រព័ន្ធ</label>
-                            <select
-                                name="role"
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                onChange={handleChange}
-                                value={formData.role}
-                            >
-                                <option value="Employee">Employee</option>
-                                <option value="Admin">Admin</option>
-                                <option value="Super Admin">Super Admin</option>
-                            </select>
-                        </div>
-                    </div>
-                )}
+                
 
                 <div className="flex justify-end gap-4 pt-6 border-t mt-8">
                     <Button type="button" variant="outline" onClick={() => navigate('/employees')} className="px-6">Cancel</Button>

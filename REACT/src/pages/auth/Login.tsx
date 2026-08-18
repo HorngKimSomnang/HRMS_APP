@@ -4,27 +4,26 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import api from '@/services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 export default function Login() {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const { login } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const initialError = queryParams.get('reason') === 'session_expired' ? 'Your access has been updated. Please log in again.' : '';
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(initialError);
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-
-    const toggleLanguage = () => {
-        const newLang = i18n.language === 'en' ? 'km' : 'en';
-        i18n.changeLanguage(newLang);
-        localStorage.setItem('language', newLang);
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -34,33 +33,43 @@ export default function Login() {
         try {
             const response = await api.post('/login', { email, password });
 
-            const { access_token, user } = response.data;
+            const { access_token, user, permissions, direct_permissions } = response.data;
 
             if (access_token && user) {
-                const hasAdminAccess = user.roles?.some((r: any) => ['Admin', 'Super Admin'].includes(r.name));
-                if (!hasAdminAccess) {
-                    setError("Access denied. Employees must use the mobile app.");
+                const hasSuperAdmin = user.roles?.some((r: any) => r.name === 'Super Admin');
+                
+                // Permissions can come from the root response or the user object depending on the endpoint
+                const userPerms = permissions || user.permissions || [];
+                const userDirectPerms = direct_permissions || user.direct_permissions || [];
+                
+                const hasPermissions = userPerms.length > 0 || userDirectPerms.length > 0;
+                const hasMultipleRoles = user.roles && user.roles.length > 1;
+                if (!hasSuperAdmin && !hasPermissions && !hasMultipleRoles) {
+                    setError('Unauthorized. This portal is only accessible to system managers and administrators.');
+                    setLoading(false);
                     return;
                 }
 
-                login(access_token, user);
-                // Force a small delay to allow state to settle if needed, though not usually required
-                setTimeout(() => navigate('/dashboard'), 100);
-            } else {
-                setError("Login failed. Missing token.");
+                login(access_token, {
+                    ...user,
+                    permissions: userPerms,
+                    direct_permissions: userDirectPerms
+                });
+                
+                toast.success('Logged in successfully');
+                navigate('/dashboard');
             }
-
-        } catch (err: any) {
-            setError(err.response?.data?.message || t('login.invalid_credentials'));
-        } finally {
+        } catch (error: any) {
+            console.error('Login error', error);
+            setError(error.response?.data?.message || 'Invalid email or password');
             setLoading(false);
         }
     };
 
     return (
-        <div className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50/60 to-slate-100">
-            {/* Soft decorative glow — purely visual, no layout impact */}
-            <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-blue-300/30 blur-3xl" />
+        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50/60 to-slate-100 py-12">
+            {/* Ambient background glows */}
+            <div className="pointer-events-none absolute -top-32 -left-24 h-[28rem] w-[28rem] rounded-full bg-blue-500/20 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-32 -right-24 h-[28rem] w-[28rem] rounded-full bg-indigo-300/30 blur-3xl" />
             <div className="pointer-events-none absolute top-1/3 right-1/4 h-72 w-72 rounded-full bg-sky-200/20 blur-3xl" />
 
@@ -72,11 +81,6 @@ export default function Login() {
             >
                 <div className="mx-auto w-full max-w-lg space-y-8 bg-white/85 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/60 p-12 sm:p-14">
                     <div className="flex flex-col items-center text-center">
-                        <div className="w-full flex justify-end mb-2">
-                             <button onClick={toggleLanguage} className="bg-secondary/50 px-2 py-1 rounded text-sm hover:bg-secondary">
-                                {i18n.language === 'en' ? '🇰🇭 ខ្មែរ' : '🇬🇧 EN'}
-                             </button>
-                        </div>
                         <div className="mb-6">
                             <img src="/logo.png" alt="HEN CHEN Logo" className="h-20 w-20 object-contain mx-auto drop-shadow-md" />
                         </div>
@@ -105,18 +109,9 @@ export default function Login() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label htmlFor="password" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        {t('login.password')}
-                                    </label>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => navigate('/forgot-password')} 
-                                        className="text-sm font-medium text-primary hover:underline"
-                                    >
-                                        {t('login.forgot_password')}
-                                    </button>
-                                </div>
+                                <label htmlFor="password" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    {t('login.password')}
+                                </label>
                                 <div className="relative">
                                     <Input
                                         id="password"
@@ -134,6 +129,15 @@ export default function Login() {
                                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                                     >
                                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                                <div className="flex justify-start pt-1">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => navigate('/forgot-password')} 
+                                        className="text-sm font-medium text-primary hover:underline"
+                                    >
+                                        {t('login.forgot_password')}
                                     </button>
                                 </div>
                             </div>

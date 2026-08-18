@@ -21,16 +21,46 @@ class EmployeeController extends Controller
 {
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $isManager = $user->managedDepartments()->exists();
+        
+        if (!$user->hasRole('Super Admin') && !$user->hasPermissionTo('employees.view') && !$isManager) {
+            abort(403, 'Forbidden. You do not have permission to view employees.');
+        }
+
         if ($request->boolean('archived')) {
             $query = Employee::onlyTrashed()->with([
-                'user' => fn ($userQuery) => $userQuery->withTrashed(),
+                'user' => fn ($userQuery) => $userQuery->withTrashed()->with(['department', 'assignedRoles']),
             ]);
         } else {
-            $query = Employee::with(['user']);
+            $query = Employee::with(['user.department', 'user.assignedRoles']);
         }
         
         if ($request->has('status')) {
             $query->where('status', $request->status);
+        }
+
+        $user = auth()->user();
+        if (!$user->hasRole('Super Admin')) {
+            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            if (empty($managedDepartmentIds)) {
+                $query->where('id', $user->employee?->id ?? -1);
+            } else {
+                $query->where(function ($q) use ($managedDepartmentIds, $user) {
+                    $q->whereHas('user', function ($q2) use ($managedDepartmentIds) {
+                        $q2->withTrashed()->whereIn('department_id', $managedDepartmentIds);
+                    })->orWhere('id', $user->employee?->id ?? -1);
+                });
+            }
+        }
+
+        if ($request->has('department_id')) {
+            if (!auth()->user()->hasPermissionTo('departments.view_employees')) {
+                abort(403, 'Forbidden. You do not have the required permission.');
+            }
+            $query->whereHas('user', function($q) use ($request) {
+                $q->withTrashed()->where('department_id', $request->department_id);
+            });
         }
 
         $query->orderBy('employee_code');
@@ -78,27 +108,44 @@ class EmployeeController extends Controller
                 'password' => Hash::make($generatedPassword),
             ]);
 
-            // Auto-generate employee code (e.g., EMP001, EMP002).
+            // Auto-generate employee code (e.g., EM001, EM002).
             // Includes trashed (archived) employees so a code already issued to
             // a terminated employee is never reissued to someone new.
             $lastEmployee = Employee::withTrashed()
-                ->where('employee_code', 'like', 'EMP%')
+                ->where('employee_code', 'like', 'EM%')
+                ->orderByRaw('LENGTH(employee_code) desc')
                 ->orderBy('employee_code', 'desc')
                 ->first();
 
             if (!$lastEmployee) {
                 $nextNumber = 1;
             } else {
-                // Extract number from 'EMP005' -> 5
-                $lastNumber = (int) substr($lastEmployee->employee_code, 3);
+                // Extract number from 'EM005' or 'EMP005' -> 5
+                $numberString = preg_replace('/[^0-9]/', '', $lastEmployee->employee_code);
+                $lastNumber = (int) $numberString;
                 $nextNumber = $lastNumber + 1;
             }
 
-            $employeeCode = 'EMP' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            $employeeCode = 'EM' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
-            // Ensure the Employee role exists, then assign it
-            $employeeRole = Role::firstOrCreate(['name' => 'Employee', 'guard_name' => 'web']);
-            $user->assignRole($employeeRole);
+            // Assign the requested role or fallback to default 'Employee'
+            $roleName = $request->input('role', 'Employee');
+            $role = \App\Models\Role::where('name', $roleName)->first();
+            
+            if (!$role) {
+                $role = \App\Models\Role::where('name', 'Employee')->first();
+            }
+            
+            $departmentName = $request->input('department');
+            $department = \App\Models\Department::where('name', $departmentName)->first();
+            
+            $userUpdates = [];
+            if ($role) $userUpdates['role_id'] = $role->id;
+            if ($department) $userUpdates['department_id'] = $department->id;
+            
+            if (!empty($userUpdates)) {
+                $user->update($userUpdates);
+            }
 
             $documentsData = [
                 'marital_status' => $request->marital_status ?? 'Single',
@@ -137,16 +184,39 @@ class EmployeeController extends Controller
                 'first_name' => $request->first_name,
                 'last_name' => $request->last_name,
                 'phone' => $request->phone,
-                'job_title' => $request->job_title,
-                'department' => $request->department,
+                'job_title' => $roleName,
                 'joining_date' => $request->joining_date,
-                'basic_salary' => $request->salary,
                 'address' => $request->address,
                 'gender' => $request->gender,
                 'dob' => $request->dob,
                 'shift_id' => $request->shift_id
                     ?: (HrCatalog::getShifts()[0]['id'] ?? null),
                 'documents' => $documentsData,
+            ]);
+            
+            $startDate = $request->joining_date ?? now();
+            $contract = \App\Models\Contract::create([
+                'employee_id' => $employee->id,
+                'type' => 'fixed_term',
+                'salary' => $request->salary ?? 0,
+                'start_date' => $startDate,
+                'end_date' => \Carbon\Carbon::parse($startDate)->addMonth(),
+                'status' => 'pending',
+                'position' => $roleName,
+                'created_by' => $request->user() ? $request->user()->id : null,
+            ]);
+
+            \App\Models\AuditLog::create([
+                'user_id' => null,
+                'role' => 'System',
+                'action' => 'CONTRACT_GENERATED',
+                'ip_address' => request()->ip() ?? '127.0.0.1',
+                'model_type' => \App\Models\Contract::class,
+                'model_id' => $contract->id,
+                'context' => [
+                    'employee' => $employee->user->name,
+                    'status' => 'automated'
+                ]
             ]);
             
             if ($request->hasFile('profile_picture')) {
@@ -235,9 +305,27 @@ class EmployeeController extends Controller
 
     public function show(string|int $id)
     {
+        $user = auth()->user();
+        $isManager = $user->managedDepartments()->exists();
+        
+        if (!$user->hasRole('Super Admin') && !$user->hasPermissionTo('employees.view') && !$isManager) {
+            abort(403, 'Forbidden. You do not have permission to view this employee.');
+        }
+
         try {
-            $employee = Employee::with(['user'])->findOrFail($id);
+            $employee = Employee::with(['user.department'])->findOrFail($id);
+            
+            if (!$user->hasRole('Super Admin') && !$user->hasPermissionTo('employees.view') && $isManager) {
+                $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+                $empDeptId = $employee->user?->department_id;
+                if (!in_array($empDeptId, $managedDepartmentIds) && $employee->id !== $user->employee?->id) {
+                    abort(403, 'Forbidden. This employee is not in your managed department.');
+                }
+            }
+
             return $this->successResponse(new EmployeeResource($employee));
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return $this->errorResponse('Employee not found', 404);
         }
@@ -297,12 +385,24 @@ class EmployeeController extends Controller
                 $user->password_changed_at = null; // admin-set password -> employee should change it
             }
             
-            /** @var User $authUser */
-            $authUser = $request->user();
-            if ($request->has('role') && $authUser && $authUser->hasRole('Super Admin')) {
+            $userUpdates = [];
+            if ($request->has('role')) {
                 $roleName = $request->role;
-                $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
-                $user->syncRoles([$role]);
+                $role = \App\Models\Role::where('name', $roleName)->first();
+                if ($role) {
+                    $userUpdates['role_id'] = $role->id;
+                }
+            }
+            if ($request->has('department')) {
+                $departmentName = $request->department;
+                $department = \App\Models\Department::where('name', $departmentName)->first();
+                if ($department) {
+                    $userUpdates['department_id'] = $department->id;
+                }
+            }
+            
+            if (!empty($userUpdates)) {
+                $user->update($userUpdates);
             }
             
             $user->save();
@@ -310,14 +410,12 @@ class EmployeeController extends Controller
             // Update Employee
             $employeeData = $request->only([
                 'employee_code', 'first_name', 'last_name', 'phone', 
-                'job_title', 'department', 'joining_date', 
+                'joining_date', 
                 'address', 'gender', 'dob', 'shift_id'
             ]);
-            
-            if ($request->has('salary')) {
-                $employeeData['basic_salary'] = $request->salary;
+            if ($request->has('role')) {
+                $employeeData['job_title'] = $request->role;
             }
-            
             $documentsData = $employee->documents ?? ['attachments' => []];
             $documentsData['marital_status'] = $request->marital_status ?? ($documentsData['marital_status'] ?? 'Single');
             $documentsData['name_kh'] = $request->name_kh ?? ($documentsData['name_kh'] ?? null);
@@ -357,7 +455,41 @@ class EmployeeController extends Controller
             }
             $employeeData['documents'] = $documentsData;
 
-            if (!empty($employeeData)) $employee->update($employeeData);
+            if (!empty($employeeData)) {
+                $employee->update($employeeData);
+            }
+
+            if ($request->has('salary')) {
+                $contract = $employee->activeContract ?? $employee->contracts()->latest('start_date')->first();
+                if ($contract) {
+                    $contract->update(['salary' => $request->salary]);
+                } else {
+                    $startDate = $request->joining_date ?? now();
+                    $contract = \App\Models\Contract::create([
+                        'employee_id' => $employee->id,
+                        'type' => 'fixed_term',
+                        'salary' => $request->salary,
+                        'start_date' => $startDate,
+                        'end_date' => \Carbon\Carbon::parse($startDate)->addMonth(),
+                        'status' => 'pending',
+                        'position' => $request->role ?? $employee->job_title,
+                        'created_by' => $request->user() ? $request->user()->id : null,
+                    ]);
+
+                    \App\Models\AuditLog::create([
+                        'user_id' => null,
+                        'role' => 'System',
+                        'action' => 'CONTRACT_GENERATED',
+                        'ip_address' => request()->ip() ?? '127.0.0.1',
+                        'model_type' => \App\Models\Contract::class,
+                        'model_id' => $contract->id,
+                        'context' => [
+                            'employee' => $employee->user->name,
+                            'status' => 'automated'
+                        ]
+                    ]);
+                }
+            }
 
             if ($request->hasFile('profile_picture')) {
                 if ($employee->profile_picture) {
@@ -432,6 +564,10 @@ class EmployeeController extends Controller
 
             DB::beginTransaction();
 
+            // Capture deleted_at BEFORE restore() clears it — needed to identify
+            // payslips that were marked paid during the archived window.
+            $archivedAt = $employee->deleted_at;
+
             \App\Models\Attendance::onlyTrashed()->where('employee_id', $employee->id)->restore();
             \App\Models\Leave::onlyTrashed()->where('employee_id', $employee->id)->restore();
             \App\Models\Overtime::onlyTrashed()->where('employee_id', $employee->id)->restore();
@@ -445,6 +581,42 @@ class EmployeeController extends Controller
             }
 
             $employee->restore();
+            $employee->update(['status' => 'active']);
+
+            // Unlock payslips that were locked during archive → back to draft
+            \App\Models\Payslip::where('employee_id', $employee->id)
+                ->where('status', 'locked')
+                ->update(['status' => 'draft', 'locked_reason' => null]);
+
+            // Flag any payslips that were marked 'paid' WHILE the employee was archived.
+            // These need human review — money may have already moved.
+            if ($archivedAt) {
+                \App\Models\Payslip::where('employee_id', $employee->id)
+                    ->where('status', 'paid')
+                    ->where('updated_at', '>=', $archivedAt)
+                    ->update([
+                        'locked_reason' => 'Paid during archived period — verify with finance.',
+                    ]);
+            }
+
+            $contracts = \App\Models\Contract::where('employee_id', $employee->id)
+                ->where('status', 'expired')
+                ->get();
+
+            foreach ($contracts as $contract) {
+                $contract->update(['status' => 'pending']);
+                \App\Models\ContractStatusLog::create([
+                    'contract_id' => $contract->id,
+                    'employee_id' => $employee->id,
+                    'status'      => 'pending',
+                    'changed_at'  => now(),
+                ]);
+            }
+
+            \App\Models\Offboarding::where('employee_id', $employee->id)
+                ->whereIn('status', ['deleted', 'completed'])
+                ->where('reason', 'Deleted')
+                ->delete();
 
             DB::commit();
 

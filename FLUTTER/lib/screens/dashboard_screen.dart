@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../core/error_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -14,14 +15,18 @@ import '../services/attendance_service.dart';
 import '../services/location_service.dart';
 import '../providers/notification_provider.dart';
 import '../core/constants.dart';
+import '../core/env_config.dart';
 import '../services/local_notification_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/live_version_service.dart';
+import '../services/websocket_service.dart';
 import '../l10n/app_localizations.dart';
 import 'holiday_screen.dart';
 import 'payslip_screen.dart';
 import 'overtime_screen.dart';
 import 'attendance_history_screen.dart';
+import 'report_screen.dart';
 import 'document_viewer_screen.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -49,6 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       LocalNotificationService();
 
   Timer? _undoWindowTimer;
+  StreamSubscription<String>? _wsSubscription;
 
   static const _undoClockOutWindow = Duration(minutes: 5);
 
@@ -87,10 +93,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final notifProvider = context.read<NotificationProvider>();
         notifProvider.fetchNotifications();
         notifProvider.startPolling();
+        LiveVersionService.instance.startPolling();
       }
     });
     _requestNotificationPermission();
     _loadNotices();
+
+    // Subscribe to WebSocket live data stream for instant refreshes
+    _wsSubscription = WebSocketService.instance.liveDataStream.listen((resource) {
+      if (!mounted) return;
+      // Resources that should trigger a dashboard reload
+      const dashboardResources = [
+        'attendance', 'leaves', 'payslips', 'employees',
+        'permissions', 'dashboard', 'announcements', 'user',
+      ];
+      if (dashboardResources.contains(resource)) {
+        if (kDebugMode) print('[Dashboard] WS refresh triggered by: $resource');
+        _loadData(forceRefresh: true);
+      }
+    });
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -100,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadNotices() async {
     try {
-      final response = await _apiService.client.get('/announcements/latest');
+      final response = await ApiService.instance.cachedGet('/announcements/latest');
       final notices = response.data['data'] as List<dynamic>;
       if (notices.isNotEmpty) {
         final latestNotice = notices.first;
@@ -127,15 +148,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceRefresh = false}) async {
     try {
       final results = await Future.wait([
-        _apiService.client.get('/user'),
-        _attendanceService.fetchToday(),
+        ApiService.instance.cachedGet('/user', forceRefresh: forceRefresh),
+        _attendanceService.fetchToday(forceRefresh: forceRefresh),
       ]);
       if (mounted) {
         setState(() {
-          _user = (results[0] as dynamic).data;
+          _user = (results[0] as dynamic).data['user'];
           _todayAttendance = results[1] as Map<String, dynamic>?;
           _loading = false;
           _connectionError = null;
@@ -144,13 +165,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } on DioException catch (e) {
       if (mounted) {
+        if (e.response?.statusCode == 401) {
+          context.go('/login');
+          return;
+        }
         setState(() {
           _loading = false;
           _connectionError = e.response != null
               ? 'HTTP ${e.response!.statusCode} from server'
               : (e.message ?? e.type.name);
         });
-        if (e.response?.statusCode == 401) context.go('/login');
       }
     } catch (e) {
       if (mounted) {
@@ -165,6 +189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _undoWindowTimer?.cancel();
+    _wsSubscription?.cancel();
     super.dispose();
   }
 
@@ -193,7 +218,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      final position = await _locationService.getCurrentPosition();
+      Position? position;
+      try {
+        position = await _locationService.getCurrentPosition();
+      } catch (e) {
+        throw Exception('Location error: On iOS Simulator, go to Features > Location > Custom Location. (Original error: $e)');
+      }
       if (position == null) throw Exception(l10n.locationPermissionDenied);
 
       setState(() => _statusMessage = l10n.submittingEllipsis);
@@ -242,7 +272,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (isLate && mounted) {
           _showLateReasonDialog();
         }
-        await _loadData();
+        await _loadData(forceRefresh: true);
       } else {
         await _attendanceService.clockOut(
           position.latitude,
@@ -252,15 +282,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         _statusMessage = l10n.clockedOutFrom(locationName);
         _isSuccess = true;
-        await _loadData();
+        await _loadData(forceRefresh: true);
       }
     } catch (e) {
       if (!mounted) return;
+      if (e is DioException && e.response?.statusCode == 401) {
+        context.go('/login');
+        return;
+      }
       _statusMessage = friendlyError(context, e);
       _isSuccess = false;
     } finally {
       if (mounted) setState(() {});
     }
+  }
+
+  void _confirmClockOut() {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            l10n.checkOut,
+            style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Are you sure you want to Check-Out? This action cannot be undone.',
+            style: GoogleFonts.notoSansKhmer(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.notoSansKhmer(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleAttendance(false);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange[800],
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                l10n.checkOut,
+                style: GoogleFonts.notoSansKhmer(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showLateReasonDialog() {
@@ -367,7 +443,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         try {
                           await _attendanceService.submitLateReason(reason);
                           if (ctx.mounted) Navigator.pop(ctx);
-                          await _loadData();
+                          await _loadData(forceRefresh: true);
                         } catch (e) {
                           if (ctx.mounted) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
@@ -572,9 +648,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? {
             'name': 'Loading Name...',
             'needs_password_change': false,
-            'employee': {'employee_code': 'EMP000', 'shift': null},
+            'employee': {'employee_code': 'EMP000', 'shift': null, 'contracts': []},
           }
         : _user;
+
+    final contractsList = displayUser?['employee']?['contracts'] as List? ?? [];
+    final hasActiveContract = contractsList.any((c) => c['status'] == 'active');
+    final hasPendingContract = contractsList.any((c) => c['status'] == 'pending');
+    final isContractPending = !hasActiveContract && hasPendingContract;
 
     if (!_loading && _user == null) {
       return Scaffold(
@@ -650,7 +731,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: Colors.grey[50],
       body: Skeletonizer(
         enabled: _loading,
-        child: SingleChildScrollView(
+        child: RefreshIndicator(
+            onRefresh: () => _loadData(forceRefresh: true),
+            child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
@@ -823,7 +906,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               displayUser?['employee']?['profile_picture_url'] !=
                                   null
                               ? NetworkImage(
-                                  displayUser!['employee']['profile_picture_url'],
+                                  EnvConfig.fixUrl(displayUser!['employee']['profile_picture_url']),
                                 )
                               : null,
                           child:
@@ -1049,25 +1132,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         color: Colors.black54,
                                       ),
                                     ),
-                                    if (hasClockedOut && _canUndoClockOut)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: GestureDetector(
-                                          onTap: _handleUndoClockOut,
-                                          child: Text(
-                                            AppLocalizations.of(
-                                              context,
-                                            )!.clockedOutByMistakeUndo,
-                                            style: GoogleFonts.notoSansKhmer(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.blue[700],
-                                              decoration:
-                                                  TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                    // Undo clock out removed
                                   ],
                                 )
                               : Text(
@@ -1084,7 +1149,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
 
-                if (_statusMessage != null)
+                if (isContractPending)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: Text(
+                      'Your contract is pending activation by HR. Clock-in is disabled.',
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                if (_statusMessage != null && !isContractPending)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12.0),
                     child: Text(
@@ -1101,12 +1178,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Expanded(
                       child: InkWell(
-                        onTap: hasClockedIn
+                        onTap: (hasClockedIn || isContractPending)
                             ? null
                             : () => _handleAttendance(true),
                         borderRadius: BorderRadius.circular(20),
                         child: Opacity(
-                          opacity: hasClockedIn ? 0.45 : 1.0,
+                          opacity: (hasClockedIn || isContractPending) ? 0.45 : 1.0,
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             decoration: BoxDecoration(
@@ -1146,12 +1223,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: InkWell(
-                        onTap: (hasClockedIn && !hasClockedOut)
-                            ? () => _handleAttendance(false)
+                        onTap: (hasClockedIn && !hasClockedOut && !isContractPending)
+                            ? _confirmClockOut
                             : null,
                         borderRadius: BorderRadius.circular(20),
                         child: Opacity(
-                          opacity: (hasClockedIn && !hasClockedOut)
+                          opacity: (hasClockedIn && !hasClockedOut && !isContractPending)
                               ? 1.0
                               : 0.45,
                           child: Container(
@@ -1191,79 +1268,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // Payslip quick access
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PayslipScreen()),
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF10B981,
-                            ).withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            LucideIcons.receipt,
-                            color: Color(0xFF10B981),
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                AppLocalizations.of(context)!.myPayslips,
-                                style: GoogleFonts.notoSansKhmer(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: const Color(0xFF1E293B),
-                                ),
-                              ),
-                              Text(
-                                AppLocalizations.of(context)!.viewSalarySlips,
-                                style: GoogleFonts.notoSansKhmer(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          LucideIcons.chevronRight,
-                          color: Colors.grey,
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
 
                 const SizedBox(height: 24),
@@ -1348,66 +1352,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _QuickActionIcon(
-                        icon: LucideIcons.fileText,
-                        color: const Color(0xFF10B981),
-                        title: AppLocalizations.of(context)!.myDocuments,
-                        onTap: () => _showMyDocuments(
-                          context,
-                          _user?['employee']?['documents']?['attachments'],
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: _QuickActionIcon(
-                        icon: LucideIcons.calendarDays,
-                        color: const Color(0xFF8B5CF6),
-                        title: AppLocalizations.of(context)!.holidaysEvents,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HolidayScreen(),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: _QuickActionIcon(
+                          icon: LucideIcons.fileText,
+                          color: const Color(0xFF10B981),
+                          title: AppLocalizations.of(context)!.myDocuments,
+                          onTap: () => _showMyDocuments(
+                            context,
+                            _user?['employee']?['documents']?['attachments'],
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: _QuickActionIcon(
-                        icon: LucideIcons.clock,
-                        color: const Color(0xFFF43F5E),
-                        title: AppLocalizations.of(context)!.overtime,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OvertimeScreen(),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 100,
+                        child: _QuickActionIcon(
+                          icon: LucideIcons.calendarDays,
+                          color: const Color(0xFF8B5CF6),
+                          title: AppLocalizations.of(context)!.holidaysEvents,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HolidayScreen(),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: _QuickActionIcon(
-                        icon: LucideIcons.clipboardList,
-                        color: const Color(0xFF3B82F6),
-                        title: AppLocalizations.of(context)!.attendanceHistory,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AttendanceHistoryScreen(),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 100,
+                        child: _QuickActionIcon(
+                          icon: LucideIcons.clock,
+                          color: const Color(0xFFF43F5E),
+                          title: AppLocalizations.of(context)!.overtime,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OvertimeScreen(),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 100,
+                        child: _QuickActionIcon(
+                          icon: LucideIcons.clipboardList,
+                          color: const Color(0xFF3B82F6),
+                          title: AppLocalizations.of(context)!.attendanceHistory,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AttendanceHistoryScreen(),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 100,
+                        child: _QuickActionIcon(
+                          icon: LucideIcons.barChart2,
+                          color: const Color(0xFFF59E0B),
+                          title: "Report",
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ReportScreen(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 10),
               ],
             ),
           ),
+        ),
         ),
       ),
     );

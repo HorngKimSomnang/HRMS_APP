@@ -7,7 +7,12 @@ class EnvConfig {
   static String get baseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
-    return 'https://hr-application.duckdns.org/api';
+    // --- PRODUCTION URL (Uncomment to revert) ---
+    // return 'https://hr-application.duckdns.org/api';
+
+    // --- LOCAL DEVELOPMENT URL ---
+    // Ensure your backend is running, e.g. `php artisan serve --host=0.0.0.0 --port=8000`
+    return 'http://127.0.0.1:8000/api';
   }
 
   /// Get the Storage/Image URL prefix
@@ -19,5 +24,41 @@ class EnvConfig {
   /// Get the Root URL (without /api)
   static String get rootUrl {
     return baseUrl.replaceAll('/api', '');
+  }
+
+  /// Fixes a backend-generated URL (which might use localhost) to use the physical device IP/host.
+  static String fixUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    
+    // Parse the URL to manipulate it easily
+    Uri uri;
+    try {
+      uri = Uri.parse(url);
+    } catch (_) {
+      return url;
+    }
+
+    String path = uri.path;
+    
+    // Automatically rewrite /storage/ to /api/file/ to avoid 403 Forbidden errors
+    if (path.startsWith('/storage/')) {
+      path = path.replaceFirst('/storage/', '/api/file/');
+    }
+
+    if (url.contains('localhost') || url.contains('127.0.0.1')) {
+       return rootUrl + path;
+    }
+    
+    // If it's a relative path starting with /storage/ or /api/file/, prepend rootUrl
+    if (url.startsWith('/')) {
+       return rootUrl + path;
+    }
+
+    // Return the original url but with the path fixed if it was /storage/
+    if (uri.hasScheme && uri.hasAuthority) {
+      return uri.replace(path: path).toString();
+    }
+    
+    return url;
   }
 }

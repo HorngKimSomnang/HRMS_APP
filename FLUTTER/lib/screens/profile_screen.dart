@@ -15,7 +15,12 @@ import 'package:image_picker/image_picker.dart';
 import '../providers/language_provider.dart';
 import '../l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
+import '../core/env_config.dart';
 import 'edit_profile_screen.dart';
+import '../services/live_refresh_mixin.dart';
+import '../services/websocket_service.dart';
+import '../services/data_cache_service.dart';
+import 'payslip_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool openChangePassword;
@@ -26,7 +31,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with LiveRefreshMixin<ProfileScreen> {
   final ApiService _apiService = ApiService();
   final EmployeeService _employeeService = EmployeeService();
   final ImagePicker _picker = ImagePicker();
@@ -35,20 +40,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   bool _showMoreDetails = false;
   bool _autoOpenedPasswordDialog = false;
+  @override
+  List<String> get watchedResources => ['employees', 'permissions'];
+
+  @override
+  void onLiveRefresh(String resource) => _fetchProfile();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _fetchProfile();
     // Attendance fetch removed as it is no longer shown
   }
 
   Future<void> _fetchProfile() async {
     try {
-      final response = await _apiService.client.get('/user');
+      final response = await ApiService.instance.cachedGet('/user');
       if (mounted) {
         setState(() {
-          _user = response.data;
+          _user = response.data['user'];
           _loading = false;
         });
         if (widget.openChangePassword && !_autoOpenedPasswordDialog) {
@@ -112,8 +125,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirmPasswordController = TextEditingController();
     bool isLoading = false;
     String? errorMsg;
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
 
     bool needsPasswordChange = _user?['needs_password_change'] == true;
+
+    InputDecoration buildInputDecoration(String label, bool obscure, VoidCallback toggleObscure) {
+      return InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.notoSansKhmer(color: Colors.grey[600]),
+        prefixIcon: const Icon(LucideIcons.lock, size: 20),
+        suffixIcon: IconButton(
+          icon: Icon(obscure ? LucideIcons.eye : LucideIcons.eyeOff, size: 20),
+          onPressed: toggleObscure,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey[50],
+      );
+    }
 
     await showDialog(
       context: context,
@@ -121,33 +163,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Text(AppLocalizations.of(context)!.changePassword, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (errorMsg != null) ...[
-                      Text(errorMsg!, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 10),
+                      Text(errorMsg!, style: GoogleFonts.notoSansKhmer(color: Colors.red)),
+                      const SizedBox(height: 16),
                     ],
                     if (!needsPasswordChange) ...[
                       TextField(
                         controller: currentPasswordController,
-                        obscureText: true,
-                        decoration: InputDecoration(labelText: AppLocalizations.of(context)!.currentPassword),
+                        obscureText: obscureCurrent,
+                        style: GoogleFonts.notoSansKhmer(),
+                        decoration: buildInputDecoration(
+                          AppLocalizations.of(context)!.currentPassword,
+                          obscureCurrent,
+                          () => setState(() => obscureCurrent = !obscureCurrent),
+                        ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                     ],
                     TextField(
                       controller: newPasswordController,
-                      obscureText: true,
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.newPassword),
+                      obscureText: obscureNew,
+                      style: GoogleFonts.notoSansKhmer(),
+                      decoration: buildInputDecoration(
+                        AppLocalizations.of(context)!.newPassword,
+                        obscureNew,
+                        () => setState(() => obscureNew = !obscureNew),
+                      ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: confirmPasswordController,
-                      obscureText: true,
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.confirmNewPassword),
+                      obscureText: obscureConfirm,
+                      style: GoogleFonts.notoSansKhmer(),
+                      decoration: buildInputDecoration(
+                        AppLocalizations.of(context)!.confirmNewPassword,
+                        obscureConfirm,
+                        () => setState(() => obscureConfirm = !obscureConfirm),
+                      ),
                     ),
                   ],
                 ),
@@ -182,6 +240,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Navigator.pop(ctx);
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.passwordChangedSuccessfully)));
+                      DataCacheService.instance.invalidate('user');
+                      WebSocketService.instance.triggerLocalRefresh('user');
                       _fetchProfile(); // refresh profile to update needs_password_change flag
                     } on DioException catch (e) {
                       setState(() { 
@@ -201,6 +261,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     );
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -271,7 +337,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     radius: 44,
                                     backgroundColor: Colors.white,
                                     backgroundImage: employee?['profile_picture_url'] != null 
-                                        ? NetworkImage(employee!['profile_picture_url']) 
+                                        ? NetworkImage(EnvConfig.fixUrl(employee!['profile_picture_url'])) 
                                         : null,
                                     child: employee?['profile_picture_url'] == null 
                                         ? const Icon(LucideIcons.user, size: 44, color: Color(0xFF2563EB))
@@ -446,13 +512,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                            title: AppLocalizations.of(context)!.myContract,
                            onTap: () => context.push('/my-contract'),
                          ),
-                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
                          _SettingTile(
-                           icon: LucideIcons.clipboardList,
-                           color: const Color(0xFF14B8A6),
-                           title: AppLocalizations.of(context)!.myForms,
-                           subtitle: AppLocalizations.of(context)!.submitReportsAndForms,
-                           onTap: () => context.push('/my-forms'),
+                           icon: LucideIcons.receipt,
+                           color: const Color(0xFF10B981),
+                           title: AppLocalizations.of(context)!.myPayslips,
+                           onTap: () => Navigator.push(
+                             context,
+                             MaterialPageRoute(builder: (_) => const PayslipScreen()),
+                           ),
                          ),
                        ],
                      ),
@@ -502,9 +570,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                            color: const Color(0xFFEF4444),
                            title: AppLocalizations.of(context)!.logout,
                            hideArrow: true,
-                           onTap: () {
-                              Provider.of<AuthProvider>(context, listen: false).logout();
-                              context.go('/login');
+                           onTap: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (dialogCtx) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  title: Text(AppLocalizations.of(context)!.logout, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.bold)),
+                                  content: Text(AppLocalizations.of(context)!.confirmSignOut, style: GoogleFonts.notoSansKhmer()),
+                                  actions: [
+                                    TextButton(
+                                      style: TextButton.styleFrom(backgroundColor: Colors.grey[200], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                                      onPressed: () => Navigator.pop(dialogCtx, false), 
+                                      child: Text(AppLocalizations.of(context)!.cancel, style: GoogleFonts.notoSansKhmer(color: Colors.grey[800], fontWeight: FontWeight.w600))
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                                      onPressed: () => Navigator.pop(dialogCtx, true),
+                                      child: Text(AppLocalizations.of(context)!.logout, style: GoogleFonts.notoSansKhmer(fontWeight: FontWeight.w600)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true && context.mounted) {
+                                await Provider.of<AuthProvider>(context, listen: false).logout();
+                                if (context.mounted) context.go('/login');
+                              }
                            },
                          ),
                        ],

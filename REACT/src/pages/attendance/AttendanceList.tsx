@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/services/api";
-import { MapPin, Pencil, MessageSquare } from "lucide-react";
+import { MapPin, Pencil, MessageSquare, Trash2, Eye } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/Label";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -8,6 +11,7 @@ import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
+import { useAuth } from '@/context/AuthContext';
 
 const DefaultIcon = L.icon({
     iconUrl: icon,
@@ -88,11 +92,14 @@ export default function AttendanceList() {
     const [attendances, setAttendances] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterDate, setFilterDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const { hasPermission } = useAuth();
     const markerRefs = useRef<{ [key: number]: any }>({});
 
     const [showModal, setShowModal] = useState(false);
+    const [viewMode, setViewMode] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<any>(null);
-    const [manualTime, setManualTime] = useState("");
+    const [manualClockInTime, setManualClockInTime] = useState("");
+    const [manualClockOutTime, setManualClockOutTime] = useState("");
 
     const fetchAttendances = useCallback(async (isPolling = false) => {
         try {
@@ -111,23 +118,39 @@ export default function AttendanceList() {
 
     useLiveRefresh(() => fetchAttendances(true), { resources: 'attendance' });
 
-    const handleManualClockOut = () => {
-        if (!manualTime || !selectedRecord) return;
+    const handleManualUpdate = () => {
+        if (!selectedRecord) return;
         const record = selectedRecord;
         const previousAttendances = attendances;
-        const optimisticClockOut = `${filterDate}T${manualTime}:00`;
+        
+        const payload: any = {};
+        if (manualClockInTime) payload.clock_in_time = manualClockInTime;
+        if (manualClockOutTime) payload.clock_out_time = manualClockOutTime;
 
-        setAttendances(current => current.map(item => (
-            item.id === record.id ? { ...item, clock_out: optimisticClockOut } : item
-        )));
+        // Optimistic UI update could be complex here since we change status too, 
+        // so we'll just wait for the API call to complete.
         setShowModal(false);
-        setManualTime("");
 
-        api.put(`/attendance/${record.id}/manual-clock-out`, { clock_out_time: manualTime })
-            .catch(() => {
-                setAttendances(previousAttendances);
-                toast.error("Failed to save clock out time.");
+        api.put(`/attendance/${record.id}/manual-update`, payload)
+            .then(() => {
+                toast.success("Attendance updated successfully.");
+                fetchAttendances(true);
+            })
+            .catch((err) => {
+                toast.error(err.response?.data?.message || "Failed to update attendance.");
             });
+    };
+
+    const handleDelete = async (id: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this attendance record?')) return;
+        try {
+            await api.delete(`/attendance/${id}`);
+            toast.success("Attendance record deleted");
+            fetchAttendances(true);
+        } catch (err) {
+            toast.error("Failed to delete attendance record");
+        }
     };
 
     const formatTime = (isoString: string) => {
@@ -145,18 +168,20 @@ export default function AttendanceList() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">Attendance</h1>
-                    <p className="text-muted-foreground mt-1">Manage your organization's HR resources efficiently.</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 p-8 text-white shadow-xl mb-6">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">Attendance</h1>
+                    <p className="text-fuchsia-100 mt-2 text-sm font-medium">Track and manage employee time and attendance.</p>
                 </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             {/* Live Location Map */}
             <div className="bg-gradient-to-br from-green-50/40 via-white to-white p-6 rounded-lg border border-green-100 shadow-sm">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Live Location Feed (GPS Verified)</h3>
-                <div className="h-[400px] rounded-lg overflow-hidden border border-slate-200 z-0 relative">
+                <div className="h-[300px] rounded-lg overflow-hidden border border-slate-200 z-0 relative">
                     {loading ? (
                         <div className="h-full w-full flex items-center justify-center bg-gray-50 text-gray-400">Loading Map...</div>
                     ) : (
@@ -299,56 +324,59 @@ export default function AttendanceList() {
                                                         <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded">Removed</span>
                                                     ) : (
                                                         <>
-                                                            {!isNonAttendanceStatus && (() => {
-                                                                const isToday = record.date?.startsWith(new Date().toISOString().split('T')[0]);
-                                                                const openFixModal = (e: React.MouseEvent) => {
-                                                                    e.stopPropagation();
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                                                                disabled={!hasPermission('attendance.view')}
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
                                                                     setSelectedRecord(record);
-                                                                    // Pre-fill with shift end time so admin has a sensible starting point
-                                                                    const shiftEnd = record.employee?.shift?.end_time ?? '17:00';
-                                                                    setManualTime(shiftEnd.slice(0, 5));
+                                                                    setViewMode(true);
+                                                                    setManualClockInTime(record.clock_in ? new Date(record.clock_in).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
+                                                                    setManualClockOutTime(record.clock_out ? new Date(record.clock_out).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
                                                                     setShowModal(true);
-                                                                };
-                                                                if (!record.clock_out && isToday) {
-                                                                    // Today + no clock_out → show Fix button so admin can act early
-                                                                    return (
-                                                                        <button
-                                                                            onClick={openFixModal}
-                                                                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"
-                                                                            title="Edit Clock Out Time"
-                                                                        >
-                                                                            <Pencil className="w-4 h-4" />
-                                                                        </button>
-                                                                    );
-                                                                }
-                                                                if (!record.clock_out && !isToday) {
-                                                                    // Past date + no clock_out → allow manual fix
-                                                                    return (
-                                                                        <button
-                                                                            onClick={openFixModal}
-                                                                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"
-                                                                            title="Edit Clock Out Time"
-                                                                        >
-                                                                            <Pencil className="w-4 h-4" />
-                                                                        </button>
-                                                                    );
-                                                                }
-                                                                // Has clock_out → allow edit (correction)
+                                                                }}
+                                                                title={!hasPermission('attendance.view') ? 'No permission' : 'View Details'}
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Button>
+                                                            {!isNonAttendanceStatus && (() => {
                                                                 return (
-                                                                    <button
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                                        disabled={!hasPermission('attendance.edit')}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setSelectedRecord(record);
-                                                                            setManualTime(new Date(record.clock_out).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+                                                                            setViewMode(false);
+                                                                            setManualClockInTime(record.clock_in ? new Date(record.clock_in).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
+                                                                            if (record.clock_out) {
+                                                                                setManualClockOutTime(new Date(record.clock_out).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+                                                                            } else {
+                                                                                // Default to current real time
+                                                                                setManualClockOutTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+                                                                            }
                                                                             setShowModal(true);
                                                                         }}
-                                                                        className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"
-                                                                        title="Edit Clock Out Time"
+                                                                        title={!hasPermission('attendance.edit') ? 'No permission' : 'Edit Time'}
                                                                     >
-                                                                        <Pencil className="w-3.5 h-3.5" />
-                                                                    </button>
+                                                                        <Pencil className="h-4 w-4" />
+                                                                    </Button>
                                                                 );
                                                             })()}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                                disabled={!hasPermission('attendance.delete')}
+                                                                onClick={(e) => handleDelete(record.id, e)}
+                                                                title={!hasPermission('attendance.delete') ? 'No permission' : 'Delete Record'}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
                                                         </>
                                                     )}
                                                 </div>
@@ -362,87 +390,64 @@ export default function AttendanceList() {
                 </div>
             </div>
 
-            {/* Manual Clock Out Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 className="text-base font-bold text-gray-900">
-                                    {selectedRecord?.clock_out ? 'Edit Clock Out Time' : 'Manual Clock Out'}
-                                </h3>
-                                <p className="text-xs text-gray-500">
-                                    {selectedRecord?.employee?.user?.name || selectedRecord?.employee?.employee_code || "Employee"}
-                                </p>
-                            </div>
-                        </div>
-
-                        {selectedRecord && new Date(selectedRecord.date).toDateString() !== new Date().toDateString() && (
-                            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-4">
-                                <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                </svg>
-                                <p className="text-xs text-amber-700 font-medium">
-                                    This is a <strong>past record</strong> from{" "}
-                                    {new Date(selectedRecord.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.
-                                    {" "}Set the correct clock-out time below.
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="flex gap-3 mb-4">
-                            <div className="flex-1 bg-gray-50 rounded-lg p-3 text-center">
-                                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-0.5">Date</p>
-                                <p className="text-sm font-bold text-gray-800">
-                                    {selectedRecord ? new Date(selectedRecord.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                                </p>
-                            </div>
-                            <div className="flex-1 bg-gray-50 rounded-lg p-3 text-center">
-                                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-0.5">Clock In</p>
-                                <p className="text-sm font-bold text-green-700">{formatTime(selectedRecord?.clock_in)}</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                    Clock Out Time <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="time"
-                                    value={manualTime}
-                                    onChange={(e) => setManualTime(e.target.value)}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm font-medium"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">Time will be applied to the date shown above.</p>
-                            </div>
-                            <div className="flex gap-2 justify-end pt-1">
-                                <button
-                                    onClick={() => { setShowModal(false); setManualTime(""); }}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleManualClockOut}
-                                    disabled={!manualTime}
-                                    className="px-4 py-2 text-sm font-semibold bg-primary text-white hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            {/* Manual Update Dialog */}
+            <Dialog open={showModal} onOpenChange={setShowModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{viewMode ? 'View Attendance' : 'Edit Attendance'}</DialogTitle>
+                    </DialogHeader>
+                    {selectedRecord && (
+                        <div className="space-y-4 py-2">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    Save Clock Out
-                                </button>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-900">
+                                        {selectedRecord?.employee?.user?.name || selectedRecord?.employee?.employee_code || "Employee"}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {new Date(selectedRecord.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Clock In Time</Label>
+                                    <input
+                                        type="time"
+                                        value={manualClockInTime}
+                                        onChange={(e) => setManualClockInTime(e.target.value)}
+                                        disabled={viewMode}
+                                        className="w-full mt-1.5 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Clock Out Time</Label>
+                                    <input
+                                        type="time"
+                                        value={manualClockOutTime}
+                                        onChange={(e) => setManualClockOutTime(e.target.value)}
+                                        disabled={viewMode}
+                                        className="w-full mt-1.5 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowModal(false)}>{viewMode ? 'Close' : 'Cancel'}</Button>
+                        {!viewMode && (
+                            <Button onClick={handleManualUpdate} disabled={!manualClockInTime && !manualClockOutTime}>
+                                Save Changes
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
         </div>
     );

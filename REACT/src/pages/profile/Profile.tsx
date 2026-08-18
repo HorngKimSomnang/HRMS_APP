@@ -1,52 +1,22 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { User, Mail, Phone, MapPin, Building, Briefcase, Calendar } from "lucide-react";
+import { User, Mail, Phone, MapPin, Briefcase, Calendar, ShieldCheck, BadgeCheck } from "lucide-react";
 import api from "@/services/api";
-import { toast } from 'sonner';
 
 export default function Profile() {
-    const { user, updateUser } = useAuth();
+    const { user } = useAuth();
     const [employee, setEmployee] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-
-    // Account Update (name + email)
-    const [account, setAccount] = useState({ name: "", email: "" });
-    const [savingAccount, setSavingAccount] = useState(false);
-
-    // Password Update
-    const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
-
-    useEffect(() => {
-        if (user) setAccount({ name: user.name ?? "", email: user.email ?? "" });
-    }, [user]);
-
-    const handleAccountUpdate = async () => {
-        setSavingAccount(true);
-        try {
-            const res = await api.put('/profile/update', { name: account.name, email: account.email });
-            if (res.data.user) updateUser(res.data.user);
-            toast.success("Profile updated successfully");
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Failed to update profile");
-        } finally {
-            setSavingAccount(false);
-        }
-    };
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 const res = await api.get('/user');
-                // Check if user has employee profile linked
-                if (res.data.data?.employee) {
-                    setEmployee(res.data.data.employee);
-                } else if (res.data.employee) {
-                    // Handle different API structure if needed
-                    setEmployee(res.data.employee);
+                // The /user endpoint returns { user: { ..., employee: { ..., department: {} }, department: {} } }
+                const userData = res.data.user ?? res.data;
+                if (userData?.employee) {
+                    setEmployee(userData.employee);
                 } else if (user?.email) {
-                    // Try fetching employee by email if not directly attached
                     const empRes = await api.get('/employees?email=' + user.email);
                     if (empRes.data.data && empRes.data.data.length > 0) {
                         setEmployee(empRes.data.data[0]);
@@ -58,155 +28,109 @@ export default function Profile() {
                 setLoading(false);
             }
         };
-
         fetchProfile();
     }, [user]);
 
-    const handlePasswordUpdate = async () => {
-        if (passwords.new !== passwords.confirm) {
-            toast("New passwords do not match");
-            return;
-        }
-        try {
-            await api.put('/user/password', {
-                current_password: passwords.current,
-                new_password: passwords.new
-            });
-            toast.success("Password updated successfully");
-            setPasswords({ current: "", new: "", confirm: "" });
-        } catch (error) {
-            console.error("Failed to update password", error);
-            toast.error("Failed to update password");
-        }
-    };
+    if (loading) return (
+        <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground animate-pulse">
+            Loading profile...
+        </div>
+    );
 
-    if (loading) return <div>Loading profile...</div>;
+    // Primary department: user.department (from users.department_id) → employee.department fallback
+    const department = (user as any)?.department?.name
+        ?? employee?.department?.name
+        ?? null;
+
+    const initials = user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) ?? 'U';
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">My Profile</h1>
-                <p className="text-muted-foreground">Manage your personal information and security.</p>
+            {/* ── Hero Cover ── */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 p-8 text-white shadow-xl">
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                    {/* Avatar */}
+                    <div className="h-20 w-20 rounded-2xl bg-white/20 ring-4 ring-white/30 flex items-center justify-center text-white text-3xl font-bold shadow-lg shrink-0 backdrop-blur-sm">
+                        {initials}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-2xl font-bold font-poppins leading-tight">{user?.name}</h1>
+                        <p className="text-blue-100 text-sm mt-0.5 flex items-center gap-1.5">
+                            <Mail className="h-3.5 w-3.5" /> {user?.email}
+                        </p>
+                        {department && (
+                            <p className="text-blue-100/80 text-xs mt-1 flex items-center gap-1.5">
+                                <Briefcase className="h-3 w-3" /> {department}
+                            </p>
+                        )}
+                        {/* Role badges */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {user?.roles?.map((r: any) => (
+                                <span key={r.name} className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 backdrop-blur-sm text-white text-xs rounded-full font-medium ring-1 ring-white/30">
+                                    <ShieldCheck className="h-3 w-3" /> {r.name}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                {/* Decorative blobs */}
+                <div className="absolute top-0 right-0 -mt-12 -mr-12 h-48 w-48 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 right-24 -mb-8 h-32 w-32 rounded-full bg-white/10 blur-2xl pointer-events-none" />
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-                {/* Personal Info Card */}
-                <div className="space-y-6">
-                    <div className="p-6 bg-gradient-to-br from-blue-50/50 via-card to-card rounded-lg border border-blue-100 shadow-sm">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold border-2 border-primary">
-                                {user?.name?.[0]?.toUpperCase()}
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold">{user?.name}</h2>
-                                <p className="text-muted-foreground flex items-center gap-1 text-sm">
-                                    <Mail className="h-3 w-3" /> {user?.email}
-                                </p>
-                                <div className="flex gap-2 mt-2">
-                                    {user?.roles?.map((r: any) => (
-                                        <span key={r.name} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                                            {r.name}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
+            {/* ── Employee Details ── */}
+            <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/40 via-card to-card shadow-sm p-6">
+                <h3 className="text-[15px] font-semibold mb-4 flex items-center gap-2">
+                    <BadgeCheck className="h-4 w-4 text-blue-500" /> Employee Details
+                </h3>
+                {employee ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-5 text-sm">
+                        <div>
+                            <span className="text-muted-foreground block text-xs mb-0.5">Employee ID</span>
+                            <span className="font-medium flex items-center gap-1.5">
+                                <User className="h-3.5 w-3.5 text-blue-400" /> {employee.employee_code ?? '—'}
+                            </span>
                         </div>
-
-                        {employee ? (
-                            <div className="space-y-4">
-                                <h3 className="font-semibold border-b pb-2">Employee Details</h3>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <span className="text-muted-foreground block text-xs">Employee ID</span>
-                                        <span className="font-medium flex items-center gap-1"><User className="h-3 w-3" /> {employee.employee_code}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-muted-foreground block text-xs">Phone</span>
-                                        <span className="font-medium flex items-center gap-1"><Phone className="h-3 w-3" /> {employee.phone}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-muted-foreground block text-xs">Branch</span>
-                                        <span className="font-medium flex items-center gap-1"><Building className="h-3 w-3" /> {employee.branch?.name}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-muted-foreground block text-xs">Department</span>
-                                        <span className="font-medium flex items-center gap-1"><Briefcase className="h-3 w-3" /> {employee.department?.name}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-muted-foreground block text-xs">Joined</span>
-                                        <span className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> {employee.joining_date}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-muted-foreground block text-xs">Address</span>
-                                        <span className="font-medium flex items-center gap-1"><MapPin className="h-3 w-3" /> {employee.address}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="p-4 bg-yellow-50 text-yellow-800 rounded text-sm">
-                                No linked employee profile found. You are signed in as a System User.
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Account + Security Settings */}
-                <div className="space-y-6">
-                    <div className="p-6 bg-gradient-to-br from-blue-50/50 via-card to-card rounded-lg border border-blue-100 shadow-sm">
-                        <h3 className="text-lg font-semibold mb-4">Account</h3>
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Display Name</label>
-                                <Input
-                                    value={account.name}
-                                    onChange={(e) => setAccount({ ...account, name: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Email</label>
-                                <Input
-                                    type="email"
-                                    value={account.email}
-                                    onChange={(e) => setAccount({ ...account, email: e.target.value })}
-                                />
-                            </div>
-                            <Button onClick={handleAccountUpdate} disabled={savingAccount || !account.name || !account.email}>
-                                {savingAccount ? "Saving..." : "Save Changes"}
-                            </Button>
+                        <div>
+                            <span className="text-muted-foreground block text-xs mb-0.5">Email</span>
+                            <span className="font-medium flex items-center gap-1.5 truncate">
+                                <Mail className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                                <span className="truncate">{user?.email ?? '—'}</span>
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground block text-xs mb-0.5">Phone</span>
+                            <span className="font-medium flex items-center gap-1.5">
+                                <Phone className="h-3.5 w-3.5 text-blue-400" /> {employee.phone ?? '—'}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground block text-xs mb-0.5">Department</span>
+                            <span className="font-medium flex items-center gap-1.5">
+                                <Briefcase className="h-3.5 w-3.5 text-blue-400" /> {department ?? '—'}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground block text-xs mb-0.5">Joined</span>
+                            <span className="font-medium flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5 text-blue-400" /> {employee.joining_date ?? '—'}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground block text-xs mb-0.5">Address</span>
+                            <span className="font-medium flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                                <span className="truncate">{employee.address ?? '—'}</span>
+                            </span>
                         </div>
                     </div>
-
-                    <div className="p-6 bg-gradient-to-br from-slate-100/70 via-card to-card rounded-lg border border-slate-200 shadow-sm">
-                        <h3 className="text-lg font-semibold mb-4">Security</h3>
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Current Password</label>
-                                <Input
-                                    type="password"
-                                    value={passwords.current}
-                                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">New Password</label>
-                                <Input
-                                    type="password"
-                                    value={passwords.new}
-                                    onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Confirm New Password</label>
-                                <Input
-                                    type="password"
-                                    value={passwords.confirm}
-                                    onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                                />
-                            </div>
-                            <Button onClick={handlePasswordUpdate}>Update Password</Button>
-                        </div>
+                ) : (
+                    <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-100 text-amber-800 rounded-lg text-sm">
+                        <User className="h-4 w-4 shrink-0" />
+                        No linked employee profile found. You are signed in as a System User.
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

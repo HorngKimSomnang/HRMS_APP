@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { Button } from '@/components/ui/Button';
-import { FileText, Download, Trash2, Upload, Edit } from 'lucide-react';
+import { FileText, Download, Trash2, Upload, Edit, Eye, Plus, Pencil } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import UploadDocumentModal from './UploadDocumentModal';
@@ -21,14 +21,15 @@ interface Document {
 }
 
 export default function DocumentList() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [editingDoc, setEditingDoc] = useState<Document | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [viewDoc, setViewDoc] = useState<Document | null>(null);
 
-    const isAdmin = user?.roles?.some(r => r.name === 'Super Admin' || r.name === 'Admin');
+    const isAdmin = hasPermission('documents.edit') || hasPermission('documents.delete');
 
     useEffect(() => {
         fetchDocuments();
@@ -101,16 +102,68 @@ export default function DocumentList() {
                 }}
             />
 
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Work Documents</h1>
-                    <p className="text-muted-foreground">Manage company-wide and work-related documents.</p>
+            {/* View Document Modal */}
+            <Dialog open={!!viewDoc} onOpenChange={(open) => !open && setViewDoc(null)}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>View Document</DialogTitle>
+                    </DialogHeader>
+                    {viewDoc && (
+                        <div className="space-y-4 py-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Document Name</label>
+                                <div className="w-full rounded-md border p-2 bg-gray-50 text-gray-700">
+                                    {viewDoc.name}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Description / Instructions</label>
+                                <div className="w-full rounded-md border p-2 bg-gray-50 text-gray-700 min-h-[100px] whitespace-pre-wrap">
+                                    {viewDoc.type || '-'}
+                                </div>
+                            </div>
+                            
+                            {viewDoc.employee?.name && (
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Employee</label>
+                                    <div className="w-full rounded-md border p-2 bg-gray-50 text-gray-700">
+                                        {viewDoc.employee.name}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Upload Date</label>
+                                <div className="w-full rounded-md border p-2 bg-gray-50 text-gray-700">
+                                    {new Date(viewDoc.created_at).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setViewDoc(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-600 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">Work Documents</h1>
+                    <p className="text-slate-200 mt-2 text-sm font-medium">Manage company-wide and work-related documents.</p>
                 </div>
                 {isAdmin && (
-                    <Button onClick={() => setIsUploadOpen(true)}>
-                        <Upload className="mr-2 h-4 w-4" /> Upload Document
-                    </Button>
+                    <div className="relative z-10">
+                        {hasPermission('documents.upload') && (
+                            <Button onClick={() => setIsUploadOpen(true)} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm">
+                                <Plus className="mr-2 h-4 w-4" /> Upload Document
+                            </Button>
+                        )}
+                    </div>
                 )}
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             <div className="rounded-md border border-amber-100 bg-gradient-to-br from-amber-50/40 via-white to-white">
@@ -122,7 +175,7 @@ export default function DocumentList() {
                                 {isAdmin && <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Employee</th>}
                                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Description / Instructions</th>
                                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Upload Date</th>
-                                <th className="h-12 px-4 align-middle font-medium text-muted-foreground text-right">Actions</th>
+                                <th className="h-12 px-4 align-middle font-medium text-muted-foreground text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="[&_tr:last-child]:border-0">
@@ -146,22 +199,20 @@ export default function DocumentList() {
                                             {doc.type || '-'}
                                         </td>
                                         <td className="p-4 align-middle">{new Date(doc.created_at).toLocaleDateString()}</td>
-                                        <td className="p-4 align-middle text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="icon" asChild>
-                                                    <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${doc.file_path}`} target="_blank" rel="noreferrer" download>
-                                                        <Download className="h-4 w-4" />
-                                                    </a>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <Button variant="ghost" size="icon" className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 w-8" disabled={!hasPermission('documents.view')} onClick={() => setViewDoc(doc)} title={!hasPermission('documents.view') ? 'No permission' : 'View Details'}>
+                                                    <Eye className="h-4 w-4" />
                                                 </Button>
                                                 {isAdmin && (
-                                                    <>
-                                                        <Button variant="ghost" size="icon" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => setEditingDoc(doc)}>
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteId(doc.id)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </>
+                                                    <Button variant="ghost" size="icon" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8" disabled={!hasPermission('documents.edit')} onClick={() => setEditingDoc(doc)} title={!hasPermission('documents.edit') ? 'No permission' : 'Edit'}>
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {isAdmin && (
+                                                    <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8" disabled={!hasPermission('documents.delete')} onClick={() => setDeleteId(doc.id)} title={!hasPermission('documents.delete') ? 'No permission' : 'Delete'}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
                                                 )}
                                             </div>
                                         </td>

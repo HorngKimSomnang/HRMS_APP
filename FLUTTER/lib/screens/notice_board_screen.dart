@@ -6,6 +6,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../core/error_utils.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class NoticeBoardScreen extends StatefulWidget {
   const NoticeBoardScreen({super.key, this.noticeId});
@@ -16,21 +18,29 @@ class NoticeBoardScreen extends StatefulWidget {
   State<NoticeBoardScreen> createState() => _NoticeBoardScreenState();
 }
 
-class _NoticeBoardScreenState extends State<NoticeBoardScreen> {
+class _NoticeBoardScreenState extends State<NoticeBoardScreen> with LiveRefreshMixin<NoticeBoardScreen> {
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _notices = [];
   bool _loading = true;
   bool _openedRequestedNotice = false;
+  @override
+  List<String> get watchedResources => ['announcements'];
+
+  @override
+  void onLiveRefresh(String resource) => _fetchNotices();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _fetchNotices();
   }
 
   Future<void> _fetchNotices() async {
     try {
-      final response = await _apiService.client.get('/announcements');
+      final response = await ApiService.instance.cachedGet('/announcements');
       final responseData = response.data;
       final rawData = responseData is Map ? responseData['data'] : responseData;
       final notices = rawData is List
@@ -229,6 +239,12 @@ class _NoticeBoardScreenState extends State<NoticeBoardScreen> {
       ),
     );
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {

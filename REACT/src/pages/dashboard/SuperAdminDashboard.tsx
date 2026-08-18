@@ -70,11 +70,14 @@ export default function SuperAdminDashboard() {
     return (
         <div className="space-y-5">
             {/* Header Section */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-l-4 border-blue-600 pl-4 py-1">
-                <div>
-                    <h1 className="text-xl font-bold text-foreground">{getGreeting()}, {user?.name}! 👋</h1>
-                    <p className="text-sm text-muted-foreground">System overview — activity, workforce and finance at a glance.</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">{`${getGreeting()}, ${user?.name}! 👋`}</h1>
+                    <p className="text-indigo-100 mt-2 text-sm font-medium">System overview — activity, workforce and finance at a glance.</p>
                 </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             {/* Month Picker */}

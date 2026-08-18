@@ -9,6 +9,8 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../l10n/app_localizations.dart';
 import '../services/task_service.dart';
 import '../core/constants.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class TaskScreen extends StatefulWidget {
   const TaskScreen({super.key});
@@ -17,16 +19,24 @@ class TaskScreen extends StatefulWidget {
   State<TaskScreen> createState() => _TaskScreenState();
 }
 
-class _TaskScreenState extends State<TaskScreen> {
+class _TaskScreenState extends State<TaskScreen> with LiveRefreshMixin<TaskScreen> {
   final TaskService _taskService = TaskService();
   List<dynamic> _tasks = [];
   bool _loading = true;
   String? _error;
   String _taskView = 'active';
+  @override
+  List<String> get watchedResources => ['tasks'];
+
+  @override
+  void onLiveRefresh(String resource) => _fetchTasks();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _fetchTasks();
   }
 
@@ -623,6 +633,12 @@ class _TaskScreenState extends State<TaskScreen> {
         return Colors.green;
     }
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {

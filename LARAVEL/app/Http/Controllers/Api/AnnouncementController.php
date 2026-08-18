@@ -18,12 +18,17 @@ class AnnouncementController extends Controller
         $user = Auth::user();
         $query = Announcement::with('creator')->orderBy('created_at', 'desc');
         
-        if (!$user->hasRole('Super Admin') && !$user->hasRole('Admin')) {
+        if (!$user->hasRole('Super Admin')) {
             $query->where('is_published', true);
         }
         
         if ($request->has('type')) {
             $query->where('type', $request->type);
+        }
+
+        if ($request->has('month') && $request->has('year')) {
+            $query->whereMonth('created_at', $request->month)
+                  ->whereYear('created_at', $request->year);
         }
 
         return response()->json(['data' => $query->get()]);
@@ -42,11 +47,11 @@ class AnnouncementController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (!$user->hasRole('Super Admin') && !$user->hasRole('Admin')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$user->hasPermissionTo('notice_board.create')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to publish notices.'], 403);
         }
 
-        // Allow Admins to post Holiday and Urgent notices now as per standard HR flow.
+        // Allow Super Admins to post Holiday and Urgent notices now as per standard HR flow.
 
         $request->validate([
             'type' => 'required|in:Holiday,General,Urgent,Info',
@@ -68,7 +73,7 @@ class AnnouncementController extends Controller
         ]);
 
         if ($announcement->is_published) {
-            $users = User::where('id', '!=', $user->id)->get(); // Notify everyone else
+            $users = User::all(); // Notify everyone including creator for testing visibility
             Notification::send($users, new NewHoliday($announcement));
         }
 
@@ -85,8 +90,8 @@ class AnnouncementController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (!$user->hasRole('Super Admin') && !$user->hasRole('Admin')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$user->hasPermissionTo('notice_board.edit')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to edit notices.'], 403);
         }
 
         $announcement = Announcement::findOrFail($id);
@@ -95,7 +100,7 @@ class AnnouncementController extends Controller
             return response()->json(['message' => 'You cannot modify a notice created by a Super Admin.'], 403);
         }
 
-        // Allow Admins to update Holiday and Urgent notices
+        // Allow Super Admins to update Holiday and Urgent notices
 
         $request->validate([
             'type' => 'sometimes|in:Holiday,General,Urgent,Info',
@@ -107,13 +112,13 @@ class AnnouncementController extends Controller
         ]);
 
         $updateData = $request->all();
-        // Removed the override that forces is_published to false for normal Admins.
+        // Removed the override that forces is_published to false for normal Super Admins.
 
         $wasUnpublished = !$announcement->is_published;
         $announcement->update($updateData);
 
         if ($wasUnpublished && $announcement->is_published) {
-            $users = User::where('id', '!=', $user->id)->get();
+            $users = User::all();
             Notification::send($users, new NewHoliday($announcement));
         }
 
@@ -124,8 +129,8 @@ class AnnouncementController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (!$user->hasRole('Super Admin') && !$user->hasRole('Admin')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        if (!$user->hasPermissionTo('notice_board.delete')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to delete notices.'], 403);
         }
 
         $announcement = Announcement::findOrFail($id);

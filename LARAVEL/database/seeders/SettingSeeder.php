@@ -63,6 +63,43 @@ class SettingSeeder extends Seeder
                 'type' => 'number',
                 'group' => 'attendance',
             ],
+            // Payroll Settings
+            [
+                'key' => 'payroll_default_overtime',
+                'value' => '0',
+                'type' => 'number',
+                'group' => 'payroll',
+            ],
+            [
+                'key' => 'payroll_attendance_bonus',
+                'value' => '0',
+                'type' => 'number',
+                'group' => 'payroll',
+            ],
+            [
+                'key' => 'payroll_allowances',
+                'value' => '0',
+                'type' => 'number',
+                'group' => 'payroll',
+            ],
+            [
+                'key' => 'payroll_reduce_leave',
+                'value' => '0',
+                'type' => 'number',
+                'group' => 'payroll',
+            ],
+            [
+                'key' => 'payroll_reduce_late',
+                'value' => '0',
+                'type' => 'number',
+                'group' => 'payroll',
+            ],
+            [
+                'key' => 'payroll_reduce_other',
+                'value' => '0',
+                'type' => 'number',
+                'group' => 'payroll',
+            ],
         ];
 
         foreach ($settings as $setting) {

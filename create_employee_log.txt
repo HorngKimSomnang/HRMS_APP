@@ -1,0 +1,636 @@
+commit 0705779039dcbfc02956afca86833c9d0d05b2f4
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Wed Jul 29 10:33:06 2026 +0700
+
+    Align employee shifts with company schedule
+
+diff --git a/REACT/src/pages/employees/CreateEmployee.tsx b/REACT/src/pages/employees/CreateEmployee.tsx
+index fcc46f3..85d88c6 100644
+--- a/REACT/src/pages/employees/CreateEmployee.tsx
++++ b/REACT/src/pages/employees/CreateEmployee.tsx
+@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
+ import { Input } from '@/components/ui/Input';
+ import api from '@/services/api';
+ import { toast } from 'sonner';
++import { formatShiftOption, type ShiftOption } from '@/utils/shift';
+ 
+ export default function CreateEmployee() {
+     const navigate = useNavigate();
+@@ -28,13 +29,18 @@ export default function CreateEmployee() {
+         emergency_contact: ''
+     });
+ 
+-    const [shifts, setShifts] = useState<{id: number, name: string}[]>([]);
++    const [shifts, setShifts] = useState<ShiftOption[]>([]);
+ 
+     useEffect(() => {
+         const fetchOptions = async () => {
+             try {
+                 const res = await api.get('/shifts');
+-                setShifts(res.data.data || []);
++                const availableShifts: ShiftOption[] = res.data.data || [];
++                setShifts(availableShifts);
++                setFormData(current => ({
++                    ...current,
++                    shift_id: current.shift_id || availableShifts[0]?.id || '',
++                }));
+             } catch {
+                 console.error("Failed to fetch shifts");
+             }
+@@ -240,12 +246,19 @@ export default function CreateEmployee() {
+                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                             onChange={handleChange}
+                             value={formData.shift_id}
++                            required
++                            disabled={shifts.length === 0}
+                         >
+-                            <option value="">No Shift / Default</option>
++                            <option value="" disabled>Select an assigned shift</option>
+                             {shifts.map(shift => (
+-                                <option key={shift.id} value={shift.id}>{shift.name}</option>
++                                <option key={shift.id} value={shift.id}>
++                                    {formatShiftOption(shift)}
++                                </option>
+                             ))}
+                         </select>
++                        <p className="text-xs text-muted-foreground">
++                            Standard schedule: Monday–Saturday at Norton University.
++                        </p>
+                     </div>
+                 </div>
+ 
+
+commit b9f302efce7cab0bfd7bfd801dd750e754a3cb44
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Wed Jul 29 09:57:58 2026 +0700
+
+    Secure employee credential delivery
+
+diff --git a/REACT/src/pages/employees/CreateEmployee.tsx b/REACT/src/pages/employees/CreateEmployee.tsx
+index 657302e..fcc46f3 100644
+--- a/REACT/src/pages/employees/CreateEmployee.tsx
++++ b/REACT/src/pages/employees/CreateEmployee.tsx
+@@ -103,11 +103,10 @@ export default function CreateEmployee() {
+                 headers: { 'Content-Type': 'multipart/form-data' }
+             });
+             
+-            const generatedPassword = response.data?.generated_password;
+-            if (generatedPassword) {
+-                toast.success(`SUCCESS: Employee created!\n\nEmail: ${formData.email}\nPassword: ${generatedPassword}\n\nPlease copy this password to login to the mobile app.`);
++            if (response.data?.credentials_email_sent === false) {
++                toast.warning(response.data.message);
+             } else {
+-                toast.success('Employee created successfully');
++                toast.success(response.data?.message || 'Employee created successfully');
+             }
+             
+             navigate('/employees');
+
+commit 1ec2c63345172ab4efac415198fd5da7a18d3818
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Sun Jul 26 13:53:18 2026 +0700
+
+    Archive employees straight away on termination; allow non-Gmail emails
+    
+    Terminating an employee (via the Employees list action or completing a
+    Lifecycle offboarding) now archives them in one step instead of leaving
+    them in a stuck "Terminated" state under Current employees that needed
+    a second manual action to actually move to Archived.
+    
+    Also drop the auto-appended @gmail.com on employee/admin email fields
+    so accounts on other providers (e.g. Yahoo) can be entered directly.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+diff --git a/REACT/src/pages/employees/CreateEmployee.tsx b/REACT/src/pages/employees/CreateEmployee.tsx
+index e144589..657302e 100644
+--- a/REACT/src/pages/employees/CreateEmployee.tsx
++++ b/REACT/src/pages/employees/CreateEmployee.tsx
+@@ -87,12 +87,7 @@ export default function CreateEmployee() {
+         try {
+             const data = new FormData();
+             Object.keys(formData).forEach(key => {
+-                let value = formData[key as keyof typeof formData];
+-                if (key === 'email' && value) {
+-                    if (!String(value).includes('@')) {
+-                        value = `${value}@gmail.com`;
+-                    }
+-                }
++                const value = formData[key as keyof typeof formData];
+                 if (value !== null && value !== '') {
+                     data.append(key, String(value));
+                 }
+@@ -162,12 +157,7 @@ export default function CreateEmployee() {
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Email / អ៊ីមែល</label>
+-                        <div className="flex rounded-md">
+-                            <Input name="email" type="text" required value={formData.email} onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
+-                            <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
+-                                @gmail.com
+-                            </div>
+-                        </div>
++                        <Input name="email" type="email" required value={formData.email} onChange={handleChange} placeholder="name@example.com" />
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
+
+commit ab8dd7d1d736f5428eb52170fd951aa1f0ad3f0e
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Fri Jul 10 22:28:55 2026 +0700
+
+    Harden security, add Custom Entities + Assets/Lifecycle modules, remove unused features, fix mobile UX bugs
+    
+    - Security: fix TaskController IDOR, add rate limiting (login/OTP/API), enforce password
+      complexity policy consistently, scope CORS to an explicit allowlist, add security headers
+      middleware, isolate tests onto a dedicated DB with DatabaseTransactions
+    - Add Custom Entities no-code builder (admin schema designer + employee mobile submissions
+      + file attachments), Assets, and Lifecycle/Contracts modules across Laravel/React/Flutter
+    - Remove unused Performance Management and Payroll Requests features end-to-end (backend,
+      frontend, mobile, migrations) after confirming they were dead/orphaned code
+    - Fix Flutter skeleton-loading bugs (Profile screen, My Forms double-loading flicker) and
+      consolidate cluttered PayrollAdmin UI actions into primary + overflow menus
+    - Add README and .env.example fixes (correct Postgres config) for onboarding a new developer
+
+diff --git a/REACT/src/pages/employees/CreateEmployee.tsx b/REACT/src/pages/employees/CreateEmployee.tsx
+index 6d6acb1..e144589 100644
+--- a/REACT/src/pages/employees/CreateEmployee.tsx
++++ b/REACT/src/pages/employees/CreateEmployee.tsx
+@@ -35,7 +35,7 @@ export default function CreateEmployee() {
+             try {
+                 const res = await api.get('/shifts');
+                 setShifts(res.data.data || []);
+-            } catch (err) {
++            } catch {
+                 console.error("Failed to fetch shifts");
+             }
+         };
+@@ -87,7 +87,12 @@ export default function CreateEmployee() {
+         try {
+             const data = new FormData();
+             Object.keys(formData).forEach(key => {
+-                const value = formData[key as keyof typeof formData];
++                let value = formData[key as keyof typeof formData];
++                if (key === 'email' && value) {
++                    if (!String(value).includes('@')) {
++                        value = `${value}@gmail.com`;
++                    }
++                }
+                 if (value !== null && value !== '') {
+                     data.append(key, String(value));
+                 }
+@@ -121,7 +126,7 @@ export default function CreateEmployee() {
+ 
+     return (
+         <div className="max-w-5xl mx-auto py-4">
+-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
++            <div className="bg-gradient-to-br from-blue-50/40 via-white to-white rounded-2xl shadow-sm border border-blue-100 p-6 sm:p-8">
+                 <h2 className="text-2xl font-bold tracking-tight mb-6 text-slate-900 border-b pb-4">Add New Employee</h2>
+                 <form onSubmit={handleSubmit} className="space-y-5">
+ 
+@@ -135,40 +140,45 @@ export default function CreateEmployee() {
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">First Name / នាមខ្លួន</label>
+-                        <Input name="first_name" required onChange={handleChange} />
++                        <Input name="first_name" required value={formData.first_name} onChange={handleChange} />
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Last Name / នាមត្រកូល</label>
+-                        <Input name="last_name" required onChange={handleChange} />
++                        <Input name="last_name" required value={formData.last_name} onChange={handleChange} />
+                     </div>
+                 </div>
+ 
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Name in Khmer / ឈ្មោះជាភាសាខ្មែរ</label>
+-                        <Input name="name_kh" onChange={handleChange} placeholder="ឈ្មោះជាភាសាខ្មែរ" />
++                        <Input name="name_kh" value={formData.name_kh} onChange={handleChange} placeholder="ឈ្មោះជាភាសាខ្មែរ" />
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Emergency Contact / ទំនាក់ទំនងបន្ទាន់</label>
+-                        <Input name="emergency_contact" onChange={handleChange} placeholder="Guardian/Parents Number" />
++                        <Input name="emergency_contact" value={formData.emergency_contact} onChange={handleChange} placeholder="Guardian/Parents Number" />
+                     </div>
+                 </div>
+ 
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Email / អ៊ីមែល</label>
+-                        <Input name="email" type="email" required onChange={handleChange} />
++                        <div className="flex rounded-md">
++                            <Input name="email" type="text" required value={formData.email} onChange={handleChange} className="rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0" placeholder="username" />
++                            <div className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-muted-foreground text-sm">
++                                @gmail.com
++                            </div>
++                        </div>
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
+-                        <Input name="phone" onChange={handleChange} />
++                        <Input name="phone" value={formData.phone} onChange={handleChange} />
+                     </div>
+                 </div>
+ 
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Date of Birth / ថ្ងៃខែឆ្នាំកំណើត</label>
+-                        <Input name="dob" type="date" onChange={handleChange} />
++                        <Input name="dob" type="date" value={formData.dob} onChange={handleChange} />
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Gender / ភេទ</label>
+@@ -224,6 +234,7 @@ export default function CreateEmployee() {
+                     <textarea
+                         name="address"
+                         className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
++                        value={formData.address}
+                         onChange={handleChange}
+                     />
+                 </div>
+@@ -231,7 +242,7 @@ export default function CreateEmployee() {
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Salary (Monthly) / ប្រាក់ខែ</label>
+-                        <Input name="salary" type="number" onChange={handleChange} />
++                        <Input name="salary" type="number" value={formData.salary} onChange={handleChange} />
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Assigned Shift / វេនការងារ</label>
+@@ -252,18 +263,18 @@ export default function CreateEmployee() {
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Joining Date / ថ្ងៃចូលធ្វើការ</label>
+-                        <Input name="joining_date" type="date" required onChange={handleChange} />
++                        <Input name="joining_date" type="date" required value={formData.joining_date} onChange={handleChange} />
+                     </div>
+                 </div>
+ 
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Job Title / មុខតំណែង</label>
+-                        <Input name="job_title" required onChange={handleChange} placeholder="e.g. Software Engineer" />
++                        <Input name="job_title" required value={formData.job_title} onChange={handleChange} placeholder="e.g. Software Engineer" />
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-sm font-medium">Department / ផ្នែក</label>
+-                        <Input name="department" onChange={handleChange} placeholder="e.g. Engineering" />
++                        <Input name="department" value={formData.department} onChange={handleChange} placeholder="e.g. Engineering" />
+                     </div>
+                 </div>
+ 
+
+commit 50e927b9cfbd995af4108236849848e1cc543335
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Thu Jun 4 23:02:20 2026 +0700
+
+    Update overtime UI with auto-calc, fix manual clock-out timezone, update attendance history screen, clean up code warnings, and remove personal docs from bottom sheet
+
+diff --git a/REACT/src/pages/employees/CreateEmployee.tsx b/REACT/src/pages/employees/CreateEmployee.tsx
+index 2394436..6d6acb1 100644
+--- a/REACT/src/pages/employees/CreateEmployee.tsx
++++ b/REACT/src/pages/employees/CreateEmployee.tsx
+@@ -54,7 +54,9 @@ export default function CreateEmployee() {
+     */
+ 
+     const [profilePicture, setProfilePicture] = useState<File | null>(null);
+-    const [documents, setDocuments] = useState<File[]>([]);
++    const [docNationalId, setDocNationalId] = useState<File | null>(null);
++    const [docDegree, setDocDegree] = useState<File | null>(null);
++    const [docCv, setDocCv] = useState<File | null>(null);
+ 
+     // ... useEffect ...
+ 
+@@ -68,10 +70,15 @@ export default function CreateEmployee() {
+         }
+     };
+ 
+-    const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+-        if (e.target.files) {
+-            setDocuments(Array.from(e.target.files));
+-        }
++    // Specific document handlers
++    const handleNationalIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
++        if (e.target.files && e.target.files[0]) setDocNationalId(e.target.files[0]);
++    };
++    const handleDegreeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
++        if (e.target.files && e.target.files[0]) setDocDegree(e.target.files[0]);
++    };
++    const handleCvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
++        if (e.target.files && e.target.files[0]) setDocCv(e.target.files[0]);
+     };
+ 
+     const handleSubmit = async (e: React.FormEvent) => {
+@@ -88,9 +95,9 @@ export default function CreateEmployee() {
+             if (profilePicture) {
+                 data.append('profile_picture', profilePicture);
+             }
+-            documents.forEach((file) => {
+-                data.append('documents[]', file);
+-            });
++            if (docNationalId) data.append('doc_national_id', docNationalId);
++            if (docDegree) data.append('doc_degree', docDegree);
++            if (docCv) data.append('doc_cv', docCv);
+ 
+             const response = await api.post('/employees', data, {
+                 headers: { 'Content-Type': 'multipart/form-data' }
+@@ -194,9 +201,22 @@ export default function CreateEmployee() {
+                     </div>
+                 </div>
+ 
+-                <div className="space-y-1.5">
+-                    <label className="text-sm font-medium">Attachments (CV, ID, Certificates) / ឯកសារភ្ជាប់</label>
+-                    <Input type="file" multiple onChange={handleDocumentChange} />
++                <div className="space-y-4 border p-4 rounded-lg bg-slate-50/50">
++                    <h3 className="font-semibold text-slate-800">Attached Documents</h3>
++                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
++                        <div className="space-y-1.5">
++                            <label className="text-sm font-medium">National ID / អត្តសញ្ញាណប័ណ្ណ</label>
++                            <Input type="file" onChange={handleNationalIdChange} />
++                        </div>
++                        <div className="space-y-1.5">
++                            <label className="text-sm font-medium">Degree / សញ្ញាប័ត្រ</label>
++                            <Input type="file" onChange={handleDegreeChange} />
++                        </div>
++                        <div className="space-y-1.5">
++                            <label className="text-sm font-medium">CV / ប្រវត្តិរូបសង្ខេប</label>
++                            <Input type="file" onChange={handleCvChange} />
++                        </div>
++                    </div>
+                 </div>
+ 
+                 <div className="space-y-1.5">
+
+commit 2133b3977220e90b6fae81a62031e276e0e6c337
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Tue Jun 2 23:45:44 2026 +0700
+
+    Initial commit for HR Application
+
+diff --git a/REACT/src/pages/employees/CreateEmployee.tsx b/REACT/src/pages/employees/CreateEmployee.tsx
+new file mode 100644
+index 0000000..2394436
+--- /dev/null
++++ b/REACT/src/pages/employees/CreateEmployee.tsx
+@@ -0,0 +1,260 @@
++import { useState, useEffect } from 'react';
++import { useNavigate } from 'react-router-dom';
++import { Button } from '@/components/ui/Button';
++import { Input } from '@/components/ui/Input';
++import api from '@/services/api';
++import { toast } from 'sonner';
++
++export default function CreateEmployee() {
++    const navigate = useNavigate();
++    const [loading, setLoading] = useState(false);
++    const [formData, setFormData] = useState({
++        first_name: '',
++        last_name: '',
++        email: '',
++        job_title: '', // Added replacement for branch/dept
++        department: '',
++        // branch_id: '', // Removed
++        // department_id: '', // Removed
++        joining_date: '',
++        salary: '',
++        phone: '',
++        address: '',
++        gender: '',
++        dob: '',
++        shift_id: '' as string | number,
++        marital_status: '',
++        name_kh: '',
++        emergency_contact: ''
++    });
++
++    const [shifts, setShifts] = useState<{id: number, name: string}[]>([]);
++
++    useEffect(() => {
++        const fetchOptions = async () => {
++            try {
++                const res = await api.get('/shifts');
++                setShifts(res.data.data || []);
++            } catch (err) {
++                console.error("Failed to fetch shifts");
++            }
++        };
++        fetchOptions();
++    }, []);
++
++    // Fetches removed as tables deleted
++    /*
++    const [branches, setBranches] = useState<any[]>([]);
++    const [departments, setDepartments] = useState<any[]>([]);
++
++    useEffect(() => {
++        const fetchOptions = async () => { ... };
++        fetchOptions();
++    }, []);
++    */
++
++    const [profilePicture, setProfilePicture] = useState<File | null>(null);
++    const [documents, setDocuments] = useState<File[]>([]);
++
++    // ... useEffect ...
++
++    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
++        setFormData({ ...formData, [e.target.name]: e.target.value });
++    };
++
++    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
++        if (e.target.files && e.target.files[0]) {
++            setProfilePicture(e.target.files[0]);
++        }
++    };
++
++    const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
++        if (e.target.files) {
++            setDocuments(Array.from(e.target.files));
++        }
++    };
++
++    const handleSubmit = async (e: React.FormEvent) => {
++        e.preventDefault();
++        setLoading(true);
++        try {
++            const data = new FormData();
++            Object.keys(formData).forEach(key => {
++                const value = formData[key as keyof typeof formData];
++                if (value !== null && value !== '') {
++                    data.append(key, String(value));
++                }
++            });
++            if (profilePicture) {
++                data.append('profile_picture', profilePicture);
++            }
++            documents.forEach((file) => {
++                data.append('documents[]', file);
++            });
++
++            const response = await api.post('/employees', data, {
++                headers: { 'Content-Type': 'multipart/form-data' }
++            });
++            
++            const generatedPassword = response.data?.generated_password;
++            if (generatedPassword) {
++                toast.success(`SUCCESS: Employee created!\n\nEmail: ${formData.email}\nPassword: ${generatedPassword}\n\nPlease copy this password to login to the mobile app.`);
++            } else {
++                toast.success('Employee created successfully');
++            }
++            
++            navigate('/employees');
++        } catch (error: any) {
++            console.error('Failed to create employee', error);
++            toast.error(error.response?.data?.message || 'Failed to create employee');
++        } finally {
++            setLoading(false);
++        }
++    };
++
++    return (
++        <div className="max-w-5xl mx-auto py-4">
++            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
++                <h2 className="text-2xl font-bold tracking-tight mb-6 text-slate-900 border-b pb-4">Add New Employee</h2>
++                <form onSubmit={handleSubmit} className="space-y-5">
++
++                {/* Profile Picture Input */}
++                <div className="space-y-1.5">
++                    <label className="text-sm font-medium">Profile Picture / រូបថតប្រវត្តិរូប</label>
++                    <Input type="file" onChange={handleFileChange} accept="image/*" />
++                </div>
++
++                {/* Personal Information */}
++                <div className="grid grid-cols-2 gap-4">
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">First Name / នាមខ្លួន</label>
++                        <Input name="first_name" required onChange={handleChange} />
++                    </div>
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Last Name / នាមត្រកូល</label>
++                        <Input name="last_name" required onChange={handleChange} />
++                    </div>
++                </div>
++
++                <div className="grid grid-cols-2 gap-4">
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Name in Khmer / ឈ្មោះជាភាសាខ្មែរ</label>
++                        <Input name="name_kh" onChange={handleChange} placeholder="ឈ្មោះជាភាសាខ្មែរ" />
++                    </div>
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Emergency Contact / ទំនាក់ទំនងបន្ទាន់</label>
++                        <Input name="emergency_contact" onChange={handleChange} placeholder="Guardian/Parents Number" />
++                    </div>
++                </div>
++
++                <div className="grid grid-cols-2 gap-4">
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Email / អ៊ីមែល</label>
++                        <Input name="email" type="email" required onChange={handleChange} />
++                    </div>
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
++                        <Input name="phone" onChange={handleChange} />
++                    </div>
++                </div>
++
++                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Date of Birth / ថ្ងៃខែឆ្នាំកំណើត</label>
++                        <Input name="dob" type="date" onChange={handleChange} />
++                    </div>
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Gender / ភេទ</label>
++                        <select
++                            name="gender"
++                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
++                            onChange={handleChange}
++                            value={formData.gender}
++                        >
++                            <option value="">Select Gender</option>
++                            <option value="Male">Male</option>
++                            <option value="Female">Female</option>
++                            <option value="Other">Other</option>
++                        </select>
++                    </div>
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Marital Status / ស្ថានភាពគ្រួសារ</label>
++                        <select
++                            name="marital_status"
++                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
++                            onChange={handleChange}
++                            value={formData.marital_status}
++                        >
++                            <option value="">Select Marital Status</option>
++                            <option value="Single">Single</option>
++                            <option value="Married">Married (Have Family)</option>
++                            <option value="Divorced">Divorced</option>
++                            <option value="Widowed">Widowed</option>
++                        </select>
++                    </div>
++                </div>
++
++                <div className="space-y-1.5">
++                    <label className="text-sm font-medium">Attachments (CV, ID, Certificates) / ឯកសារភ្ជាប់</label>
++                    <Input type="file" multiple onChange={handleDocumentChange} />
++                </div>
++
++                <div className="space-y-1.5">
++                    <label className="text-sm font-medium">Address / អាសយដ្ឋាន</label>
++                    <textarea
++                        name="address"
++                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
++                        onChange={handleChange}
++                    />
++                </div>
++
++                <div className="grid grid-cols-2 gap-4">
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Salary (Monthly) / ប្រាក់ខែ</label>
++                        <Input name="salary" type="number" onChange={handleChange} />
++                    </div>
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Assigned Shift / វេនការងារ</label>
++                        <select
++                            name="shift_id"
++                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
++                            onChange={handleChange}
++                            value={formData.shift_id}
++                        >
++                            <option value="">No Shift / Default</option>
++                            {shifts.map(shift => (
++                                <option key={shift.id} value={shift.id}>{shift.name}</option>
++                            ))}
++                        </select>
++                    </div>
++                </div>
++
++                <div className="grid grid-cols-2 gap-4">
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Joining Date / ថ្ងៃចូលធ្វើការ</label>
++                        <Input name="joining_date" type="date" required onChange={handleChange} />
++                    </div>
++                </div>
++
++                <div className="grid grid-cols-2 gap-4">
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Job Title / មុខតំណែង</label>
++                        <Input name="job_title" required onChange={handleChange} placeholder="e.g. Software Engineer" />
++                    </div>
++                    <div className="space-y-1.5">
++                        <label className="text-sm font-medium">Department / ផ្នែក</label>
++                        <Input name="department" onChange={handleChange} placeholder="e.g. Engineering" />
++                    </div>
++                </div>
++
++                <div className="flex justify-end gap-4 pt-6 border-t mt-8">
++                    <Button type="button" variant="outline" onClick={() => navigate('/employees')} className="px-6">Cancel</Button>
++                    <Button type="submit" disabled={loading} className="px-8">
++                        {loading ? 'Creating...' : 'Create Employee'}
++                    </Button>
++                </div>
++            </form>
++            </div>
++        </div>
++    );
++}

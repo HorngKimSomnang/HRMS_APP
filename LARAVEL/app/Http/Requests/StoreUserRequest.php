@@ -15,7 +15,7 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'user_id' => 'required|integer|exists:users,id',
-            'role' => 'required|string|in:Employee,Admin,Super Admin',
+            'role' => 'required|string|in:Employee,Super Admin',
         ];
     }
 }

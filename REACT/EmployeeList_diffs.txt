@@ -1,0 +1,1151 @@
+--- STEP 1592 ---
+TARGET:
+                                                    ) : hasPermission('employees.restore') && (
+                                                        <div className="flex justify-end pr-4">
+                                                            <Button size="sm" variant="outline" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+                                                                onClick={() => setRestoreEmployee(employee)}
+                                                                title="Restore Employee Record">
+                                                                <RotateCcw className="h-4 w-4" /> Restore
+                                                            </Button>
+                                                        </div>
+                                                    );
+REPLACEMENT:
+                                                    ) : (
+                                                        <div className="flex justify-end pr-4">
+                                                            <Button size="sm" variant="outline" className={`border-emerald-200 ${hasPermission('employees.restore') ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed opacity-60'}`}
+                                                                onClick={() => setRestoreEmployee(employee)}
+                                                                title={hasPermission('employees.restore') ? "Restore Employee Record" : "No Permission"}
+                                                                disabled={!hasPermission('employees.restore')}
+                                                            >
+                                                                <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                                                            </Button>
+                                                        </div>
+                                                    );
+TARGET:
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => navigate(`/employees/${employee.id}`)}
+                                                            title="View"
+                                                        >
+                                                            <Eye className="h-4 w-4 text-slate-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => navigate(`/employees/edit/${employee.id}`)}
+                                                            title={hasPermission('employees.edit') && canManageTarget ? "Edit" : "No Permission"}
+                                                            disabled={!hasPermission('employees.edit') || !canManageTarget}
+                                                        >
+                                                            <Pencil className={`h-4 w-4 ${hasPermission('employees.edit') && canManageTarget ? 'text-blue-500' : 'text-muted-foreground/50'}`} />
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className={hasPermission('employees.resend_credentials') && canManageTarget ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50' : 'text-muted-foreground/50'}
+                                                            onClick={() => setResendEmployee(employee)}
+                                                            title={hasPermission('employees.resend_credentials') && canManageTarget ? "Resend Credentials" : "No Permission"}
+                                                            disabled={!hasPermission('employees.resend_credentials') || !canManageTarget}
+                                                        >
+                                                            <Mail className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => setSelectedEmployee(employee)}
+                                                            title={!hasPermission('employees.delete') || !canManageTarget ? "No Permission" : (user?.id === employee.user_id ? "Cannot delete own profile" : "Delete")}
+                                                            disabled={!hasPermission('employees.delete') || !canManageTarget || user?.id === employee.user_id}
+                                                            className={hasPermission('employees.delete') && canManageTarget && user?.id !== employee.user_id ? "text-red-500 hover:bg-red-50 hover:text-red-600" : "text-muted-foreground/50"}
+                                                        >
+                                                            <UserMinus className="h-4 w-4" />
+                                                        </Button>
+REPLACEMENT:
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.view') ? "text-slate-500 hover:text-slate-700 hover:bg-slate-100" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => navigate(`/employees/${employee.id}`)}
+                                                            title={hasPermission('employees.view') ? "View" : "No Permission"}
+                                                            disabled={!hasPermission('employees.view')}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.edit') && canManageTarget ? "text-blue-500 hover:text-blue-700 hover:bg-blue-50" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => navigate(`/employees/edit/${employee.id}`)}
+                                                            title={hasPermission('employees.edit') && canManageTarget ? "Edit" : "No Permission"}
+                                                            disabled={!hasPermission('employees.edit') || !canManageTarget}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.resend_credentials') && canManageTarget ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-300 cursor-not-allowed opacity-60'}
+                                                            onClick={() => setResendEmployee(employee)}
+                                                            title={hasPermission('employees.resend_credentials') && canManageTarget ? "Resend Credentials" : "No Permission"}
+                                                            disabled={!hasPermission('employees.resend_credentials') || !canManageTarget}
+                                                        >
+                                                            <Mail className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.delete') && canManageTarget && user?.id !== employee.user_id ? "text-red-500 hover:bg-red-50 hover:text-red-600" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => setSelectedEmployee(employee)}
+                                                            title={!hasPermission('employees.delete') || !canManageTarget ? "No Permission" : (user?.id === employee.user_id ? "Cannot delete own profile" : "Delete")}
+                                                            disabled={!hasPermission('employees.delete') || !canManageTarget || user?.id === employee.user_id}
+                                                        >
+                                                            <UserMinus className="h-4 w-4" />
+                                                        </Button>
+
+======================
+--- STEP 2657 ---
+TARGET:
+                                    <TableCell>
+                                        <div className="flex items-center gap-1 max-w-[150px]">
+                                            {employee.all_departments && employee.all_departments.length > 0 ? (
+                                                <>
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 whitespace-nowrap max-w-full truncate" title={employee.all_departments[0]}>
+                                                        {employee.all_departments[0]}
+                                                    </span>
+                                                    {employee.all_departments.length > 1 && (
+                                                        <span
+                                                            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700 shrink-0 cursor-help"
+                                                            title={employee.all_departments.join(', ')}
+                                                        >
+                                                            +{employee.all_departments.length - 1}
+                                                        </span>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <span className="text-muted-foreground">-</span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+REPLACEMENT:
+                                    <TableCell>
+                                        <div className="flex items-center gap-1 max-w-[150px]">
+                                            {employee.department ? (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 whitespace-nowrap max-w-full truncate" title={employee.department}>
+                                                    {employee.department}
+                                                </span>
+                                            ) : (
+                                                <span className="text-muted-foreground">-</span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+
+======================
+--- STEP 3343 ---
+TARGET:
+                                    <TableCell>
+                                        <div className="flex flex-nowrap max-w-[120px]">
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 whitespace-nowrap max-w-full truncate" title={employee.role || 'No Role'}>
+                                                {employee.role || 'No Role'}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+REPLACEMENT:
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                            {employee.roles && employee.roles.length > 0 ? (
+                                                employee.roles.map((r: any) => (
+                                                    <span 
+                                                        key={r.id} 
+                                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 whitespace-nowrap"
+                                                        title={r.name}
+                                                    >
+                                                        {r.name}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 whitespace-nowrap max-w-full truncate" title={employee.role || 'No Role'}>
+                                                    {employee.role || 'No Role'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+
+======================
+--- STEP 3354 ---
+TARGET:
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                            {employee.roles && employee.roles.length > 0 ? (
+                                                employee.roles.map((r: any) => (
+                                                    <span 
+                                                        key={r.id} 
+                                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 whitespace-nowrap"
+                                                        title={r.name}
+                                                    >
+                                                        {r.name}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 whitespace-nowrap max-w-full truncate" title={employee.role || 'No Role'}>
+                                                    {employee.role || 'No Role'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+REPLACEMENT:
+                                    <TableCell>
+                                        <div 
+                                            className="w-full overflow-hidden" 
+                                            title={employee.roles && employee.roles.length > 0 ? employee.roles.map((r: any) => r.name).join(', ') : (employee.role || 'No Role')}
+                                        >
+                                            <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
+                                                {employee.roles && employee.roles.length > 0 ? (
+                                                    <>
+                                                        {employee.roles.slice(0, 2).map((r: any) => (
+                                                            <span 
+                                                                key={r.id} 
+                                                                className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 whitespace-nowrap"
+                                                            >
+                                                                {r.name}
+                                                            </span>
+                                                        ))}
+                                                        {employee.roles.length > 2 && (
+                                                            <span className="shrink-0 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1 py-0.5 rounded">
+                                                                +{employee.roles.length - 2}
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 whitespace-nowrap max-w-full truncate">
+                                                        {employee.role || 'No Role'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </TableCell>
+
+======================
+--- STEP 3454 ---
+TARGET:
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Pencil, UserMinus, Plus, Search, Eye, Archive, KeyRound, RotateCcw, Users, Mail } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+REPLACEMENT:
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Pencil, UserMinus, Plus, Search, Eye, Archive, KeyRound, RotateCcw, Users, Mail, Shield, Building2, Briefcase, Info, Save } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+TARGET:
+    const [resendEmployee, setResendEmployee] = useState<Employee | null>(null);
+    const [isResending, setIsResending] = useState(false);
+    const [restoreEmployee, setRestoreEmployee] = useState<Employee | null>(null);
+    const [isRestoring, setIsRestoring] = useState(false);
+    const [viewMode, setViewMode] = useState<'current' | 'archived'>('current');
+REPLACEMENT:
+    const [resendEmployee, setResendEmployee] = useState<Employee | null>(null);
+    const [isResending, setIsResending] = useState(false);
+    const [restoreEmployee, setRestoreEmployee] = useState<Employee | null>(null);
+    const [isRestoring, setIsRestoring] = useState(false);
+    const [viewMode, setViewMode] = useState<'current' | 'archived'>('current');
+
+    // Access Modal state (mirrors RoleManagement)
+    const [selectedAccessEmployee, setSelectedAccessEmployee] = useState<Employee | null>(null);
+    const [accessModalOpen, setAccessModalOpen] = useState(false);
+    const [accessLoading, setAccessLoading] = useState(false);
+    const [accessRoles, setAccessRoles] = useState<any[]>([]);
+    const [accessDepartments, setAccessDepartments] = useState<any[]>([]);
+    const [accessFormData, setAccessFormData] = useState({
+        role_ids: [] as number[],
+        department_id: '' as string | number,
+        managed_departments: [] as number[],
+    });
+    // Track the matching user object from admin/users endpoint
+    const [accessUserObj, setAccessUserObj] = useState<any>(null);
+TARGET:
+    useEffect(() => {
+        fetchEmployees();
+    }, []);
+REPLACEMENT:
+    useEffect(() => {
+        fetchEmployees();
+        fetchAccessRoles();
+        fetchAccessDepartments();
+    }, []);
+
+    const fetchAccessRoles = async () => {
+        try {
+            const res = await api.get('/admin/roles');
+            setAccessRoles(res.data);
+        } catch { /* silent */ }
+    };
+
+    const fetchAccessDepartments = async () => {
+        try {
+            const res = await api.get('/departments');
+            const data = Array.isArray(res.data) ? res.data : res.data.data;
+            setAccessDepartments(data || []);
+        } catch { /* silent */ }
+    };
+
+    const openAccessModal = async (employee: Employee) => {
+        setSelectedAccessEmployee(employee);
+        try {
+            // Fetch full user detail from admin/users endpoint
+            const res = await api.get('/admin/users');
+            const userObj = res.data.find((u: any) => u.id === employee.user_id);
+            setAccessUserObj(userObj || null);
+            if (userObj) {
+                const initialDepts = userObj.managed_departments?.map((d: any) => d.id) || [];
+                const initialRoleIds = userObj.roles?.map((r: any) => r.id) || (userObj.role_id ? [userObj.role_id] : []);
+                setAccessFormData({
+                    role_ids: initialRoleIds,
+                    department_id: userObj.department_id || userObj.employee?.department_id || '',
+                    managed_departments: initialDepts,
+                });
+            } else {
+                setAccessFormData({ role_ids: [], department_id: '', managed_departments: [] });
+            }
+        } catch {
+            setAccessUserObj(null);
+            setAccessFormData({ role_ids: [], department_id: '', managed_departments: [] });
+        }
+        setAccessModalOpen(true);
+    };
+
+    const handleAccessSave = async () => {
+        if (!accessUserObj?.employee) return;
+        if (accessFormData.role_ids.length === 0) {
+            toast.error('At least one role is required.');
+            return;
+        }
+        const targetRoleIsSuperAdmin = accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.is_super_admin);
+        const isEmployeeOnly = accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.name === 'Employee') && !accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.name !== 'Employee');
+        const payload = {
+            role_ids: accessFormData.role_ids,
+            department_id: accessFormData.department_id,
+            managed_departments: targetRoleIsSuperAdmin ? accessDepartments.map(d => d.id) : (isEmployeeOnly ? [] : accessFormData.managed_departments),
+        };
+        setAccessLoading(true);
+        try {
+            await api.post(`/employees/${accessUserObj.employee.id}/permissions/bulk`, payload);
+            toast.success('Access updated successfully!');
+            setAccessModalOpen(false);
+            fetchEmployees();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Failed to update access');
+        }
+        setAccessLoading(false);
+    };
+
+    const getAccessInitials = (name: string) => {
+        if (!name) return 'U';
+        const parts = name.trim().split(' ');
+        return parts.length >= 2 ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase() : name.slice(0, 2).toUpperCase();
+    };
+TARGET:
+                action={
+                    viewMode === 'current' && hasPermission('employees.create') ? (
+                        <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                            <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                        </Button>
+                    ) : undefined
+                }
+REPLACEMENT:
+            action={
+                    viewMode === 'current' ? (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                className={`gap-2 border shadow-sm transition-all ${
+                                    selectedAccessEmployee
+                                        ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                        : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                }`}
+                                disabled={!selectedAccessEmployee}
+                                onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                            >
+                                <Shield className="h-4 w-4" />
+                                {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                            </Button>
+                            {hasPermission('employees.create') && (
+                                <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                                    <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                                </Button>
+                            )}
+                        </div>
+                    ) : undefined
+                }
+TARGET:
+                        ) : (
+                            filteredEmployees.map((employee) => (
+                                <TableRow key={employee.id}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+REPLACEMENT:
+                        ) : (
+                            filteredEmployees.map((employee) => {
+                                const isRowSelected = selectedAccessEmployee?.id === employee.id;
+                                return (
+                                <TableRow 
+                                    key={employee.id}
+                                    onClick={() => viewMode === 'current' && setSelectedAccessEmployee(isRowSelected ? null : employee)}
+                                    className={`transition-colors ${
+                                        viewMode === 'current'
+                                            ? isRowSelected
+                                                ? 'bg-indigo-50 border-l-2 border-l-indigo-500 cursor-pointer'
+                                                : 'hover:bg-slate-50/50 cursor-pointer'
+                                            : ''
+                                    }`}
+                                >
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+TARGET:
+                                    <TableCell className="text-center">
+                                        <div className="flex justify-center gap-1">
+                                            {(() => {
+                                                const isTargetSuperAdmin = employee.role === 'Super Admin' || employee.roles?.some((r: any) => r.is_super_admin) || employee.email === 'superadmin@gmail.com';
+                                                const canManageTarget = isSuperAdmin || !isTargetSuperAdmin;
+
+                                                if (viewMode === 'archived') {
+                                                    return employee.restore_conflict ? (
+                                                        <div className="text-right">
+                                                            <span className="block text-xs font-medium text-amber-700">Active record exists</span>
+                                                            <span className="text-[11px] text-muted-foreground">{employee.conflicting_employee_code}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex justify-end pr-4">
+                                                            <Button size="sm" variant="outline" className={`border-emerald-200 ${hasPermission('employees.restore') ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed opacity-60'}`}
+                                                                onClick={() => setRestoreEmployee(employee)}
+                                                                title={hasPermission('employees.restore') ? "Restore Employee Record" : "No Permission"}
+                                                                disabled={!hasPermission('employees.restore')}
+                                                            >
+                                                                <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                                                            </Button>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.view') ? "text-slate-500 hover:text-slate-700 hover:bg-slate-100" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => navigate(`/employees/${employee.id}`)}
+                                                            title={hasPermission('employees.view') ? "View" : "No Permission"}
+                                                            disabled={!hasPermission('employees.view')}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.edit') && canManageTarget ? "text-blue-500 hover:text-blue-700 hover:bg-blue-50" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => navigate(`/employees/edit/${employee.id}`)}
+                                                            title={hasPermission('employees.edit') && canManageTarget ? "Edit" : "No Permission"}
+                                                            disabled={!hasPermission('employees.edit') || !canManageTarget}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.resend_credentials') && canManageTarget ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-300 cursor-not-allowed opacity-60'}
+                                                            onClick={() => setResendEmployee(employee)}
+                                                            title={hasPermission('employees.resend_credentials') && canManageTarget ? "Resend Credentials" : "No Permission"}
+                                                            disabled={!hasPermission('employees.resend_credentials') || !canManageTarget}
+                                                        >
+                                                            <Mail className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.delete') && canManageTarget && user?.id !== employee.user_id ? "text-red-500 hover:bg-red-50 hover:text-red-600" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => setSelectedEmployee(employee)}
+                                                            title={!hasPermission('employees.delete') || !canManageTarget ? "No Permission" : (user?.id === employee.user_id ? "Cannot delete own profile" : "Delete")}
+                                                            disabled={!hasPermission('employees.delete') || !canManageTarget || user?.id === employee.user_id}
+                                                        >
+                                                            <UserMinus className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+REPLACEMENT:
+                                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex justify-center gap-1">
+                                            {(() => {
+                                                const isTargetSuperAdmin = employee.role === 'Super Admin' || employee.roles?.some((r: any) => r.is_super_admin) || employee.email === 'superadmin@gmail.com';
+                                                const canManageTarget = isSuperAdmin || !isTargetSuperAdmin;
+
+                                                if (viewMode === 'archived') {
+                                                    return employee.restore_conflict ? (
+                                                        <div className="text-right">
+                                                            <span className="block text-xs font-medium text-amber-700">Active record exists</span>
+                                                            <span className="text-[11px] text-muted-foreground">{employee.conflicting_employee_code}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex justify-end pr-4">
+                                                            <Button size="sm" variant="outline" className={`border-emerald-200 ${hasPermission('employees.restore') ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed opacity-60'}`}
+                                                                onClick={() => setRestoreEmployee(employee)}
+                                                                title={hasPermission('employees.restore') ? "Restore Employee Record" : "No Permission"}
+                                                                disabled={!hasPermission('employees.restore')}
+                                                            >
+                                                                <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                                                            </Button>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.view') ? "text-slate-500 hover:text-slate-700 hover:bg-slate-100" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => navigate(`/employees/${employee.id}`)}
+                                                            title={hasPermission('employees.view') ? "View" : "No Permission"}
+                                                            disabled={!hasPermission('employees.view')}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.edit') && canManageTarget ? "text-blue-500 hover:text-blue-700 hover:bg-blue-50" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => navigate(`/employees/edit/${employee.id}`)}
+                                                            title={hasPermission('employees.edit') && canManageTarget ? "Edit" : "No Permission"}
+                                                            disabled={!hasPermission('employees.edit') || !canManageTarget}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.resend_credentials') && canManageTarget ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-300 cursor-not-allowed opacity-60'}
+                                                            onClick={() => setResendEmployee(employee)}
+                                                            title={hasPermission('employees.resend_credentials') && canManageTarget ? "Resend Credentials" : "No Permission"}
+                                                            disabled={!hasPermission('employees.resend_credentials') || !canManageTarget}
+                                                        >
+                                                            <Mail className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={hasPermission('employees.delete') && canManageTarget && user?.id !== employee.user_id ? "text-red-500 hover:bg-red-50 hover:text-red-600" : "text-slate-300 cursor-not-allowed opacity-60"}
+                                                            onClick={() => setSelectedEmployee(employee)}
+                                                            title={!hasPermission('employees.delete') || !canManageTarget ? "No Permission" : (user?.id === employee.user_id ? "Cannot delete own profile" : "Delete")}
+                                                            disabled={!hasPermission('employees.delete') || !canManageTarget || user?.id === employee.user_id}
+                                                        >
+                                                            <UserMinus className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                                );
+                            })
+                        )}
+TARGET:
+        </div >
+    );
+}
+REPLACEMENT:
+            {/* Access Management Modal */}
+            <Dialog open={accessModalOpen} onOpenChange={(open) => { if (!open) { setAccessModalOpen(false); setSelectedAccessEmployee(null); setAccessUserObj(null); } }}>
+                <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-6 overflow-hidden">
+                    <DialogHeader>
+                        <DialogTitle>Edit Employee Access</DialogTitle>
+                    </DialogHeader>
+
+                    {selectedAccessEmployee && (
+                        <div className="flex-1 overflow-y-auto px-1.5 -mx-1.5 pr-3 -mr-3 space-y-6 py-4">
+                            {/* Employee header */}
+                            <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
+                                <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 text-white flex items-center justify-center font-bold text-base shadow-md">
+                                    {getAccessInitials(`${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}`)}
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">{selectedAccessEmployee.last_name} {selectedAccessEmployee.first_name}</h2>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                        <span>{selectedAccessEmployee.email}</span>
+                                        {selectedAccessEmployee.employee_code && (
+                                            <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-100">
+                                                {selectedAccessEmployee.employee_code}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {!accessUserObj?.employee ? (
+                                <div className="p-4 bg-amber-50 text-amber-900 rounded-xl border border-amber-200 text-sm flex items-start gap-3">
+                                    <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <div className="font-semibold mb-0.5">No Associated User Record</div>
+                                        This employee doesn't have an associated user account yet.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-7">
+                                    {/* Employee Details */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-indigo-700 font-semibold">
+                                            <Briefcase className="h-4 w-4" />
+                                            <h3 className="text-base font-bold text-slate-900">Employee Details</h3>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div className="space-y-1.5">
+                                                <p className="text-xs text-muted-foreground font-semibold mb-1">Primary Department</p>
+                                                <select
+                                                    name="department_id"
+                                                    value={accessFormData.department_id}
+                                                    onChange={(e) => setAccessFormData(prev => ({ ...prev, department_id: e.target.value }))}
+                                                    disabled={!isSuperAdmin}
+                                                    className="w-full flex h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <option value="" disabled>Select department</option>
+                                                    {accessDepartments.map(dept => (
+                                                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <p className="text-xs text-muted-foreground font-semibold mb-1">Roles (Select multiple)</p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50/50 pr-2">
+                                                    {accessRoles.map(role => {
+                                                        const isChecked = accessFormData.role_ids.includes(role.id);
+                                                        return (
+                                                            <label
+                                                                key={role.id}
+                                                                className={`flex items-center gap-2.5 p-3 rounded-xl border text-sm font-medium cursor-pointer transition-all ${
+                                                                    isChecked
+                                                                        ? 'border-indigo-500 bg-indigo-50/70 text-indigo-950 shadow-sm ring-1 ring-indigo-500/20'
+                                                                        : 'border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700'
+                                                                }`}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isChecked}
+                                                                    disabled={!isSuperAdmin}
+                                                                    onChange={() => {
+                                                                        if (!isSuperAdmin) return;
+                                                                        setAccessFormData(prev => {
+                                                                            const exists = prev.role_ids.includes(role.id);
+                                                                            return { ...prev, role_ids: exists ? prev.role_ids.filter(id => id !== role.id) : [...prev.role_ids, role.id] };
+                                                                        });
+                                                                    }}
+                                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                                                                />
+                                                                <span className="truncate">{role.name}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Department Management */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-indigo-700 font-semibold">
+                                            <Building2 className="h-4 w-4" />
+                                            <h3 className="text-base font-bold text-slate-900">Department Management</h3>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">Select the department(s) this user is authorized to manage.</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-2">
+                                            {accessDepartments.map(dept => {
+                                                const targetRoleIsSuperAdmin = accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.is_super_admin);
+                                                const isEmployeeOnly = accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.name === 'Employee') && !accessRoles.some(r => accessFormData.role_ids.includes(r.id) && r.name !== 'Employee');
+                                                const disabled = !isSuperAdmin || targetRoleIsSuperAdmin || isEmployeeOnly;
+                                                const isManaged = targetRoleIsSuperAdmin ? true : (isEmployeeOnly ? false : accessFormData.managed_departments.includes(dept.id));
+                                                return (
+                                                    <label
+                                                        key={dept.id}
+                                                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-sm font-medium transition-all ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${
+                                                            isManaged
+                                                                ? 'border-indigo-500 bg-indigo-50/70 text-indigo-950 shadow-sm ring-1 ring-indigo-500/20'
+                                                                : 'border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700'
+                                                        }`}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isManaged}
+                                                            disabled={disabled}
+                                                            onChange={() => !disabled && setAccessFormData(prev => ({
+                                                                ...prev,
+                                                                managed_departments: prev.managed_departments.includes(dept.id)
+                                                                    ? prev.managed_departments.filter(id => id !== dept.id)
+                                                                    : [...prev.managed_departments, dept.id]
+                                                            }))}
+                                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        />
+                                                        <span className="truncate">{dept.name}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setAccessModalOpen(false); setSelectedAccessEmployee(null); }}>Cancel</Button>
+                        {isSuperAdmin && accessUserObj?.employee && (
+                            <Button
+                                onClick={handleAccessSave}
+                                disabled={accessLoading}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 shadow-sm"
+                            >
+                                <Save className="w-4 h-4" />
+                                {accessLoading ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+        </div >
+    );
+}
+
+======================
+--- STEP 3477 ---
+TARGET:
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                title={t('employees.title')}
+REPLACEMENT:
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                className="sticky top-0 z-20"
+                title={t('employees.title')}
+
+======================
+--- STEP 3498 ---
+TARGET:
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                className="sticky top-0 z-20"
+                title={t('employees.title')}
+                subtitle={t('employees.subtitle')}
+                gradient="from-blue-600 via-indigo-600 to-violet-600"
+            action={
+                    viewMode === 'current' ? (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                className={`gap-2 border shadow-sm transition-all ${
+                                    selectedAccessEmployee
+                                        ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                        : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                }`}
+                                disabled={!selectedAccessEmployee}
+                                onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                            >
+                                <Shield className="h-4 w-4" />
+                                {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                            </Button>
+                            {hasPermission('employees.create') && (
+                                <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                                    <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                                </Button>
+                            )}
+                        </div>
+                    ) : undefined
+                }
+            />
+REPLACEMENT:
+    return (
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky top-0 z-30 -mt-6 -mx-6 px-6 pt-6 pb-2 lg:-mt-8 lg:-mx-8 lg:px-8 lg:pt-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+                    className="mb-4"
+                    title={t('employees.title')}
+                    subtitle={t('employees.subtitle')}
+                    gradient="from-blue-600 via-indigo-600 to-violet-600"
+                    action={
+                        viewMode === 'current' ? (
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    className={`gap-2 border shadow-sm transition-all ${
+                                        selectedAccessEmployee
+                                            ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                            : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                    }`}
+                                    disabled={!selectedAccessEmployee}
+                                    onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                    title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                                >
+                                    <Shield className="h-4 w-4" />
+                                    {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                                </Button>
+                                {hasPermission('employees.create') && (
+                                    <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                                        <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                                    </Button>
+                                )}
+                            </div>
+                        ) : undefined
+                    }
+                />
+            </div>
+
+======================
+--- STEP 3546 ---
+TARGET:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky top-0 z-30 -mt-6 -mx-6 px-6 pt-6 pb-2 lg:-mt-8 lg:-mx-8 lg:px-8 lg:pt-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+REPLACEMENT:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky top-0 z-40 -mx-6 px-6 py-4 lg:-mx-8 lg:px-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+
+======================
+--- STEP 3582 ---
+TARGET:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky top-0 z-40 -mx-6 px-6 py-4 lg:-mx-8 lg:px-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+REPLACEMENT:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky top-0 z-40 -mx-6 px-6 pt-0 pb-4 lg:-mx-8 lg:px-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+
+======================
+--- STEP 3585 ---
+TARGET:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky top-0 z-40 -mx-6 px-6 pt-0 pb-4 lg:-mx-8 lg:px-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+REPLACEMENT:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky -top-6 lg:-top-8 z-40 -mx-6 px-6 pt-6 pb-4 lg:-mx-8 lg:px-8 lg:pt-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+
+======================
+--- STEP 3600 ---
+TARGET:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content */}
+            <div className="sticky -top-6 lg:-top-8 z-40 -mx-6 px-6 pt-6 pb-4 lg:-mx-8 lg:px-8 lg:pt-8 bg-gradient-to-br from-[#eff3f9] via-[#f7f9fc] to-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+                    className="mb-4"
+                    title={t('employees.title')}
+                    subtitle={t('employees.subtitle')}
+                    gradient="from-blue-600 via-indigo-600 to-violet-600"
+                    action={
+                        viewMode === 'current' ? (
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    className={`gap-2 border shadow-sm transition-all ${
+                                        selectedAccessEmployee
+                                            ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                            : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                    }`}
+                                    disabled={!selectedAccessEmployee}
+                                    onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                    title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                                >
+                                    <Shield className="h-4 w-4" />
+                                    {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                                </Button>
+                                {hasPermission('employees.create') && (
+                                    <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                                        <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                                    </Button>
+                                )}
+                            </div>
+                        ) : undefined
+                    }
+                />
+            </div>
+REPLACEMENT:
+        <div className="space-y-0">
+            <PageHeader
+                className="sticky top-0 z-40 mb-0 transition-all duration-200"
+                title={t('employees.title')}
+                subtitle={t('employees.subtitle')}
+                gradient="from-blue-600 via-indigo-600 to-violet-600"
+                action={
+                    viewMode === 'current' ? (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                className={`gap-2 border shadow-sm transition-all ${
+                                    selectedAccessEmployee
+                                        ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                        : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                }`}
+                                disabled={!selectedAccessEmployee}
+                                onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                            >
+                                <Shield className="h-4 w-4" />
+                                {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                            </Button>
+                            {hasPermission('employees.create') && (
+                                <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                                    <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                                </Button>
+                            )}
+                        </div>
+                    ) : undefined
+                }
+            />
+            {/* Spacer to replace the PageHeader's margin in normal flow */}
+            <div className="h-6" />
+
+======================
+--- STEP 3648 ---
+TARGET:
+        <div className="space-y-0">
+            <PageHeader
+                className="sticky top-0 z-40 mb-0 transition-all duration-200"
+                title={t('employees.title')}
+                subtitle={t('employees.subtitle')}
+                gradient="from-blue-600 via-indigo-600 to-violet-600"
+                action={
+                    viewMode === 'current' ? (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                className={`gap-2 border shadow-sm transition-all ${
+                                    selectedAccessEmployee
+                                        ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                        : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                }`}
+                                disabled={!selectedAccessEmployee}
+                                onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                            >
+                                <Shield className="h-4 w-4" />
+                                {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                            </Button>
+                            {hasPermission('employees.create') && (
+                                <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                                    <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                                </Button>
+                            )}
+                        </div>
+                    ) : undefined
+                }
+            />
+            {/* Spacer to replace the PageHeader's margin in normal flow */}
+            <div className="h-6" />
+REPLACEMENT:
+        <div className="space-y-0">
+            {/* 
+              Sticky wrapper that extends upward into the <main> padding area to cover scrolling rows.
+              -mt pulls it up, pt pushes content down. bg covers the rows scrolling underneath.
+            */}
+            <div className="sticky top-0 z-40 -mt-6 lg:-mt-8 pt-6 lg:pt-8 pb-4 -mx-6 lg:-mx-8 px-6 lg:px-8 bg-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+                    className="mb-0 transition-all duration-200"
+                    title={t('employees.title')}
+                    subtitle={t('employees.subtitle')}
+                    gradient="from-blue-600 via-indigo-600 to-violet-600"
+                    action={
+                        viewMode === 'current' ? (
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    className={`gap-2 border shadow-sm transition-all ${
+                                        selectedAccessEmployee
+                                            ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                            : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                    }`}
+                                    disabled={!selectedAccessEmployee}
+                                    onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                    title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                                >
+                                    <Shield className="h-4 w-4" />
+                                    {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                                </Button>
+                                {hasPermission('employees.create') && (
+                                    <Button className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md" onClick={() => navigate('/employees/create')}>
+                                        <Plus className="h-4 w-4" /> {t('employees.add_employee')}
+                                    </Button>
+                                )}
+                            </div>
+                        ) : undefined
+                    }
+                />
+            </div>
+
+======================
+--- STEP 3666 ---
+TARGET:
+    });
+
+    return (
+        <div className="space-y-0">
+            {/* 
+              Sticky wrapper that extends upward into the <main> padding area to cover scrolling rows.
+              -mt pulls it up, pt pushes content down. bg covers the rows scrolling underneath.
+            */}
+            <div className="sticky top-0 z-40 -mt-6 lg:-mt-8 pt-6 lg:pt-8 pb-4 -mx-6 lg:-mx-8 px-6 lg:px-8 bg-[#eff3f9] border-b border-blue-100 shadow-sm">
+                <PageHeader
+REPLACEMENT:
+    return (
+        <div className="space-y-0 -mt-6 lg:-mt-8 pt-6 lg:pt-8">
+            {/* 
+              Sticky wrapper that can now reach the top because its containing block extends to the top.
+              bg covers the rows scrolling underneath.
+            */}
+            <div className="sticky top-0 z-40 pb-4 -mx-6 lg:-mx-8 px-6 lg:px-8 bg-[#eff3f9] border-b border-blue-100 shadow-sm transition-all duration-200">
+                <PageHeader
+
+======================
+--- STEP 3621 ---
+TARGET:
+    return (
+        <div className="space-y-0">
+            <PageHeader
+                className="sticky top-0 z-40 mb-0 transition-all duration-200"
+REPLACEMENT:
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content completely */}
+            <div className="sticky -top-6 lg:-top-8 z-40 -mx-6 lg:-mx-8 px-6 lg:px-8 pb-4 lg:pb-6 bg-slate-50/95 backdrop-blur-md border-b border-blue-100/50 shadow-sm transition-all duration-200">
+                <PageHeader
+                    className="mb-0"
+
+======================
+--- STEP 3627 ---
+TARGET:
+                    ) : undefined
+                }
+            />
+            {/* Spacer to replace the PageHeader's margin in normal flow */}
+            <div className="h-6" />
+
+            <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+REPLACEMENT:
+                }
+            />
+        </div>
+
+        <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+======================
+--- STEP 3649 ---
+TARGET:
+
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content completely */}
+REPLACEMENT:
+    return (
+        <div className="space-y-6">
+            {/* Sticky Wrapper to hide scrolling content completely */}
+
+======================
+--- STEP 3655 ---
+TARGET:
+                            )}
+                        </div>
+                }
+            />
+        </div>
+REPLACEMENT:
+                            )}
+                        </div>
+                    ) : undefined
+                }
+            />
+        </div>
+
+======================
+--- STEP 3855 ---
+TARGET:
+                            <Button
+                                className={`gap-2 border shadow-sm transition-all ${
+                                    selectedAccessEmployee
+                                        ? 'bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm'
+                                        : 'bg-white/10 text-white/50 border-white/20 cursor-not-allowed'
+                                }`}
+                                disabled={!selectedAccessEmployee}
+                                onClick={() => selectedAccessEmployee && openAccessModal(selectedAccessEmployee)}
+                                title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Select an employee row first'}
+                            >
+                                <Shield className="h-4 w-4" />
+                                {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                            </Button>
+REPLACEMENT:
+                            <Button
+                                className="gap-2 border shadow-sm transition-all bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm"
+                                onClick={() => {
+                                    if (!selectedAccessEmployee) {
+                                        toast.error('Please select an employee first!');
+                                        return;
+                                    }
+                                    openAccessModal(selectedAccessEmployee);
+                                }}
+                                title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Add Access'}
+                            >
+                                <Shield className="h-4 w-4" />
+                                {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                            </Button>
+
+======================
+--- STEP 3861 ---
+TARGET:
+                            <Button
+                                className="gap-2 border shadow-sm transition-all bg-white/20 text-white hover:bg-white/30 border-white/40 backdrop-blur-sm"
+                                onClick={() => {
+REPLACEMENT:
+                            <Button
+                                className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md transition-all"
+                                onClick={() => {
+
+======================
+--- STEP 3935 ---
+TARGET:
+                            <Button
+                                className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md transition-all"
+                                onClick={() => {
+                                    if (!selectedAccessEmployee) {
+                                        toast.error('Please select an employee first!');
+                                        return;
+                                    }
+                                    openAccessModal(selectedAccessEmployee);
+                                }}
+                                title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Add Access'}
+                            >
+                                <Shield className="h-4 w-4" />
+                                {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                            </Button>
+REPLACEMENT:
+                            {hasPermission('employees.manage_access') && (
+                                <Button
+                                    className="gap-2 bg-white text-indigo-600 hover:bg-gray-100 border-none shadow-md transition-all"
+                                    onClick={() => {
+                                        if (!selectedAccessEmployee) {
+                                            toast.error('Please select an employee first!');
+                                            return;
+                                        }
+                                        openAccessModal(selectedAccessEmployee);
+                                    }}
+                                    title={selectedAccessEmployee ? `Manage access for ${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name}` : 'Add Access'}
+                                >
+                                    <Shield className="h-4 w-4" />
+                                    {selectedAccessEmployee ? `${selectedAccessEmployee.last_name} ${selectedAccessEmployee.first_name} Access` : 'Add Access'}
+                                </Button>
+                            )}
+
+======================

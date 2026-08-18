@@ -5,27 +5,27 @@ import 'api_service.dart';
 class LeaveService {
   final ApiService _apiService = ApiService();
 
-  Future<List<dynamic>> fetchLeaves() async {
+  Future<List<dynamic>> fetchLeaves({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/leaves');
+      final response = await ApiService.instance.cachedGet('/leaves', forceRefresh: forceRefresh);
       return response.data; // Laravel returns List directly
     } catch (e) {
       throw Exception('Failed to fetch leaves');
     }
   }
 
-  Future<List<dynamic>> fetchLeaveTypes() async {
+  Future<List<dynamic>> fetchLeaveTypes({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/leave-types');
+      final response = await ApiService.instance.cachedGet('/leave-types', forceRefresh: forceRefresh);
       return response.data;
     } catch (e) {
       throw Exception('Failed to fetch leave types');
     }
   }
 
-  Future<List<dynamic>> fetchLeaveBalances() async {
+  Future<List<dynamic>> fetchLeaveBalances({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/leaves/balances');
+      final response = await ApiService.instance.cachedGet('/leaves/balances', forceRefresh: forceRefresh);
       return response.data;
     } catch (e) {
       throw Exception('Failed to fetch leave balances');

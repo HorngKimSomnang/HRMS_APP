@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { Wallet, CheckCircle, XCircle, AlertCircle, RefreshCw, Plus, FileText, X, Clock, Printer, Trash2, MoreVertical, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { Wallet, CheckCircle, XCircle, AlertCircle, RefreshCw, Plus, FileText, X, Clock, Printer, Trash2, MoreVertical, ChevronDown, FileSpreadsheet, Eye, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/Button';
 import jsPDF from "jspdf";
@@ -97,8 +97,8 @@ function Field({ label, value, onChange, type="number", placeholder="0" }: any) 
 }
 
 export default function PayrollAdmin() {
-    const { user } = useAuth();
-    const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin') ?? false;
+    const { user, hasPermission } = useAuth();
+    const isSuperAdmin = hasPermission('payroll.generate') || hasPermission('payroll.edit');
     const [payslips, setPayslips]   = useState<any[]>([]);
     const [employees, setEmployees] = useState<any[]>([]);
     const [overtimes, setOvertimes] = useState<any[]>([]);
@@ -106,15 +106,13 @@ export default function PayrollAdmin() {
     const [updatingId, setUpdatingId]   = useState<number|null>(null);
     const [deleteId, setDeleteId] = useState<number|null>(null);
     const [showModal, setShowModal] = useState(false);
+    const [viewPayslip, setViewPayslip] = useState<any>(null);
     const [saving, setSaving] = useState(false);
 
     const [searchParams] = useSearchParams();
     const [filterMonth, setFilterMonth] = useState<string>(searchParams.get('month') || String(new Date().getMonth() + 1).padStart(2, '0'));
     const [filterYear, setFilterYear] = useState<string>(searchParams.get('year') || String(new Date().getFullYear()));
 
-    const [showBatchModal, setShowBatchModal] = useState(false);
-    const [batchMonth, setBatchMonth] = useState<string>("01");
-    const [batchYear, setBatchYear] = useState<string>(String(new Date().getFullYear()));
 
     const filteredPayslips = payslips.filter((p: any) => {
         if (filterMonth && p.month !== filterMonth) return false;
@@ -591,19 +589,7 @@ export default function PayrollAdmin() {
         } catch (e: any) { toast.error("Download failed: " + e.message); console.error(e); }
     };
 
-    const handleBatchGenerate = async () => {
-        setSaving(true);
-        try {
-            const res = await api.post("/payslips/batch", { month: batchMonth, year: batchYear });
-            toast.success(res.data.message || "Batch payroll generated successfully!");
-            setShowBatchModal(false);
-            fetchData();
-        } catch (e:any) {
-            toast.error(e.response?.data?.message || "Failed to generate batch payroll");
-        } finally {
-            setSaving(false);
-        }
-    };
+
 
     const generatePayslip = async () => {
         if (!form.employee_id||!form.basic_salary){ toast("Select an employee and enter basic salary."); return; }
@@ -646,56 +632,26 @@ export default function PayrollAdmin() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={showBatchModal} onOpenChange={setShowBatchModal}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Run Payroll (Batch)</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <p className="text-sm text-gray-500">
-                            This will automatically generate a draft payslip for every active employee for the selected period.
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1">Month</label>
-                                <select value={batchMonth} onChange={e=>setBatchMonth(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                                    {MONTHS.map((m,i)=><option key={m} value={m}>{MONTH_NAMES[i]}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1">Year</label>
-                                <input value={batchYear} onChange={e=>setBatchYear(e.target.value)} type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowBatchModal(false)}>Cancel</Button>
-                        <Button onClick={handleBatchGenerate} disabled={saving}>
-                            {saving ? "Generating..." : "Run Payroll"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {/* Header */}
-            <div className="flex justify-between items-start">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Wallet className="h-6 w-6 text-primary"/>Payroll & Payments</h1>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                        Prepare and print payroll for management review, then record completed payments.
-                    </p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins flex items-center gap-2"><Wallet className="h-7 w-7 text-emerald-200"/>Payroll & Payments</h1>
+                    <p className="text-emerald-100 mt-2 text-sm font-medium">Prepare and print payroll for management review, then record completed payments.</p>
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={() => setShowBatchModal(true)} className="flex items-center gap-2 text-sm font-semibold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
-                        <Clock className="h-4 w-4"/> Run Payroll (Batch)
-                    </button>
-                    <button onClick={openGenerateModal} className="flex items-center gap-2 text-sm font-semibold bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
-                        <Plus className="h-4 w-4"/> Generate Individual
-                    </button>
-                    <button onClick={() => fetchData()} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-slate-50">
+                <div className="relative z-10 flex gap-2">
+                    {hasPermission('payroll.generate') && (
+                        <Button onClick={openGenerateModal} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm">
+                            <Plus className="mr-2 h-4 w-4" /> Generate Individual
+                        </Button>
+                    )}
+                    <button onClick={() => fetchData()} className="flex items-center gap-2 text-sm text-white px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
                         <RefreshCw className="h-4 w-4"/>
                     </button>
                 </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             {/* Stats */}
@@ -754,7 +710,7 @@ export default function PayrollAdmin() {
                                     <th className="px-6 py-4">Deductions</th>
                                     <th className="px-6 py-4 text-emerald-700">Net Salary</th>
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4 text-right">Action</th>
+                                    <th className="px-6 py-4 text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -782,41 +738,43 @@ export default function PayrollAdmin() {
                                         </td>
                                         <td className="px-6 py-4 font-bold text-emerald-600 text-base">${slip.net_salary}</td>
                                         <td className="px-6 py-4">
-                                            {(() => { const sc = STATUS_CFG[slip.status] ?? STATUS_CFG.pending; return (
+                                            {(() => { 
+                                                const sc = STATUS_CFG[slip.status] ?? STATUS_CFG.pending; 
+                                                const isSelf = !isSuperAdmin && slip.employee?.user_id === user?.id;
+                                                const busy = updatingId === slip.id;
+                                                return (
                                                 <div className="flex flex-col gap-1.5 items-start">
                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${sc.bg} ${sc.color} ${sc.border}`}>
                                                         <sc.icon className="h-3 w-3"/>{sc.label}
                                                     </span>
+                                                    {["pending", "approved"].includes(slip.status) && (
+                                                        <button 
+                                                            disabled={busy || isSelf || !hasPermission('payroll.mark_paid')} 
+                                                            onClick={() => updatePayslipStatus(slip.id, "paid")}
+                                                            title={!hasPermission('payroll.mark_paid') ? "No permission" : (isSelf ? "Super Admin must pay your payslip" : "Mark as Paid")}
+                                                            className="px-2.5 py-1 text-[11px] font-semibold rounded text-white flex items-center justify-center shadow-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+                                                            Mark Paid
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ); })()}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-6 py-4 text-center">
                                             {(() => {
                                                 const isSelf = !isSuperAdmin && slip.employee?.user_id === user?.id;
                                                 const busy = updatingId === slip.id;
 
                                                 return (
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        {["draft", "pending", "approved"].includes(slip.status) && (
-                                                            <button disabled={busy || isSelf} onClick={()=>updatePayslipStatus(slip.id,"paid")}
-                                                                title={isSelf ? "Super Admin must pay your payslip" : "Mark as Paid"}
-                                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg text-white flex items-center gap-1 shadow-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
-                                                                Mark Paid
-                                                            </button>
-                                                        )}
-
-                                                        <DropdownMenu
-                                                            trigger={
-                                                                <button className="relative p-1.5 rounded-lg transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                                                                    <MoreVertical className="h-4 w-4"/>
-                                                                </button>
-                                                            }
-                                                            items={[
-                                                                { label: "Print Payslip", icon: Printer, onClick: () => downloadPayslipPDF(slip) },
-                                                                { label: "Edit", disabled: busy || isSelf, onClick: () => handleEdit(slip) },
-                                                                { label: "Delete", danger: true, disabled: busy || isSelf, onClick: () => handleDelete(slip.id) },
-                                                            ]}
-                                                        />
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-100" disabled={!hasPermission('payroll.view')} onClick={() => setViewPayslip(slip)} title={!hasPermission('payroll.view') ? 'No permission' : 'View Payslip'}>
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" disabled={busy || isSelf || !hasPermission('payroll.edit')} onClick={() => handleEdit(slip)} title={!hasPermission('payroll.edit') ? 'No permission' : 'Edit'}>
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" disabled={busy || isSelf || !hasPermission('payroll.delete')} onClick={() => handleDelete(slip.id)} title={!hasPermission('payroll.delete') ? 'No permission' : 'Delete'}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
                                                     </div>
                                                 );
                                             })()}
@@ -903,6 +861,91 @@ export default function PayrollAdmin() {
                     </div>
                 </div>
             )}
+
+            {/* View Payslip Modal */}
+            <Dialog open={!!viewPayslip} onOpenChange={(open) => !open && setViewPayslip(null)}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>View Payslip Details</DialogTitle>
+                    </DialogHeader>
+                    {viewPayslip && (
+                        <div className="py-4 space-y-4">
+                            <div className="flex justify-between border-b pb-4">
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-500">Employee</p>
+                                    <p className="font-medium">{viewPayslip.employee?.user?.name || "Unknown"}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-semibold text-gray-500">Period</p>
+                                    <p className="font-medium">{MONTH_NAMES[parseInt(viewPayslip.month)-1]} {viewPayslip.year}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-bold uppercase text-emerald-600 mb-2">💰 Earnings</p>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Basic Salary:</span>
+                                        <span className="font-medium">${viewPayslip.basic_salary}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Overtime:</span>
+                                        <span className="font-medium">${viewPayslip.overtime_amount}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Commission:</span>
+                                        <span className="font-medium">${viewPayslip.commission}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Attendance:</span>
+                                        <span className="font-medium">${viewPayslip.attendance_bonus}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Allowances:</span>
+                                        <span className="font-medium">${viewPayslip.allowances}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                                <p className="text-xs font-bold uppercase text-red-500 mb-2">📉 Deductions</p>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Advance:</span>
+                                        <span className="font-medium">${viewPayslip.advance_deduction}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Unpaid Leave:</span>
+                                        <span className="font-medium">${viewPayslip.unpaid_leave_deduction}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Other:</span>
+                                        <span className="font-medium">${viewPayslip.deductions}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex justify-between items-center mt-2">
+                                <span className="text-sm font-semibold text-gray-700">Net Salary</span>
+                                <span className="text-2xl font-bold text-emerald-600">${viewPayslip.net_salary}</span>
+                            </div>
+
+                            {viewPayslip.notes && (
+                                <div className="mt-2">
+                                    <p className="text-sm font-semibold text-gray-500">Notes</p>
+                                    <p className="text-sm text-gray-700 mt-1 p-2 bg-gray-50 rounded-lg border border-gray-100">{viewPayslip.notes}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button type="button" variant="outline" onClick={() => setViewPayslip(null)}>Close</Button>
+                        <Button type="button" onClick={() => downloadPayslipPDF(viewPayslip)} className="flex items-center gap-2">
+                            <Printer className="h-4 w-4"/> Download PDF
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

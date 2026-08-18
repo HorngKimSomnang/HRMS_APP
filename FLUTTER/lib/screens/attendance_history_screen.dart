@@ -6,6 +6,8 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class AttendanceHistoryScreen extends StatefulWidget {
   const AttendanceHistoryScreen({super.key});
@@ -14,21 +16,29 @@ class AttendanceHistoryScreen extends StatefulWidget {
   State<AttendanceHistoryScreen> createState() => _AttendanceHistoryScreenState();
 }
 
-class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
+class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> with LiveRefreshMixin<AttendanceHistoryScreen> {
   final ApiService _apiService = ApiService();
   bool _loading = true;
   List<dynamic> _attendanceHistory = [];
   String? _error;
+  @override
+  List<String> get watchedResources => ['attendance'];
+
+  @override
+  void onLiveRefresh(String resource) => _loadHistory();
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _loadHistory();
   }
 
   Future<void> _loadHistory() async {
     try {
-      final response = await _apiService.client.get('/attendance/history');
+      final response = await ApiService.instance.cachedGet('/attendance/history');
       if (mounted) {
         setState(() {
           _attendanceHistory = response.data['data'] ?? [];
@@ -85,6 +95,12 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       _           => (color: Colors.grey,              label: status,      icon: Icons.help_outline),
     };
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {

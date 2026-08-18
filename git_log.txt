@@ -1,0 +1,603 @@
+commit 2200ac0fde5da27ee669d7a820b7f77e89978ae2
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Fri Jul 31 16:26:00 2026 +0700
+
+    Merge notice board into dashboard
+
+diff --git a/REACT/src/components/layout/DashboardLayout.tsx b/REACT/src/components/layout/DashboardLayout.tsx
+index 68b15cb..931dacd 100644
+--- a/REACT/src/components/layout/DashboardLayout.tsx
++++ b/REACT/src/components/layout/DashboardLayout.tsx
+@@ -42,7 +42,7 @@ const getNotificationPath = (notification: NotificationItem): string => {
+     if (notificationType.includes('leave')) return '/leaves';
+     if (notificationType.includes('task')) return '/tasks';
+     if (notificationType.includes('document')) return '/documents';
+-    if (notificationType.includes('announcement') || notificationType.includes('holiday')) return '/notices';
++    if (notificationType.includes('announcement') || notificationType.includes('holiday')) return '/dashboard';
+     if (notificationType.includes('overtime')) return '/overtime';
+     if (notificationType.includes('payslip') || notificationType.includes('payroll')) return '/payroll';
+     if (notificationType.includes('contract')) return '/lifecycle';
+
+commit c46dda272ac33145cf31ab20b9e329f955087f14
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Wed Jul 29 12:49:51 2026 +0700
+
+    Cache unchanged feature data
+
+diff --git a/REACT/src/components/layout/DashboardLayout.tsx b/REACT/src/components/layout/DashboardLayout.tsx
+index b9608b8..68b15cb 100644
+--- a/REACT/src/components/layout/DashboardLayout.tsx
++++ b/REACT/src/components/layout/DashboardLayout.tsx
+@@ -121,7 +121,30 @@ export default function DashboardLayout() {
+         };
+     }, [fetchNotifications]);
+ 
+-    useLiveRefresh(fetchNotifications, { resources: 'notifications' });
++    useLiveRefresh(fetchNotifications, {
++        resources: [
++            'notifications',
++            'dashboard',
++            'attendance',
++            'leaves',
++            'leave-types',
++            'overtimes',
++            'payslips',
++            'employees',
++            'entities',
++            'lifecycle',
++            'assets',
++            'tasks',
++            'documents',
++            'announcements',
++            'users',
++            'profile',
++            'shifts',
++            'settings',
++            'audit-logs',
++            'reports',
++        ],
++    });
+ 
+     const markAsRead = async () => {
+         try {
+
+commit 1ee59898fafdc1b1c20ecbb055724da3bf2931a6
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Wed Jul 29 12:16:24 2026 +0700
+
+    Speed up live data synchronization
+
+diff --git a/REACT/src/components/layout/DashboardLayout.tsx b/REACT/src/components/layout/DashboardLayout.tsx
+index 80126ca..b9608b8 100644
+--- a/REACT/src/components/layout/DashboardLayout.tsx
++++ b/REACT/src/components/layout/DashboardLayout.tsx
+@@ -6,6 +6,7 @@ import api from '@/services/api';
+ import { Button } from '@/components/ui/Button';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import { useTranslation } from 'react-i18next';
++import { useLiveRefresh } from '@/hooks/useLiveRefresh';
+ 
+ interface NotificationItem {
+     id: string;
+@@ -102,10 +103,8 @@ export default function DashboardLayout() {
+     }, []);
+ 
+     useEffect(() => {
+-        // Initial fetch (deferred to a macrotask so state updates stay async),
+-        // then poll for new notifications every 15 seconds
++        // Initial fetch is deferred so state updates remain asynchronous.
+         const initialFetchId = setTimeout(fetchNotifications, 0);
+-        const intervalId = setInterval(fetchNotifications, 15000);
+ 
+         // Close dropdown on click outside
+         function handleClickOutside(event: MouseEvent) {
+@@ -117,12 +116,13 @@ export default function DashboardLayout() {
+         
+         return () => {
+             clearTimeout(initialFetchId);
+-            clearInterval(intervalId);
+             document.removeEventListener("mousedown", handleClickOutside);
+             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+         };
+     }, [fetchNotifications]);
+ 
++    useLiveRefresh(fetchNotifications, { resources: 'notifications' });
++
+     const markAsRead = async () => {
+         try {
+             await api.post('/notifications/mark-read');
+
+commit 1aac9b842c07768e431147409b266b66b5a878b6
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Mon Jul 27 10:59:17 2026 +0700
+
+    Make notifications clickable
+
+diff --git a/REACT/src/components/layout/DashboardLayout.tsx b/REACT/src/components/layout/DashboardLayout.tsx
+index 7c7e687..80126ca 100644
+--- a/REACT/src/components/layout/DashboardLayout.tsx
++++ b/REACT/src/components/layout/DashboardLayout.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect, useRef, useCallback } from 'react';
+-import { Outlet } from 'react-router-dom';
++import { Outlet, useNavigate } from 'react-router-dom';
+ import { Sidebar } from './Sidebar';
+ import { Bell } from 'lucide-react';
+ import api from '@/services/api';
+@@ -7,9 +7,53 @@ import { Button } from '@/components/ui/Button';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import { useTranslation } from 'react-i18next';
+ 
++interface NotificationItem {
++    id: string;
++    type?: string;
++    data?: {
++        type?: string;
++        message?: string;
++        action_url?: string;
++        entity_slug?: string;
++        [key: string]: unknown;
++    };
++    read_at: string | null;
++    created_at: string;
++}
++
++const getNotificationPath = (notification: NotificationItem): string => {
++    const actionUrl = notification.data?.action_url;
++    if (typeof actionUrl === 'string' && actionUrl.startsWith('/') && !actionUrl.startsWith('//')) {
++        return actionUrl;
++    }
++
++    const notificationType = (notification.data?.type || notification.type || '').toLowerCase();
++
++    if (notificationType.includes('custom_entity_record')) {
++        const slug = notification.data?.entity_slug;
++        return typeof slug === 'string' && slug ? `/entities/${encodeURIComponent(slug)}` : '/entities';
++    }
++
++    if (notificationType.includes('attendance') || notificationType.includes('clocked') || notificationType.includes('clock_out')) {
++        return '/attendance';
++    }
++
++    if (notificationType.includes('leave')) return '/leaves';
++    if (notificationType.includes('task')) return '/tasks';
++    if (notificationType.includes('document')) return '/documents';
++    if (notificationType.includes('announcement') || notificationType.includes('holiday')) return '/notices';
++    if (notificationType.includes('overtime')) return '/overtime';
++    if (notificationType.includes('payslip') || notificationType.includes('payroll')) return '/payroll';
++    if (notificationType.includes('contract')) return '/lifecycle';
++    if (notificationType.includes('report')) return '/reports';
++
++    return '/dashboard';
++};
++
+ export default function DashboardLayout() {
+     const { i18n } = useTranslation();
+-    const [notifications, setNotifications] = useState<any[]>([]);
++    const navigate = useNavigate();
++    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+     const [unreadCount, setUnreadCount] = useState(0);
+     const [showNotifications, setShowNotifications] = useState(false);
+     const [toastMessage, setToastMessage] = useState<string | null>(null);
+@@ -39,7 +83,7 @@ export default function DashboardLayout() {
+ 
+             // Update the set of known IDs so we don't trigger again for these
+             const currentIds = new Set<string>();
+-            incomingData.forEach((item: any) => currentIds.add(item.id));
++            incomingData.forEach((item: NotificationItem) => currentIds.add(item.id));
+             knownNotificationIds.current = currentIds;
+ 
+             setNotifications(incomingData);
+@@ -90,6 +134,28 @@ export default function DashboardLayout() {
+         }
+     };
+ 
++    const openNotification = (notification: NotificationItem) => {
++        const wasUnread = !notification.read_at;
++
++        setShowNotifications(false);
++
++        if (wasUnread) {
++            setNotifications(prev => prev.map(item => (
++                item.id === notification.id
++                    ? { ...item, read_at: new Date().toISOString() }
++                    : item
++            )));
++            setUnreadCount(prev => Math.max(0, prev - 1));
++
++            void api.post(`/notifications/${notification.id}/mark-read`).catch((error) => {
++                console.error("Failed to mark notification as read", error);
++                void fetchNotifications();
++            });
++        }
++
++        navigate(getNotificationPath(notification));
++    };
++
+     const toggleLanguage = () => {
+         const newLang = i18n.language === 'en' ? 'km' : 'en';
+         i18n.changeLanguage(newLang);
+@@ -150,7 +216,13 @@ export default function DashboardLayout() {
+                                                 {notifications.map((n) => {
+                                                     const isUnread = !n.read_at;
+                                                     return (
+-                                                        <div key={n.id} className={`p-4 hover:bg-muted/50 transition-colors ${isUnread ? 'bg-blue-50/60 dark:bg-blue-900/10' : ''}`}>
++                                                        <button
++                                                            key={n.id}
++                                                            type="button"
++                                                            onClick={() => openNotification(n)}
++                                                            className={`block w-full p-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary transition-colors cursor-pointer ${isUnread ? 'bg-blue-50/60 dark:bg-blue-900/10' : ''}`}
++                                                            aria-label={`Open notification: ${n.data?.message || 'Notification'}`}
++                                                        >
+                                                             <div className="flex items-start gap-3">
+                                                                 {isUnread && (
+                                                                     <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+@@ -163,7 +235,7 @@ export default function DashboardLayout() {
+                                                                     <p className="text-xs text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                                                                 </div>
+                                                             </div>
+-                                                        </div>
++                                                        </button>
+                                                     );
+                                                 })}
+                                             </div>
+
+commit e8f0ff07017671341a2487f0000f3c18a6605ed9
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Sat Jul 25 14:42:01 2026 +0700
+
+    Keep sidebar fixed while page content scrolls
+    
+    DashboardLayout's outer wrapper used min-h-screen, letting the whole page
+    (sidebar included) grow taller than the viewport and scroll as one unit on
+    pages with a lot of content. Switched to a fixed h-screen + overflow-hidden
+    so only <main> scrolls internally; the sidebar's own nav list already had
+    overflow-y-auto for its middle section, so it stays put correctly now.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+diff --git a/REACT/src/components/layout/DashboardLayout.tsx b/REACT/src/components/layout/DashboardLayout.tsx
+index 335c3b3..7c7e687 100644
+--- a/REACT/src/components/layout/DashboardLayout.tsx
++++ b/REACT/src/components/layout/DashboardLayout.tsx
+@@ -99,7 +99,7 @@ export default function DashboardLayout() {
+     // unreadCount is now managed via state from the API
+ 
+     return (
+-        <div className="flex min-h-screen w-full bg-blue-50/60">
++        <div className="flex h-screen w-full overflow-hidden bg-blue-50/60">
+             <Sidebar />
+             <div className="flex flex-col flex-1 overflow-hidden relative print:overflow-visible">
+                 <header className="flex h-14 items-center gap-4 border-b border-blue-100 bg-gradient-to-r from-blue-50/80 to-white/80 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0 print:hidden">
+
+commit ab8dd7d1d736f5428eb52170fd951aa1f0ad3f0e
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Fri Jul 10 22:28:55 2026 +0700
+
+    Harden security, add Custom Entities + Assets/Lifecycle modules, remove unused features, fix mobile UX bugs
+    
+    - Security: fix TaskController IDOR, add rate limiting (login/OTP/API), enforce password
+      complexity policy consistently, scope CORS to an explicit allowlist, add security headers
+      middleware, isolate tests onto a dedicated DB with DatabaseTransactions
+    - Add Custom Entities no-code builder (admin schema designer + employee mobile submissions
+      + file attachments), Assets, and Lifecycle/Contracts modules across Laravel/React/Flutter
+    - Remove unused Performance Management and Payroll Requests features end-to-end (backend,
+      frontend, mobile, migrations) after confirming they were dead/orphaned code
+    - Fix Flutter skeleton-loading bugs (Profile screen, My Forms double-loading flicker) and
+      consolidate cluttered PayrollAdmin UI actions into primary + overflow menus
+    - Add README and .env.example fixes (correct Postgres config) for onboarding a new developer
+
+diff --git a/REACT/src/components/layout/DashboardLayout.tsx b/REACT/src/components/layout/DashboardLayout.tsx
+index ac15a49..335c3b3 100644
+--- a/REACT/src/components/layout/DashboardLayout.tsx
++++ b/REACT/src/components/layout/DashboardLayout.tsx
+@@ -1,4 +1,4 @@
+-import { useState, useEffect, useRef } from 'react';
++import { useState, useEffect, useRef, useCallback } from 'react';
+ import { Outlet } from 'react-router-dom';
+ import { Sidebar } from './Sidebar';
+ import { Bell } from 'lucide-react';
+@@ -15,8 +15,9 @@ export default function DashboardLayout() {
+     const [toastMessage, setToastMessage] = useState<string | null>(null);
+     const notificationRef = useRef<HTMLDivElement>(null);
+     const knownNotificationIds = useRef<Set<string>>(new Set());
++    const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ 
+-    const fetchNotifications = async () => {
++    const fetchNotifications = useCallback(async () => {
+         try {
+             const res = await api.get('/notifications');
+             const incomingData = res.data.data?.notifications || [];
+@@ -47,18 +48,19 @@ export default function DashboardLayout() {
+             // Show Toast Alert if there's a new notification
+             if (hasNew) {
+                 setToastMessage(latestMessage);
+-                setTimeout(() => setToastMessage(null), 5000); // hide after 5s
++                if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
++                toastTimerRef.current = setTimeout(() => setToastMessage(null), 5000);
+             }
+ 
+         } catch (error) {
+             console.error("Failed to fetch notifications", error);
+         }
+-    };
++    }, []);
+ 
+     useEffect(() => {
+-        fetchNotifications();
+-        
+-        // Poll for new notifications every 15 seconds
++        // Initial fetch (deferred to a macrotask so state updates stay async),
++        // then poll for new notifications every 15 seconds
++        const initialFetchId = setTimeout(fetchNotifications, 0);
+         const intervalId = setInterval(fetchNotifications, 15000);
+ 
+         // Close dropdown on click outside
+@@ -70,10 +72,12 @@ export default function DashboardLayout() {
+         document.addEventListener("mousedown", handleClickOutside);
+         
+         return () => {
+-            clearInterval(intervalId); // Cleanup interval
++            clearTimeout(initialFetchId);
++            clearInterval(intervalId);
+             document.removeEventListener("mousedown", handleClickOutside);
++            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+         };
+-    }, []);
++    }, [fetchNotifications]);
+ 
+     const markAsRead = async () => {
+         try {
+@@ -95,10 +99,10 @@ export default function DashboardLayout() {
+     // unreadCount is now managed via state from the API
+ 
+     return (
+-        <div className="flex min-h-screen w-full bg-slate-100/30">
++        <div className="flex min-h-screen w-full bg-blue-50/60">
+             <Sidebar />
+-            <div className="flex flex-col flex-1 overflow-hidden relative">
+-                <header className="flex h-14 items-center gap-4 border-b bg-white/70 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0">
++            <div className="flex flex-col flex-1 overflow-hidden relative print:overflow-visible">
++                <header className="flex h-14 items-center gap-4 border-b border-blue-100 bg-gradient-to-r from-blue-50/80 to-white/80 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0 print:hidden">
+                     <div className="flex-1">
+                         {/* Breadcrumbs or Search */}
+                     </div>
+@@ -181,7 +185,7 @@ export default function DashboardLayout() {
+                         </div>
+                     </div>
+                 </header>
+-                <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-slate-100/50">
++                <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-gradient-to-br from-blue-50/70 via-slate-50 to-blue-50/40">
+                     <Outlet />
+                 </main>
+ 
+
+commit 2133b3977220e90b6fae81a62031e276e0e6c337
+Author: Reachpooh <soreachpoohsophal@gmail.com>
+Date:   Tue Jun 2 23:45:44 2026 +0700
+
+    Initial commit for HR Application
+
+diff --git a/REACT/src/components/layout/DashboardLayout.tsx b/REACT/src/components/layout/DashboardLayout.tsx
+new file mode 100644
+index 0000000..ac15a49
+--- /dev/null
++++ b/REACT/src/components/layout/DashboardLayout.tsx
+@@ -0,0 +1,217 @@
++import { useState, useEffect, useRef } from 'react';
++import { Outlet } from 'react-router-dom';
++import { Sidebar } from './Sidebar';
++import { Bell } from 'lucide-react';
++import api from '@/services/api';
++import { Button } from '@/components/ui/Button';
++import { motion, AnimatePresence } from 'framer-motion';
++import { useTranslation } from 'react-i18next';
++
++export default function DashboardLayout() {
++    const { i18n } = useTranslation();
++    const [notifications, setNotifications] = useState<any[]>([]);
++    const [unreadCount, setUnreadCount] = useState(0);
++    const [showNotifications, setShowNotifications] = useState(false);
++    const [toastMessage, setToastMessage] = useState<string | null>(null);
++    const notificationRef = useRef<HTMLDivElement>(null);
++    const knownNotificationIds = useRef<Set<string>>(new Set());
++
++    const fetchNotifications = async () => {
++        try {
++            const res = await api.get('/notifications');
++            const incomingData = res.data.data?.notifications || [];
++            const serverUnreadCount = res.data.data?.unread_count ?? 0;
++
++            let hasNew = false;
++            let latestMessage = "";
++
++            // If it's not the first load and we already have known IDs...
++            if (knownNotificationIds.current.size > 0) {
++                for (const item of incomingData) {
++                    if (!knownNotificationIds.current.has(item.id)) {
++                        hasNew = true;
++                        latestMessage = item.data?.message || "New notification received";
++                        break;
++                    }
++                }
++            }
++
++            // Update the set of known IDs so we don't trigger again for these
++            const currentIds = new Set<string>();
++            incomingData.forEach((item: any) => currentIds.add(item.id));
++            knownNotificationIds.current = currentIds;
++
++            setNotifications(incomingData);
++            setUnreadCount(serverUnreadCount);
++
++            // Show Toast Alert if there's a new notification
++            if (hasNew) {
++                setToastMessage(latestMessage);
++                setTimeout(() => setToastMessage(null), 5000); // hide after 5s
++            }
++
++        } catch (error) {
++            console.error("Failed to fetch notifications", error);
++        }
++    };
++
++    useEffect(() => {
++        fetchNotifications();
++        
++        // Poll for new notifications every 15 seconds
++        const intervalId = setInterval(fetchNotifications, 15000);
++
++        // Close dropdown on click outside
++        function handleClickOutside(event: MouseEvent) {
++            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
++                setShowNotifications(false);
++            }
++        }
++        document.addEventListener("mousedown", handleClickOutside);
++        
++        return () => {
++            clearInterval(intervalId); // Cleanup interval
++            document.removeEventListener("mousedown", handleClickOutside);
++        };
++    }, []);
++
++    const markAsRead = async () => {
++        try {
++            await api.post('/notifications/mark-read');
++            // Optimistically clear the badge immediately
++            setUnreadCount(0);
++            setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
++        } catch (error) {
++            console.error("Failed to mark as read", error);
++        }
++    };
++
++    const toggleLanguage = () => {
++        const newLang = i18n.language === 'en' ? 'km' : 'en';
++        i18n.changeLanguage(newLang);
++        localStorage.setItem('language', newLang);
++    };
++
++    // unreadCount is now managed via state from the API
++
++    return (
++        <div className="flex min-h-screen w-full bg-slate-100/30">
++            <Sidebar />
++            <div className="flex flex-col flex-1 overflow-hidden relative">
++                <header className="flex h-14 items-center gap-4 border-b bg-white/70 backdrop-blur-lg px-6 lg:h-[60px] justify-between z-10 sticky top-0">
++                    <div className="flex-1">
++                        {/* Breadcrumbs or Search */}
++                    </div>
++
++                    <div className="flex items-center gap-4">
++                        <button onClick={toggleLanguage} className="bg-secondary/20 border border-secondary/50 px-3 py-1.5 rounded-md text-sm hover:bg-secondary/40 transition-colors font-medium">
++                            {i18n.language === 'en' ? '🇰🇭 ខ្មែរ' : '🇬🇧 EN'}
++                        </button>
++
++                        {/* Notification Bell */}
++                        <div className="relative" ref={notificationRef}>
++                        <Button
++                            variant="ghost"
++                            size="icon"
++                            className="relative"
++                            onClick={() => setShowNotifications(!showNotifications)}
++                        >
++                            <Bell className="h-5 w-5" />
++                            {unreadCount > 0 && (
++                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 border-2 border-background text-white text-[10px] font-bold flex items-center justify-center">
++                                    {unreadCount > 99 ? '99+' : unreadCount}
++                                </span>
++                            )}
++                        </Button>
++
++                        <AnimatePresence>
++                            {showNotifications && (
++                                <motion.div 
++                                    initial={{ opacity: 0, y: -10 }}
++                                    animate={{ opacity: 1, y: 0 }}
++                                    exit={{ opacity: 0, y: -10 }}
++                                    className="absolute right-0 mt-2 w-80 rounded-md border bg-card shadow-lg z-50"
++                                >
++                                    <div className="p-4 border-b bg-muted/30">
++                                        <h4 className="text-sm font-semibold">Notifications</h4>
++                                    </div>
++                                    <div className="max-h-[300px] overflow-y-auto">
++                                        {notifications.length === 0 ? (
++                                            <div className="p-8 flex flex-col items-center justify-center text-center text-sm text-muted-foreground">
++                                                <Bell className="h-8 w-8 mb-2 opacity-20" />
++                                                No new notifications
++                                            </div>
++                                        ) : (
++                                            <div className="divide-y">
++                                                {notifications.map((n) => {
++                                                    const isUnread = !n.read_at;
++                                                    return (
++                                                        <div key={n.id} className={`p-4 hover:bg-muted/50 transition-colors ${isUnread ? 'bg-blue-50/60 dark:bg-blue-900/10' : ''}`}>
++                                                            <div className="flex items-start gap-3">
++                                                                {isUnread && (
++                                                                    <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
++                                                                )}
++                                                                {!isUnread && <span className="mt-1.5 h-2 w-2 shrink-0" />}
++                                                                <div className="text-sm flex-1">
++                                                                    <p className={`${isUnread ? 'font-semibold text-slate-900' : 'font-medium text-slate-600'}`}>
++                                                                        {n.data?.message || "Notification"}
++                                                                    </p>
++                                                                    <p className="text-xs text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()}</p>
++                                                                </div>
++                                                            </div>
++                                                        </div>
++                                                    );
++                                                })}
++                                            </div>
++                                        )}
++                                    </div>
++                                    {notifications.length > 0 && (
++                                        <div className="p-3 border-t bg-muted/50 text-center">
++                                            <button
++                                                onClick={markAsRead}
++                                                className="text-sm font-medium text-primary hover:underline"
++                                            >
++                                                Mark all as read
++                                            </button>
++                                        </div>
++                                    )}
++                                </motion.div>
++                            )}
++                        </AnimatePresence>
++                        </div>
++                    </div>
++                </header>
++                <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-slate-100/50">
++                    <Outlet />
++                </main>
++
++                {/* Custom Alert Toast Popup */}
++                <AnimatePresence>
++                    {toastMessage && (
++                        <motion.div
++                            initial={{ opacity: 0, y: 50, scale: 0.9 }}
++                            animate={{ opacity: 1, y: 0, scale: 1 }}
++                            exit={{ opacity: 0, y: 50, scale: 0.9 }}
++                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
++                            className="fixed bottom-6 right-6 bg-blue-600 text-white shadow-2xl rounded-xl p-4 flex items-center gap-4 z-50 border border-blue-500/50"
++                        >
++                            <div className="bg-white/20 p-2 rounded-full h-10 w-10 flex items-center justify-center shrink-0">
++                                <Bell className="h-5 w-5 animate-bounce" />
++                            </div>
++                            <div className="min-w-[200px]">
++                                <h4 className="font-semibold text-sm">New Alert!</h4>
++                                <p className="text-sm text-blue-100">{toastMessage}</p>
++                            </div>
++                            <button 
++                                onClick={() => setToastMessage(null)}
++                                className="ml-2 text-blue-200 hover:text-white transition-colors"
++                            >
++                                &times;
++                            </button>
++                        </motion.div>
++                    )}
++                </AnimatePresence>
++            </div>
++        </div>
++    );
++}

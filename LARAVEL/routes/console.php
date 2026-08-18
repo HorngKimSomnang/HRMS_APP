@@ -60,3 +60,24 @@ Artisan::command('inspire', function () {
     ->dailyAt('08:00')
     ->timezone('Asia/Phnom_Penh')
     ->withoutOverlapping();
+
+// At midnight, auto-renew contracts that have expired
+\Illuminate\Support\Facades\Schedule::command('contracts:process-expirations')
+    ->dailyAt('00:00')
+    ->timezone('Asia/Phnom_Penh')
+    ->withoutOverlapping()
+    ->runInBackground();
+
+// Every day at midnight, auto-generate draft payrolls for employees whose cycle has ended
+\Illuminate\Support\Facades\Schedule::command('payroll:generate-batch')
+    ->dailyAt('00:00')
+    ->timezone('Asia/Phnom_Penh')
+    ->withoutOverlapping()
+    ->runInBackground();
+
+// At 5 PM daily, check for employees who haven't clocked in and aren't on leave/holiday
+\Illuminate\Support\Facades\Schedule::command('attendance:process-absences')
+    ->dailyAt('17:00')
+    ->timezone('Asia/Phnom_Penh')
+    ->withoutOverlapping()
+    ->runInBackground();

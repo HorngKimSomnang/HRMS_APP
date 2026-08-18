@@ -3,9 +3,9 @@ import '../services/api_service.dart';
 class DocumentService {
   final ApiService _apiService = ApiService();
 
-  Future<List<dynamic>> fetchDocuments() async {
+  Future<List<dynamic>> fetchDocuments({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/documents');
+      final response = await ApiService.instance.cachedGet('/documents', forceRefresh: forceRefresh);
       return response.data;
     } catch (e) {
       throw Exception('Failed to load documents');

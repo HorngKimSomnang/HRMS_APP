@@ -102,8 +102,8 @@ function useRetainedReportState<T>(
 }
 
 export default function Reports() {
-    const { user } = useAuth();
-    const isSuperAdmin = user?.roles?.some((role: any) => role.name === 'Super Admin');
+    const { user, hasPermission } = useAuth();
+    const isSuperAdmin = hasPermission('reports.view');
 
     const [reportTypes, setReportTypes] = useRetainedReportState<string[]>(
         "reportTypes",
@@ -163,8 +163,8 @@ export default function Reports() {
                 api.get('/employees?status=active&all=true'),
                 api.get('/entities'),
             ]);
-            const employeeData = employeeRes.data.data;
-            setEmployees(Array.isArray(employeeData) ? employeeData : (employeeData?.data || []));
+            const data = employeeRes.data;
+            setEmployees(Array.isArray(data) ? data : (data?.data || []));
 
             const entityData = Array.isArray(entityRes.data?.data) ? entityRes.data.data : [];
             setCustomEntities(entityData);
@@ -659,19 +659,22 @@ export default function Reports() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">{isSuperAdmin ? "Company Reports" : "Reports & Analytics"}</h1>
-                    <p className="text-muted-foreground mt-1">{isSuperAdmin ? "Review reports submitted by the HR Manager." : "Generate and export system reports."}</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">{isSuperAdmin ? "Company Reports" : "Reports & Analytics"}</h1>
+                    <p className="text-blue-100 mt-2 text-sm font-medium">{isSuperAdmin ? "Review reports submitted by the HR Manager." : "Generate and export system reports."}</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={exportToExcel} disabled={!hasData}>
+                <div className="relative z-10 flex gap-2">
+                    <Button variant="outline" onClick={exportToExcel} disabled={!hasData} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
                         <Download className="mr-2 h-4 w-4" /> Export Excel
                     </Button>
-                    <Button variant="outline" onClick={exportToPDF} disabled={!hasData}>
+                    <Button variant="outline" onClick={exportToPDF} disabled={!hasData} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
                         <Download className="mr-2 h-4 w-4" /> Export PDF
                     </Button>
                 </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             <div className="flex flex-wrap mb-4 gap-2 border-b pb-4">

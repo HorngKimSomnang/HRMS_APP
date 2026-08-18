@@ -54,14 +54,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // but standard JSON PUT should work if controller handles it.
       // Let's use JSON for simplicity first.
       
+      final employee = widget.user['employee'] ?? {};
+      final documents = employee['documents'] ?? {};
+
+      // Fallback logic: if a field is cleared, keep the previous data.
+      final newFirstName = _firstNameController.text.trim().isEmpty ? (employee['first_name'] ?? '') : _firstNameController.text.trim();
+      final newLastName = _lastNameController.text.trim().isEmpty ? (employee['last_name'] ?? '') : _lastNameController.text.trim();
+      final newName = "$newFirstName $newLastName".trim();
+
       final data = {
-        'email': _emailController.text,
-        'phone': _phoneController.text,
-        'address': _addressController.text,
+        'first_name': newFirstName.isEmpty ? employee['first_name'] : newFirstName,
+        'last_name': newLastName.isEmpty ? employee['last_name'] : newLastName,
+        'name': newName.isEmpty ? widget.user['name'] : newName,
+        'email': _emailController.text.trim().isEmpty ? widget.user['email'] : _emailController.text.trim(),
+        'phone': _phoneController.text.trim().isEmpty ? employee['phone'] : _phoneController.text.trim(),
+        'address': _addressController.text.trim().isEmpty ? employee['address'] : _addressController.text.trim(),
         'documents': {
-           ...?widget.user['employee']?['documents'],
-           'name_kh': _nameKhController.text,
-           'emergency_contact': _emergencyContactController.text,
+           ...documents,
+           'name_kh': _nameKhController.text.trim().isEmpty ? documents['name_kh'] : _nameKhController.text.trim(),
+           'emergency_contact': _emergencyContactController.text.trim().isEmpty ? documents['emergency_contact'] : _emergencyContactController.text.trim(),
         }
       };
 
@@ -106,9 +117,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             children: [
               _buildSectionTitle(AppLocalizations.of(context)!.personalInformation),
               const SizedBox(height: 16),
-              _buildTextField(label: AppLocalizations.of(context)!.firstName, controller: _firstNameController, isReadOnly: true),
+              _buildTextField(label: AppLocalizations.of(context)!.firstName, controller: _firstNameController),
               const SizedBox(height: 16),
-              _buildTextField(label: AppLocalizations.of(context)!.lastName, controller: _lastNameController, isReadOnly: true),
+              _buildTextField(label: AppLocalizations.of(context)!.lastName, controller: _lastNameController),
               const SizedBox(height: 24),
 
               _buildSectionTitle(AppLocalizations.of(context)!.contactDetails),
@@ -195,12 +206,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               filled: true,
               fillColor: isReadOnly ? Colors.grey[100] : Colors.white,
             ),
-            validator: isReadOnly ? null : (value) {
-              if (value == null || value.isEmpty) {
-                return AppLocalizations.of(context)!.pleaseEnterField(label);
-              }
-              return null;
-            },
+            validator: null,
           ),
         ),
       ],

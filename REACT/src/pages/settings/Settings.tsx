@@ -104,8 +104,8 @@ export default function Settings() {
             toast.error("Failed to update password");
         }
     };
-    const isSuperAdmin = user?.roles?.some(r => r.name === 'Super Admin');
-    const [activeTab, setActiveTab] = useState(isSuperAdmin ? "general" : "appearance"); // Default to appearance for demo
+    const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin');
+    const [activeTab, setActiveTab] = useState(isSuperAdmin ? "general" : "attendance"); // Default to attendance
     const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
@@ -337,9 +337,14 @@ export default function Settings() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-                <p className="text-muted-foreground mt-1">Manage system configurations and preferences.</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700 p-8 text-white shadow-xl mb-6">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">Settings</h1>
+                    <p className="text-teal-100 mt-2 text-sm font-medium">Manage system configurations and preferences.</p>
+                </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             {/* Tabs Navigation */}
@@ -355,25 +360,7 @@ export default function Settings() {
                         </div>
                     </button>
                 )}
-                {isSuperAdmin && (
-                    <button
-                        onClick={() => setActiveTab("backups")}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "backups" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <DatabaseBackup className="h-4 w-4" /> Backup & Recovery
-                        </div>
-                    </button>
-                )}
-                <button
-                    onClick={() => setActiveTab("appearance")}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "appearance" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                        }`}
-                >
-                    <div className="flex items-center gap-2">
-                        <Moon className="h-4 w-4" /> Appearance
-                    </div>
-                </button>
+
                 <button
                     onClick={() => setActiveTab('attendance')}
                     className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'attendance' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
@@ -455,165 +442,64 @@ export default function Settings() {
                         </div>
                     </div>
                 )}
-
-                {activeTab === "backups" && isSuperAdmin && (
-                    <div className="max-w-5xl space-y-6">
-                        <div className={`rounded-xl border p-5 shadow-sm ${backupStatus?.healthy ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-card" : "border-amber-200 bg-gradient-to-r from-amber-50 to-card"}`}>
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex items-start gap-3">
-                                    <div className={`rounded-full p-2 ${backupStatus?.healthy ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                                        {backupStatus?.healthy ? <ShieldCheck className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold">
-                                            {loadingBackupStatus ? "Checking data protection..." : backupStatus?.healthy ? "Your HRMS data is protected" : "Backup attention required"}
-                                        </h3>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            PostgreSQL records and uploaded employee files are protected together.
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button variant="outline" onClick={fetchBackupStatus} disabled={loadingBackupStatus || creatingBackup}>
-                                        <RefreshCw className={`mr-2 h-4 w-4 ${loadingBackupStatus ? "animate-spin" : ""}`} />
-                                        Refresh
-                                    </Button>
-                                    <Button onClick={handleCreateBackup} disabled={creatingBackup || loadingBackupStatus}>
-                                        <DatabaseBackup className={`mr-2 h-4 w-4 ${creatingBackup ? "animate-pulse" : ""}`} />
-                                        {creatingBackup ? "Backing up..." : "Back up now"}
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                            <div className="rounded-xl border bg-card p-5 shadow-sm">
-                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                                    <HardDrive className="h-4 w-4 text-blue-600" /> Latest recovery point
-                                </div>
-                                <p className="mt-3 text-base font-semibold">{formatBackupDate(backupStatus?.latest?.created_at)}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {backupStatus?.latest ? `${backupStatus.latest.size_label} · ${backupStatus.latest.filename}` : "No backup file found"}
-                                </p>
-                            </div>
-
-                            <div className="rounded-xl border bg-card p-5 shadow-sm">
-                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                                    <Clock3 className="h-4 w-4 text-violet-600" /> Automatic schedule
-                                </div>
-                                <p className="mt-3 text-base font-semibold">
-                                    {backupStatus?.schedule.installed ? "Every day at 8:00 PM" : "Not installed"}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {backupStatus?.schedule.next_run_at
-                                        ? `Next run: ${formatBackupDate(backupStatus.schedule.next_run_at)}`
-                                        : backupStatus?.schedule.installed
-                                            ? "Managed by Windows Task Scheduler"
-                                            : "Automatic task is not installed"}
-                                </p>
-                            </div>
-
-                            <div className="rounded-xl border bg-card p-5 shadow-sm">
-                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Protected content
-                                </div>
-                                <p className="mt-3 text-base font-semibold">Database + uploaded files</p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {backupStatus?.backup_count ?? 0} database recovery points currently available
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5">
-                            <div className="flex gap-3">
-                                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" />
-                                <div className="space-y-1">
-                                    <h4 className="font-semibold">Safe recovery by design</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                        {backupStatus?.retention || "Recent recovery points are retained automatically."}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {backupStatus?.restore_protection || "Restore is kept outside the browser to prevent accidental data replacement."}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {activeTab === "attendance" && (
-                    <div className="max-w-4xl space-y-6">
-                        <div className="bg-gradient-to-br from-sky-50/50 via-card to-card p-6 rounded-xl border border-sky-100 shadow-sm">
-                            <h3 className="text-lg font-semibold mb-4 text-primary">Attendance Geofencing (GPS)</h3>
-                            <div className="grid gap-6">
-                                <p className="text-sm text-muted-foreground">Set the central office location and the allowed radius in meters. Employees must be within this circle to clock in or out.</p>
-                                
-                                <div className="flex gap-2">
-                                    <Input 
-                                        placeholder="Search for a location or address (e.g. Phnom Penh)..." 
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchLocation()}
-                                    />
-                                    <Button onClick={handleSearchLocation} disabled={isSearching} className="gap-2">
-                                        <Search className="h-4 w-4" />
-                                        {isSearching ? "Searching..." : "Search"}
-                                    </Button>
-                                </div>
-
-                                <div className="border rounded-lg overflow-hidden relative z-0 h-[500px]">
-                                    <MapContainer 
-                                        center={geofence.lat && geofence.lng ? [parseFloat(geofence.lat), parseFloat(geofence.lng)] : [11.5564, 104.9282]} 
-                                        zoom={16} 
-                                        style={{ height: "100%", width: "100%" }}
-                                    >
-                                        <TileLayer
-                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                            attribution='&copy; OpenStreetMap contributors'
-                                        />
-                                        {geofence.lat && geofence.lng && (
-                                            <>
-                                                <LocationMarker 
-                                                    position={[parseFloat(geofence.lat), parseFloat(geofence.lng)]} 
-                                                    setPosition={(pos) => setGeofence({...geofence, lat: pos[0].toFixed(6), lng: pos[1].toFixed(6)})} 
-                                                />
-                                                <Circle 
-                                                    center={[parseFloat(geofence.lat), parseFloat(geofence.lng)]} 
-                                                    radius={parseFloat(geofence.radius) || 100} 
-                                                    pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }}
-                                                />
-                                            </>
-                                        )}
-                                        {(!geofence.lat || !geofence.lng) && (
-                                            <LocationMarker 
-                                                position={[11.5564, 104.9282]} 
-                                                setPosition={(pos) => setGeofence({...geofence, lat: pos[0].toFixed(6), lng: pos[1].toFixed(6)})} 
-                                            />
-                                        )}
-                                        <RecenterMap lat={geofence.lat} lng={geofence.lng} />
-                                    </MapContainer>
-                                    <div className="absolute top-2 right-2 z-[1000] bg-white px-2 py-1 rounded text-xs font-semibold shadow border flex items-center gap-1">
-                                        <MapPin className="h-3 w-3 text-primary" /> Click map to set location
-                                    </div>
-                                </div>
-
+                    <div className="max-w-3xl space-y-6">
+                        <div className="bg-gradient-to-br from-indigo-50/50 via-card to-card p-6 rounded-xl border border-indigo-100 shadow-sm">
+                            <h3 className="text-lg font-semibold mb-4">Office Geofence Configuration</h3>
+                            <p className="text-sm text-muted-foreground mb-4">
+                                Set the central office location and the allowed radius (in meters) for employee clock-ins.
+                            </p>
+                            <div className="grid gap-4 max-w-xl">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium">Office Latitude</label>
-                                        <Input value={geofence.lat} onChange={e=>setGeofence({...geofence, lat:e.target.value})} placeholder="e.g. 11.5564" />
+                                        <label className="text-sm font-medium">Latitude</label>
+                                        <Input 
+                                            placeholder="e.g. 11.5564" 
+                                            value={geofence.lat} 
+                                            onChange={e => setGeofence({...geofence, lat: e.target.value})} 
+                                        />
                                     </div>
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium">Office Longitude</label>
-                                        <Input value={geofence.lng} onChange={e=>setGeofence({...geofence, lng:e.target.value})} placeholder="e.g. 104.9282" />
+                                        <label className="text-sm font-medium">Longitude</label>
+                                        <Input 
+                                            placeholder="e.g. 104.9282" 
+                                            value={geofence.lng} 
+                                            onChange={e => setGeofence({...geofence, lng: e.target.value})} 
+                                        />
                                     </div>
                                 </div>
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium">Allowed Radius (Meters)</label>
-                                    <Input type="number" value={geofence.radius} onChange={e=>setGeofence({...geofence, radius:e.target.value})} placeholder="e.g. 100" />
+                                    <label className="text-sm font-medium">Allowed Radius (meters)</label>
+                                    <Input 
+                                        placeholder="e.g. 100" 
+                                        type="number"
+                                        value={geofence.radius} 
+                                        onChange={e => setGeofence({...geofence, radius: e.target.value})} 
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">Employees must be within this distance to clock in/out successfully.</p>
                                 </div>
-                                <div className="mt-2">
-                                    <Button onClick={handleSaveGeofence} disabled={savingGeofence} className="w-full sm:w-auto">
-                                        {savingGeofence ? "Saving..." : "Save Geofence Settings"}
+                                
+                                <div className="h-[300px] w-full rounded-md border overflow-hidden mt-2 relative z-0">
+                                    <MapContainer center={[Number(geofence.lat) || 11.5564, Number(geofence.lng) || 104.9282]} zoom={15} style={{ height: "100%", width: "100%" }}>
+                                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                                        <RecenterMap lat={geofence.lat || 11.5564} lng={geofence.lng || 104.9282} />
+                                        <LocationMarker 
+                                            position={[Number(geofence.lat) || 11.5564, Number(geofence.lng) || 104.9282]} 
+                                            setPosition={(pos) => setGeofence({...geofence, lat: pos[0].toString(), lng: pos[1].toString()})} 
+                                        />
+                                        {geofence.lat && geofence.lng && geofence.radius && (
+                                            <Circle 
+                                                center={[Number(geofence.lat), Number(geofence.lng)]} 
+                                                radius={Number(geofence.radius)} 
+                                                pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }}
+                                            />
+                                        )}
+                                    </MapContainer>
+                                </div>
+
+                                <div className="pt-4">
+                                    <Button onClick={handleSaveGeofence} disabled={savingGeofence}>
+                                        {savingGeofence ? "Saving..." : "Save Configuration"}
                                     </Button>
                                 </div>
                             </div>
@@ -621,30 +507,7 @@ export default function Settings() {
                     </div>
                 )}
 
-                {activeTab === "appearance" && (
-                    <div className="max-w-xl space-y-4">
-                        <div className="bg-gradient-to-br from-violet-50/50 via-card to-card p-6 rounded-lg border border-violet-100 shadow-sm">
-                            <h3 className="text-lg font-medium mb-4">Theme Preferences</h3>
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-0.5">
-                                    <label className="text-sm font-medium">Dark Mode</label>
-                                    <p className="text-muted-foreground text-sm">Enable dark mode for a better viewing experience at night.</p>
-                                </div>
-                                <Button
-                                    variant={isDarkMode ? "default" : "outline"}
-                                    onClick={toggleTheme}
-                                    className="w-[100px]"
-                                >
-                                    {isDarkMode ? (
-                                        <div className="flex items-center gap-2"><Moon className="h-4 w-4" /> ON</div>
-                                    ) : (
-                                        <div className="flex items-center gap-2"><Sun className="h-4 w-4" /> OFF</div>
-                                    )}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+
 
                 {activeTab === "leaves" && (
                     <div className="space-y-4">

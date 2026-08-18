@@ -8,8 +8,11 @@ import 'package:provider/provider.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import '../l10n/app_localizations.dart';
 import '../services/leave_service.dart';
+import '../services/api_service.dart';
 import '../providers/leave_provider.dart';
 import '../widgets/date_selector.dart';
+import '../services/live_refresh_mixin.dart';
+
 
 class LeaveScreen extends StatefulWidget {
   const LeaveScreen({super.key});
@@ -18,20 +21,32 @@ class LeaveScreen extends StatefulWidget {
   State<LeaveScreen> createState() => _LeaveScreenState();
 }
 
-class _LeaveScreenState extends State<LeaveScreen> {
+class _LeaveScreenState extends State<LeaveScreen> with LiveRefreshMixin<LeaveScreen> {
   final _formKey = GlobalKey<FormState>();
   final LeaveService _leaveService = LeaveService();
 
   List<dynamic> _leaveTypes = [];
   bool _loadingTypes = true;
   bool _submitting = false;
+  bool _isContractPending = false;
 
   List<dynamic> _balances = [];
   bool _loadingBalances = true;
+  @override
+  List<String> get watchedResources => ['leaves', 'leave-types'];
+
+  @override
+  void onLiveRefresh(String resource) {
+    _loadTypes();
+    _loadBalances();
+  }
+
+
 
   @override
   void initState() {
     super.initState();
+    startLiveRefresh();
     _loadTypes();
     _loadBalances();
   }
@@ -52,6 +67,18 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
   Future<void> _loadTypes() async {
     try {
+      final res = await ApiService.instance.cachedGet('/user');
+      final user = res.data['user'];
+      final contractsList = user?['employee']?['contracts'] as List? ?? [];
+      final hasActiveContract = contractsList.any((c) => c['status'] == 'active');
+      final hasPendingContract = contractsList.any((c) => c['status'] == 'pending');
+      
+      if (mounted) {
+        setState(() {
+          _isContractPending = !hasActiveContract && hasPendingContract;
+        });
+      }
+
       final types = await _leaveService.fetchLeaveTypes();
       if (mounted) {
         setState(() {
@@ -104,6 +131,28 @@ class _LeaveScreenState extends State<LeaveScreen> {
       return;
     }
 
+    final requestedDays = provider.endDate!.difference(provider.startDate!).inDays + 1;
+    final balance = _balances.firstWhere(
+      (b) => b['leave_type_id'] == provider.selectedType!['id'],
+      orElse: () => null,
+    );
+
+    if (balance != null) {
+      final remaining = (balance['days_remaining'] as num).toInt();
+      final allowed = (balance['days_allowed'] as num).toInt();
+      
+      // If allowed is 0, it means unlimited (e.g., unpaid leave)
+      if (allowed > 0 && requestedDays > remaining) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Insufficient leave balance. You requested $requestedDays days but have $remaining remaining.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _submitting = true);
     try {
       await _leaveService.submitLeaveRequest({
@@ -143,6 +192,12 @@ class _LeaveScreenState extends State<LeaveScreen> {
       builder: (context) => const _HistorySheet(),
     );
   }
+  @override
+  void dispose() {
+    stopLiveRefresh();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -167,7 +222,23 @@ class _LeaveScreenState extends State<LeaveScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isContractPending ? Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.fileClock, size: 64, color: Colors.orange),
+              const SizedBox(height: 16),
+              Text(
+                'Your contract is pending activation by HR. You cannot request leave at this time.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.notoSansKhmer(fontSize: 16, color: Colors.orange[800], fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      ) : SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/websocket_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -15,6 +16,10 @@ class AuthProvider with ChangeNotifier {
     _isAuthenticated = await _authService.isLoggedIn();
     _isLoading = false;
     notifyListeners();
+    // Connect WebSocket if already logged in (app restart / token still valid)
+    if (_isAuthenticated) {
+      WebSocketService.instance.connect().ignore();
+    }
   }
 
   Future<void> login(String email, String password) async {

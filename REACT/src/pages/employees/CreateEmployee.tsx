@@ -13,7 +13,7 @@ export default function CreateEmployee() {
         first_name: '',
         last_name: '',
         email: '',
-        job_title: '', // Added replacement for branch/dept
+        role: 'Employee',
         department: '',
         // branch_id: '', // Removed
         // department_id: '', // Removed
@@ -30,19 +30,31 @@ export default function CreateEmployee() {
     });
 
     const [shifts, setShifts] = useState<ShiftOption[]>([]);
+    const [roles, setRoles] = useState<any[]>([]);
+    const [departments, setDepartments] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const res = await api.get('/shifts');
-                const availableShifts: ShiftOption[] = res.data.data || [];
+                const [shiftRes, roleRes, deptRes] = await Promise.allSettled([
+                    api.get('/shifts'),
+                    api.get('/admin/roles'),
+                    api.get('/departments')
+                ]);
+                
+                const availableShifts = shiftRes.status === 'fulfilled' ? (shiftRes.value.data.data || []) : [];
                 setShifts(availableShifts);
+                setRoles(roleRes.status === 'fulfilled' ? (roleRes.value.data || []) : []);
+                setDepartments(deptRes.status === 'fulfilled' ? (deptRes.value.data || []) : []);
+                
                 setFormData(current => ({
                     ...current,
                     shift_id: current.shift_id || availableShifts[0]?.id || '',
+                    role: current.role || 'Employee',
+                    department: current.department || (deptRes.data && deptRes.data[0]?.name) || ''
                 }));
-            } catch {
-                console.error("Failed to fetch shifts");
+            } catch (err) {
+                console.error("Failed to fetch options", err);
             }
         };
         fetchOptions();
@@ -132,51 +144,51 @@ export default function CreateEmployee() {
 
                 {/* Profile Picture Input */}
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Profile Picture / រូបថតប្រវត្តិរូប</label>
+                    <label className="text-sm font-medium">Profile Picture</label>
                     <Input type="file" onChange={handleFileChange} accept="image/*" />
                 </div>
 
                 {/* Personal Information */}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">First Name / នាមខ្លួន</label>
+                        <label className="text-sm font-medium">First Name</label>
                         <Input name="first_name" required value={formData.first_name} onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Last Name / នាមត្រកូល</label>
+                        <label className="text-sm font-medium">Last Name</label>
                         <Input name="last_name" required value={formData.last_name} onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Name in Khmer / ឈ្មោះជាភាសាខ្មែរ</label>
+                        <label className="text-sm font-medium">Name in Khmer</label>
                         <Input name="name_kh" value={formData.name_kh} onChange={handleChange} placeholder="ឈ្មោះជាភាសាខ្មែរ" />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Emergency Contact / ទំនាក់ទំនងបន្ទាន់</label>
+                        <label className="text-sm font-medium">Emergency Contact</label>
                         <Input name="emergency_contact" value={formData.emergency_contact} onChange={handleChange} placeholder="Guardian/Parents Number" />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Email / អ៊ីមែល</label>
+                        <label className="text-sm font-medium">Email</label>
                         <Input name="email" type="email" required value={formData.email} onChange={handleChange} placeholder="name@example.com" />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Phone Number / លេខទូរស័ព្ទ</label>
+                        <label className="text-sm font-medium">Phone Number</label>
                         <Input name="phone" value={formData.phone} onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Date of Birth / ថ្ងៃខែឆ្នាំកំណើត</label>
+                        <label className="text-sm font-medium">Date of Birth</label>
                         <Input name="dob" type="date" value={formData.dob} onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Gender / ភេទ</label>
+                        <label className="text-sm font-medium">Gender</label>
                         <select
                             name="gender"
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -190,7 +202,7 @@ export default function CreateEmployee() {
                         </select>
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Marital Status / ស្ថានភាពគ្រួសារ</label>
+                        <label className="text-sm font-medium">Marital Status</label>
                         <select
                             name="marital_status"
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -210,22 +222,22 @@ export default function CreateEmployee() {
                     <h3 className="font-semibold text-slate-800">Attached Documents</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">National ID / អត្តសញ្ញាណប័ណ្ណ</label>
+                            <label className="text-sm font-medium">National ID</label>
                             <Input type="file" onChange={handleNationalIdChange} />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Degree / សញ្ញាប័ត្រ</label>
+                            <label className="text-sm font-medium">Degree</label>
                             <Input type="file" onChange={handleDegreeChange} />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">CV / ប្រវត្តិរូបសង្ខេប</label>
+                            <label className="text-sm font-medium">CV</label>
                             <Input type="file" onChange={handleCvChange} />
                         </div>
                     </div>
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Address / អាសយដ្ឋាន</label>
+                    <label className="text-sm font-medium">Address</label>
                     <textarea
                         name="address"
                         className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -236,11 +248,11 @@ export default function CreateEmployee() {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Salary (Monthly) / ប្រាក់ខែ</label>
+                        <label className="text-sm font-medium">Salary (Monthly)</label>
                         <Input name="salary" type="number" value={formData.salary} onChange={handleChange} />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Assigned Shift / វេនការងារ</label>
+                        <label className="text-sm font-medium">Assigned Shift</label>
                         <select
                             name="shift_id"
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -264,19 +276,41 @@ export default function CreateEmployee() {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Joining Date / ថ្ងៃចូលធ្វើការ</label>
+                        <label className="text-sm font-medium">Joining Date</label>
                         <Input name="joining_date" type="date" required value={formData.joining_date} onChange={handleChange} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Job Title / មុខតំណែង</label>
-                        <Input name="job_title" required value={formData.job_title} onChange={handleChange} placeholder="e.g. Software Engineer" />
+                        <label className="text-sm font-medium">Role</label>
+                        <select
+                            name="role"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            onChange={handleChange}
+                            value={formData.role}
+                            required
+                        >
+                            <option value="">Select Role</option>
+                            {roles.map(r => (
+                                <option key={r.id} value={r.name}>{r.name}</option>
+                            ))}
+                        </select>
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Department / ផ្នែក</label>
-                        <Input name="department" value={formData.department} onChange={handleChange} placeholder="e.g. Engineering" />
+                        <label className="text-sm font-medium">Department</label>
+                        <select
+                            name="department"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            onChange={handleChange}
+                            value={formData.department}
+                            required
+                        >
+                            <option value="">Select Department</option>
+                            {departments.map(d => (
+                                <option key={d.id} value={d.name}>{d.name}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 

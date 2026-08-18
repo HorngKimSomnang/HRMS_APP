@@ -7,9 +7,9 @@ class PayrollService {
 
   // --- Payslips ---
 
-  Future<List<dynamic>> getPayslips() async {
+  Future<List<dynamic>> getPayslips({bool forceRefresh = false}) async {
     try {
-      final response = await _apiService.client.get('/payslips');
+      final response = await ApiService.instance.cachedGet('/payslips?personal=true', forceRefresh: forceRefresh);
       return response.data;
     } on DioException catch (e) {
       throw Exception(serverMessage(e, 'Failed to fetch payslips'));

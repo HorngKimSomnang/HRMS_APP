@@ -13,16 +13,17 @@ class DocumentController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if ($user->hasRole('Employee')) {
-            if (!$user->employee) {
-                return response()->json([]);
-            }
-
-            return response()->json($this->formatEmployeeDocuments($user->employee));
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        if (empty($managedDepartmentIds)) {
+            $employee = Employee::find($user->employee?->id ?? -1);
+            return response()->json($employee ? $this->formatEmployeeDocuments($employee) : []);
         }
 
         $documents = [];
         Employee::select(['id', 'first_name', 'last_name', 'profile_picture', 'documents'])
+            ->whereHas('user', function ($q) use ($managedDepartmentIds) {
+                $q->whereIn('department_id', $managedDepartmentIds);
+            })
             ->chunkById(100, function ($employees) use (&$documents) {
                 foreach ($employees as $employee) {
                     $documents = array_merge($documents, $this->formatEmployeeDocuments($employee, true));
@@ -50,7 +51,9 @@ class DocumentController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->hasRole('Employee') && (int) ($user->employee?->id ?? 0) !== (int) $employee->id) {
+        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $isManaged = !empty($managedDepartmentIds) && in_array($employee->user?->department_id, $managedDepartmentIds);
+        if (!$isManaged && (int) ($user->employee?->id ?? 0) !== (int) $employee->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

@@ -10,7 +10,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Search, ShieldCheck } from 'lucide-react';
+import { Plus, Pencil, Edit, Trash2, Search, ShieldCheck, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -22,6 +22,7 @@ export default function AdminList() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [viewAdmin, setViewAdmin] = useState<any | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const navigate = useNavigate();
 
@@ -65,9 +66,14 @@ export default function AdminList() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">System Administrators</h1>
-                <p className="text-muted-foreground mt-1">Manage system access and administrator accounts.</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 via-gray-900 to-zinc-950 p-8 text-white shadow-xl mb-6">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">System Administrators</h1>
+                    <p className="text-slate-200 mt-2 text-sm font-medium">Manage system access and administrator accounts.</p>
+                </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
             {/* Toolbar */}
@@ -149,7 +155,7 @@ export default function AdminList() {
                                             {/* Logic: 
                                                 - Super Admin can edit/delete anyone.
                                                 - Admin can edit/delete other Admins/Employees, but NOT Super Admins.
-                                                - Cannot delete self.
+                                                - Cannot delete self (button disabled).
                                              */}
                                             {(!user?.roles?.some((r: any) => r.name === 'Super Admin') &&
                                                 rowUser.roles?.some((r: any) => r.name === 'Super Admin')) ? (
@@ -157,26 +163,33 @@ export default function AdminList() {
                                             ) : (
                                                 <>
                                                     <Button
-                                                        variant="outline"
+                                                        variant="ghost"
                                                         size="icon"
-                                                        className="h-8 w-8"
+                                                        onClick={() => setViewAdmin(rowUser)}
+                                                        title="View User"
+                                                    >
+                                                        <Eye className="h-4 w-4 text-slate-500" />
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
                                                         onClick={() => navigate(`/admins/edit/${rowUser.id}`)}
                                                         title="Edit User"
                                                     >
-                                                        <Pencil className="h-4 w-4" />
+                                                        <Edit className="h-4 w-4 text-blue-500" />
                                                     </Button>
 
-                                                    {user?.id !== rowUser.id && (
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                                                            onClick={() => setDeleteId(rowUser.id)}
-                                                            title="Delete User"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="hover:bg-red-50 disabled:opacity-50"
+                                                        onClick={() => setDeleteId(rowUser.id)}
+                                                        disabled={user?.id === rowUser.id}
+                                                        title={user?.id === rowUser.id ? "Cannot delete yourself" : "Delete User"}
+                                                    >
+                                                        <Trash2 className={`h-4 w-4 ${user?.id === rowUser.id ? "text-gray-400" : "text-red-500"}`} />
+                                                    </Button>
                                                 </>
                                             )}
                                         </div>
@@ -187,6 +200,41 @@ export default function AdminList() {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* View Modal */}
+            <Dialog open={!!viewAdmin} onOpenChange={(open) => !open && setViewAdmin(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Administrator Details</DialogTitle>
+                    </DialogHeader>
+                    {viewAdmin && (
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                                <div className="font-semibold text-muted-foreground">Name:</div>
+                                <div className="col-span-2">{viewAdmin.name}</div>
+                                
+                                <div className="font-semibold text-muted-foreground">Email:</div>
+                                <div className="col-span-2">{viewAdmin.email}</div>
+                                
+                                <div className="font-semibold text-muted-foreground">Roles:</div>
+                                <div className="col-span-2 flex flex-wrap gap-1">
+                                    {viewAdmin.roles?.map((r: any) => (
+                                        <span key={r.id} className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800">
+                                            {r.name}
+                                        </span>
+                                    ))}
+                                </div>
+                                
+                                <div className="font-semibold text-muted-foreground">Status:</div>
+                                <div className="col-span-2">Active</div>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setViewAdmin(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Modal */}
             <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

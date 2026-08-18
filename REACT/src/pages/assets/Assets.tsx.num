@@ -1,0 +1,476 @@
+     1	import { useState, useEffect, useCallback } from "react";
+     2	import { Button } from "@/components/ui/Button";
+     3	import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+     4	import { Label } from "@/components/ui/Label";
+     5	import { Input } from "@/components/ui/Input";
+     6	import api from "@/services/api";
+     7	import { toast } from "sonner";
+     8	import { useTranslation } from "react-i18next";
+     9	import { Package, Plus, Trash2, Search, UserCheck, Undo2, History, Laptop, Smartphone, Car, Armchair, Wrench, Box } from "lucide-react";
+    10	import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+    11	
+    12	const statusBadge: Record<string, string> = {
+    13	    available: "bg-green-100 text-green-700",
+    14	    assigned: "bg-blue-100 text-blue-700",
+    15	    maintenance: "bg-orange-100 text-orange-700",
+    16	    retired: "bg-slate-100 text-slate-500",
+    17	};
+    18	
+    19	const conditionBadge: Record<string, string> = {
+    20	    new: "bg-emerald-100 text-emerald-700",
+    21	    good: "bg-sky-100 text-sky-700",
+    22	    fair: "bg-amber-100 text-amber-700",
+    23	    poor: "bg-red-100 text-red-700",
+    24	};
+    25	
+    26	const CATEGORIES = ["laptop", "phone", "vehicle", "furniture", "equipment", "other"] as const;
+    27	
+    28	const categoryIcon: Record<string, any> = {
+    29	    laptop: Laptop, phone: Smartphone, vehicle: Car, furniture: Armchair, equipment: Wrench, other: Box,
+    30	};
+    31	
+    32	const emptyAsset = { name: '', code: '', category: 'laptop', serial_no: '', purchase_date: '', purchase_cost: '', condition: 'good', notes: '' };
+    33	
+    34	export default function Assets() {
+    35	    const { t } = useTranslation();
+    36	    const [assets, setAssets] = useState<any[]>([]);
+    37	    const [stats, setStats] = useState<any>(null);
+    38	    const [employees, setEmployees] = useState<any[]>([]);
+    39	    const [loading, setLoading] = useState(true);
+    40	    const [search, setSearch] = useState('');
+    41	    const [statusFilter, setStatusFilter] = useState('');
+    42	    const [categoryFilter, setCategoryFilter] = useState('');
+    43	
+    44	    const [assetForm, setAssetForm] = useState<any | null>(null);
+    45	    const [assignForm, setAssignForm] = useState<any | null>(null);   // { asset, employee_id, assigned_at, notes }
+    46	    const [returnForm, setReturnForm] = useState<any | null>(null);   // { asset, returned_condition, notes }
+    47	    const [historyFor, setHistoryFor] = useState<any | null>(null);   // { asset, rows }
+    48	
+    49	    useEffect(() => {
+    50	        api.get('/employees?status=active&all=true')
+    51	            .then(res => setEmployees(res.data.data ?? res.data ?? []))
+    52	            .catch(() => toast.error("Failed to load employees"));
+    53	    }, []);
+    54	
+    55	    const load = useCallback(async () => {
+    56	        try {
+    57	            const res = await api.get('/assets', { params: { search: search || undefined, status: statusFilter || undefined, category: categoryFilter || undefined } });
+    58	            setAssets(res.data.data ?? []);
+    59	            setStats(res.data.stats ?? null);
+    60	        } catch {
+    61	            toast.error("Failed to load assets");
+    62	        } finally {
+    63	            setLoading(false);
+    64	        }
+    65	    }, [search, statusFilter, categoryFilter]);
+    66	
+    67	    useLiveRefresh(async () => {
+    68	        await load();
+    69	        const res = await api.get('/employees?status=active&all=true');
+    70	        setEmployees(res.data.data ?? res.data ?? []);
+    71	    }, { resources: ['assets', 'employees'] });
+    72	
+    73	    useEffect(() => {
+    74	        const timer = setTimeout(load, search ? 300 : 0); // debounce typing
+    75	        return () => clearTimeout(timer);
+    76	    }, [load, search]);
+    77	
+    78	    // ---------- actions ----------
+    79	    const saveAsset = async () => {
+    80	        const previousAssets = assets;
+    81	        const temporaryId = -Date.now();
+    82	        const formSnapshot = assetForm;
+    83	        const payload = { ...formSnapshot, purchase_cost: formSnapshot.purchase_cost === '' ? null : formSnapshot.purchase_cost, purchase_date: formSnapshot.purchase_date || null };
+    84	        const optimisticAsset = {
+    85	            ...payload,
+    86	            id: formSnapshot.id ?? temporaryId,
+    87	            status: formSnapshot.status ?? 'available',
+    88	        };
+    89	
+    90	        setAssets(current => formSnapshot.id
+    91	            ? current.map(asset => asset.id === formSnapshot.id ? { ...asset, ...optimisticAsset } : asset)
+    92	            : [...current, optimisticAsset]
+    93	        );
+    94	        setAssetForm(null);
+    95	
+    96	        try {
+    97	            if (formSnapshot.id) {
+    98	                const response = await api.put(`/assets/${formSnapshot.id}`, payload);
+    99	                setAssets(current => current.map(asset => (
+   100	                    asset.id === formSnapshot.id ? response.data.data : asset
+   101	                )));
+   102	            } else {
+   103	                const response = await api.post('/assets', payload);
+   104	                setAssets(current => current.map(asset => (
+   105	                    asset.id === temporaryId ? response.data.data : asset
+   106	                )));
+   107	            }
+   108	        } catch (err: any) {
+   109	            setAssets(previousAssets);
+   110	            setAssetForm(formSnapshot);
+   111	            toast.error(err.response?.data?.message || "Failed to save asset");
+   112	        }
+   113	    };
+   114	
+   115	    const deleteAsset = async (asset: any) => {
+   116	        if (!window.confirm(t('assets.confirm_delete', 'Delete this asset?'))) return;
+   117	        const previousAssets = assets;
+   118	        setAssets(current => current.filter(item => item.id !== asset.id));
+   119	
+   120	        try {
+   121	            await api.delete(`/assets/${asset.id}`);
+   122	        } catch (err: any) {
+   123	            setAssets(previousAssets);
+   124	            toast.error(err.response?.data?.message || "Failed to delete");
+   125	        }
+   126	    };
+   127	
+   128	    const submitAssign = async () => {
+   129	        try {
+   130	            await api.post(`/assets/${assignForm.asset.id}/assign`, {
+   131	                employee_id: assignForm.employee_id,
+   132	                assigned_at: assignForm.assigned_at || undefined,
+   133	                notes: assignForm.notes || undefined,
+   134	            });
+   135	            setAssignForm(null);
+   136	            load();
+   137	        } catch (err: any) {
+   138	            toast.error(err.response?.data?.message || "Failed to assign");
+   139	        }
+   140	    };
+   141	
+   142	    const submitReturn = async () => {
+   143	        try {
+   144	            await api.post(`/assets/${returnForm.asset.id}/return`, {
+   145	                returned_condition: returnForm.returned_condition || undefined,
+   146	                notes: returnForm.notes || undefined,
+   147	            });
+   148	            setReturnForm(null);
+   149	            load();
+   150	        } catch (err: any) {
+   151	            toast.error(err.response?.data?.message || "Failed to return");
+   152	        }
+   153	    };
+   154	
+   155	    const openHistory = async (asset: any) => {
+   156	        try {
+   157	            const res = await api.get(`/assets/${asset.id}/history`);
+   158	            setHistoryFor({ asset, rows: res.data.data ?? [] });
+   159	        } catch { toast.error("Failed to load history"); }
+   160	    };
+   161	
+   162	    const money = (v: any) => v == null ? '—' : `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+   163	
+   164	    return (
+   165	        <div className="space-y-5">
+   166	            <div className="flex flex-wrap items-center justify-between gap-3">
+   167	                <div>
+   168	                    <h1 className="text-2xl font-bold text-foreground">{t('assets.title', 'Asset Management')}</h1>
+   169	                    <p className="text-sm text-muted-foreground">{t('assets.subtitle', 'Track company property — who holds what, and its condition.')}</p>
+   170	                </div>
+   171	                <Button onClick={() => setAssetForm({ ...emptyAsset })}>
+   172	                    <Plus className="h-4 w-4 mr-1" /> {t('assets.new_asset', 'New Asset')}
+   173	                </Button>
+   174	            </div>
+   175	
+   176	            {/* Summary strip */}
+   177	            {stats && (
+   178	                <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+   179	                    <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 via-card to-card p-4 px-5 shadow-sm">
+   180	                        <p className="text-sm font-medium text-muted-foreground">{t('assets.total', 'Total assets')}</p>
+   181	                        <h3 className="text-2xl font-bold mt-1">{stats.total}</h3>
+   182	                        <p className="text-[11px] text-muted-foreground mt-0.5">{t('assets.total_value', 'Value')}: {money(stats.total_value)}</p>
+   183	                    </div>
+   184	                    <div className="rounded-xl border border-green-100 bg-gradient-to-br from-green-50/60 via-card to-card p-4 px-5 shadow-sm">
+   185	                        <p className="text-sm font-medium text-muted-foreground">{t('assets.available', 'Available')}</p>
+   186	                        <h3 className="text-2xl font-bold mt-1 text-green-600">{stats.available}</h3>
+   187	                    </div>
+   188	                    <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/60 via-card to-card p-4 px-5 shadow-sm">
+   189	                        <p className="text-sm font-medium text-muted-foreground">{t('assets.assigned', 'Assigned')}</p>
+   190	                        <h3 className="text-2xl font-bold mt-1 text-blue-600">{stats.assigned}</h3>
+   191	                    </div>
+   192	                    <div className="rounded-xl border border-orange-100 bg-gradient-to-br from-orange-50/60 via-card to-card p-4 px-5 shadow-sm">
+   193	                        <p className="text-sm font-medium text-muted-foreground">{t('assets.maintenance', 'In maintenance')}</p>
+   194	                        <h3 className="text-2xl font-bold mt-1 text-orange-600">{stats.maintenance}</h3>
+   195	                    </div>
+   196	                </div>
+   197	            )}
+   198	
+   199	            {/* Filters + table */}
+   200	            <div className="rounded-xl border bg-card shadow-sm">
+   201	                <div className="flex flex-wrap items-center gap-3 p-4 border-b">
+   202	                    <div className="relative flex-1 min-w-[200px]">
+   203	                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   204	                        <Input className="pl-9" placeholder={t('assets.search_ph', 'Search name, code, serial...')} value={search} onChange={e => setSearch(e.target.value)} />
+   205	                    </div>
+   206	                    <select className="rounded-md border px-3 py-2 text-sm bg-background" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+   207	                        <option value="">{t('assets.all_statuses', 'All statuses')}</option>
+   208	                        {Object.keys(statusBadge).map(s => <option key={s} value={s}>{t(`assets.status_${s}`, s)}</option>)}
+   209	                    </select>
+   210	                    <select className="rounded-md border px-3 py-2 text-sm bg-background" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+   211	                        <option value="">{t('assets.all_categories', 'All categories')}</option>
+   212	                        {CATEGORIES.map(c => <option key={c} value={c}>{t(`assets.cat_${c}`, c)}</option>)}
+   213	                    </select>
+   214	                </div>
+   215	
+   216	                {loading ? (
+   217	                    <div className="p-10 text-center text-sm text-muted-foreground animate-pulse">{t('common.loading', 'Loading...')}</div>
+   218	                ) : assets.length === 0 ? (
+   219	                    <div className="p-12 text-center">
+   220	                        <Package className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+   221	                        <p className="text-sm text-muted-foreground mb-4">{t('assets.empty', 'No assets yet. Register the first company asset.')}</p>
+   222	                        <Button variant="outline" onClick={() => setAssetForm({ ...emptyAsset })}>
+   223	                            <Plus className="h-4 w-4 mr-1" /> {t('assets.new_asset', 'New Asset')}
+   224	                        </Button>
+   225	                    </div>
+   226	                ) : (
+   227	                    <div className="overflow-x-auto">
+   228	                        <table className="w-full text-sm">
+   229	                            <thead>
+   230	                                <tr className="border-b text-left text-[12px] uppercase text-muted-foreground">
+   231	                                    <th className="px-4 py-3 font-medium">{t('assets.asset', 'Asset')}</th>
+   232	                                    <th className="px-4 py-3 font-medium">{t('assets.category', 'Category')}</th>
+   233	                                    <th className="px-4 py-3 font-medium">{t('assets.condition', 'Condition')}</th>
+   234	                                    <th className="px-4 py-3 font-medium">{t('assets.status', 'Status')}</th>
+   235	                                    <th className="px-4 py-3 font-medium">{t('assets.holder', 'Held by')}</th>
+   236	                                    <th className="px-4 py-3 font-medium text-right">{t('assets.cost', 'Cost')}</th>
+   237	                                    <th className="px-4 py-3 font-medium text-right">{t('common.actions', 'Actions')}</th>
+   238	                                </tr>
+   239	                            </thead>
+   240	                            <tbody>
+   241	                                {assets.map((a: any) => {
+   242	                                    const Icon = categoryIcon[a.category] ?? Box;
+   243	                                    return (
+   244	                                        <tr key={a.id} className="border-b last:border-0 hover:bg-muted/30">
+   245	                                            <td className="px-4 py-3">
+   246	                                                <div className="flex items-center gap-3">
+   247	                                                    <div className="rounded-lg bg-slate-100 p-2 text-slate-500 shrink-0"><Icon className="h-4 w-4" /></div>
+   248	                                                    <div className="min-w-0">
+   249	                                                        <p className="font-medium truncate">{a.name}</p>
+   250	                                                        <p className="text-[11px] text-muted-foreground">{a.code}{a.serial_no ? ` · SN: ${a.serial_no}` : ''}</p>
+   251	                                                    </div>
+   252	                                                </div>
+   253	                                            </td>
+   254	                                            <td className="px-4 py-3 capitalize">{String(t(`assets.cat_${a.category}`, a.category))}</td>
+   255	                                            <td className="px-4 py-3">
+   256	                                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize ${conditionBadge[a.condition] ?? ''}`}>{String(t(`assets.cond_${a.condition}`, a.condition))}</span>
+   257	                                            </td>
+   258	                                            <td className="px-4 py-3">
+   259	                                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize ${statusBadge[a.status] ?? ''}`}>{String(t(`assets.status_${a.status}`, a.status))}</span>
+   260	                                            </td>
+   261	                                            <td className="px-4 py-3">
+   262	                                                {a.current_assignment?.employee?.name
+   263	                                                    ? <span className="font-medium">{a.current_assignment.employee.name}</span>
+   264	                                                    : <span className="text-muted-foreground">—</span>}
+   265	                                            </td>
+   266	                                            <td className="px-4 py-3 text-right tabular-nums">{money(a.purchase_cost)}</td>
+   267	                                            <td className="px-4 py-3">
+   268	                                                <div className="flex items-center justify-end gap-0.5">
+   269	                                                    {a.status === 'available' && (
+   270	                                                        <Button variant="ghost" size="sm" className="text-blue-600" title={t('assets.assign', 'Assign')}
+   271	                                                            onClick={() => setAssignForm({ asset: a, employee_id: employees[0]?.id ?? '', assigned_at: new Date().toISOString().slice(0, 10), notes: '' })}>
+   272	                                                            <UserCheck className="h-4 w-4" />
+   273	                                                        </Button>
+   274	                                                    )}
+   275	                                                    {a.status === 'assigned' && (
+   276	                                                        <Button variant="ghost" size="sm" className="text-orange-500" title={t('assets.return', 'Return')}
+   277	                                                            onClick={() => setReturnForm({ asset: a, returned_condition: a.condition, notes: '' })}>
+   278	                                                            <Undo2 className="h-4 w-4" />
+   279	                                                        </Button>
+   280	                                                    )}
+   281	                                                    <Button variant="ghost" size="sm" title={t('assets.history', 'History')} onClick={() => openHistory(a)}>
+   282	                                                        <History className="h-4 w-4" />
+   283	                                                    </Button>
+   284	                                                    <Button variant="ghost" size="sm" onClick={() => setAssetForm({ ...a, purchase_date: a.purchase_date?.slice(0, 10) ?? '', purchase_cost: a.purchase_cost ?? '' })}>
+   285	                                                        {t('common.edit', 'Edit')}
+   286	                                                    </Button>
+   287	                                                    <Button variant="ghost" size="sm" className="text-red-500" onClick={() => deleteAsset(a)}>
+   288	                                                        <Trash2 className="h-4 w-4" />
+   289	                                                    </Button>
+   290	                                                </div>
+   291	                                            </td>
+   292	                                        </tr>
+   293	                                    );
+   294	                                })}
+   295	                            </tbody>
+   296	                        </table>
+   297	                    </div>
+   298	                )}
+   299	            </div>
+   300	
+   301	            {/* ---------- Asset Dialog ---------- */}
+   302	            <Dialog open={!!assetForm} onOpenChange={(open) => !open && setAssetForm(null)}>
+   303	                <DialogContent>
+   304	                    <DialogHeader>
+   305	                        <DialogTitle>{assetForm?.id ? t('common.edit', 'Edit') : t('assets.new_asset', 'New Asset')}</DialogTitle>
+   306	                    </DialogHeader>
+   307	                    {assetForm && (
+   308	                        <div className="space-y-3 py-2">
+   309	                            <div className="grid grid-cols-2 gap-3">
+   310	                                <div>
+   311	                                    <Label>{t('assets.name', 'Name')}</Label>
+   312	                                    <Input placeholder="MacBook Pro 14" value={assetForm.name} onChange={e => setAssetForm({ ...assetForm, name: e.target.value })} />
+   313	                                </div>
+   314	                                <div>
+   315	                                    <Label>{t('assets.code', 'Asset code')}</Label>
+   316	                                    <Input placeholder="HC-LT-001" value={assetForm.code} onChange={e => setAssetForm({ ...assetForm, code: e.target.value })} />
+   317	                                </div>
+   318	                            </div>
+   319	                            <div className="grid grid-cols-2 gap-3">
+   320	                                <div>
+   321	                                    <Label>{t('assets.category', 'Category')}</Label>
+   322	                                    <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
+   323	                                        value={assetForm.category} onChange={e => setAssetForm({ ...assetForm, category: e.target.value })}>
+   324	                                        {CATEGORIES.map(c => <option key={c} value={c}>{t(`assets.cat_${c}`, c)}</option>)}
+   325	                                    </select>
+   326	                                </div>
+   327	                                <div>
+   328	                                    <Label>{t('assets.serial', 'Serial no.')}</Label>
+   329	                                    <Input value={assetForm.serial_no ?? ''} onChange={e => setAssetForm({ ...assetForm, serial_no: e.target.value })} />
+   330	                                </div>
+   331	                            </div>
+   332	                            <div className="grid grid-cols-2 gap-3">
+   333	                                <div>
+   334	                                    <Label>{t('assets.purchase_date', 'Purchase date')}</Label>
+   335	                                    <Input type="date" value={assetForm.purchase_date ?? ''} onChange={e => setAssetForm({ ...assetForm, purchase_date: e.target.value })} />
+   336	                                </div>
+   337	                                <div>
+   338	                                    <Label>{t('assets.cost', 'Cost')} ($)</Label>
+   339	                                    <Input type="number" min={0} step="0.01" value={assetForm.purchase_cost} onChange={e => setAssetForm({ ...assetForm, purchase_cost: e.target.value })} />
+   340	                                </div>
+   341	                            </div>
+   342	                            <div className="grid grid-cols-2 gap-3">
+   343	                                <div>
+   344	                                    <Label>{t('assets.condition', 'Condition')}</Label>
+   345	                                    <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
+   346	                                        value={assetForm.condition} onChange={e => setAssetForm({ ...assetForm, condition: e.target.value })}>
+   347	                                        {Object.keys(conditionBadge).map(c => <option key={c} value={c}>{t(`assets.cond_${c}`, c)}</option>)}
+   348	                                    </select>
+   349	                                </div>
+   350	                                {assetForm.id && (
+   351	                                    <div>
+   352	                                        <Label>{t('assets.status', 'Status')}</Label>
+   353	                                        <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
+   354	                                            value={assetForm.status}
+   355	                                            disabled={assetForm.status === 'assigned'}
+   356	                                            onChange={e => setAssetForm({ ...assetForm, status: e.target.value })}>
+   357	                                            <option value="available">{t('assets.status_available', 'Available')}</option>
+   358	                                            <option value="maintenance">{t('assets.status_maintenance', 'Maintenance')}</option>
+   359	                                            <option value="retired">{t('assets.status_retired', 'Retired')}</option>
+   360	                                            {assetForm.status === 'assigned' && <option value="assigned">{t('assets.status_assigned', 'Assigned')}</option>}
+   361	                                        </select>
+   362	                                    </div>
+   363	                                )}
+   364	                            </div>
+   365	                            <div>
+   366	                                <Label>{t('assets.notes', 'Notes')}</Label>
+   367	                                <Input value={assetForm.notes ?? ''} onChange={e => setAssetForm({ ...assetForm, notes: e.target.value })} />
+   368	                            </div>
+   369	                        </div>
+   370	                    )}
+   371	                    <DialogFooter>
+   372	                        <Button variant="outline" onClick={() => setAssetForm(null)}>{t('common.cancel', 'Cancel')}</Button>
+   373	                        <Button onClick={saveAsset} disabled={!assetForm?.name || !assetForm?.code}>{t('common.save', 'Save')}</Button>
+   374	                    </DialogFooter>
+   375	                </DialogContent>
+   376	            </Dialog>
+   377	
+   378	            {/* ---------- Assign Dialog ---------- */}
+   379	            <Dialog open={!!assignForm} onOpenChange={(open) => !open && setAssignForm(null)}>
+   380	                <DialogContent>
+   381	                    <DialogHeader>
+   382	                        <DialogTitle>{t('assets.assign_title', 'Assign')} — {assignForm?.asset?.name}</DialogTitle>
+   383	                    </DialogHeader>
+   384	                    {assignForm && (
+   385	                        <div className="space-y-3 py-2">
+   386	                            <div>
+   387	                                <Label>{t('assets.employee', 'Employee')}</Label>
+   388	                                <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
+   389	                                    value={assignForm.employee_id} onChange={e => setAssignForm({ ...assignForm, employee_id: e.target.value })}>
+   390	                                    {employees.map((emp: any) => (
+   391	                                        <option key={emp.id} value={emp.id}>{emp.name ?? `${emp.first_name} ${emp.last_name}`}</option>
+   392	                                    ))}
+   393	                                </select>
+   394	                            </div>
+   395	                            <div>
+   396	                                <Label>{t('assets.assigned_date', 'Assigned date')}</Label>
+   397	                                <Input type="date" value={assignForm.assigned_at} onChange={e => setAssignForm({ ...assignForm, assigned_at: e.target.value })} />
+   398	                            </div>
+   399	                            <div>
+   400	                                <Label>{t('assets.notes', 'Notes')}</Label>
+   401	                                <Input placeholder={t('assets.assign_notes_ph', 'e.g. Includes charger and bag')} value={assignForm.notes} onChange={e => setAssignForm({ ...assignForm, notes: e.target.value })} />
+   402	                            </div>
+   403	                        </div>
+   404	                    )}
+   405	                    <DialogFooter>
+   406	                        <Button variant="outline" onClick={() => setAssignForm(null)}>{t('common.cancel', 'Cancel')}</Button>
+   407	                        <Button onClick={submitAssign} disabled={!assignForm?.employee_id}>{t('assets.assign', 'Assign')}</Button>
+   408	                    </DialogFooter>
+   409	                </DialogContent>
+   410	            </Dialog>
+   411	
+   412	            {/* ---------- Return Dialog ---------- */}
+   413	            <Dialog open={!!returnForm} onOpenChange={(open) => !open && setReturnForm(null)}>
+   414	                <DialogContent>
+   415	                    <DialogHeader>
+   416	                        <DialogTitle>{t('assets.return_title', 'Return')} — {returnForm?.asset?.name}</DialogTitle>
+   417	                    </DialogHeader>
+   418	                    {returnForm && (
+   419	                        <div className="space-y-3 py-2">
+   420	                            <p className="text-sm text-muted-foreground">
+   421	                                {t('assets.return_from', 'Returning from')}: <span className="font-medium text-foreground">{returnForm.asset.current_assignment?.employee?.name ?? '—'}</span>
+   422	                            </p>
+   423	                            <div>
+   424	                                <Label>{t('assets.returned_condition', 'Condition on return')}</Label>
+   425	                                <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
+   426	                                    value={returnForm.returned_condition} onChange={e => setReturnForm({ ...returnForm, returned_condition: e.target.value })}>
+   427	                                    {Object.keys(conditionBadge).map(c => <option key={c} value={c}>{t(`assets.cond_${c}`, c)}</option>)}
+   428	                                </select>
+   429	                            </div>
+   430	                            <div>
+   431	                                <Label>{t('assets.notes', 'Notes')}</Label>
+   432	                                <Input value={returnForm.notes} onChange={e => setReturnForm({ ...returnForm, notes: e.target.value })} />
+   433	                            </div>
+   434	                        </div>
+   435	                    )}
+   436	                    <DialogFooter>
+   437	                        <Button variant="outline" onClick={() => setReturnForm(null)}>{t('common.cancel', 'Cancel')}</Button>
+   438	                        <Button onClick={submitReturn}>{t('assets.return', 'Return')}</Button>
+   439	                    </DialogFooter>
+   440	                </DialogContent>
+   441	            </Dialog>
+   442	
+   443	            {/* ---------- History Dialog ---------- */}
+   444	            <Dialog open={!!historyFor} onOpenChange={(open) => !open && setHistoryFor(null)}>
+   445	                <DialogContent>
+   446	                    <DialogHeader>
+   447	                        <DialogTitle>{t('assets.history', 'History')} — {historyFor?.asset?.name}</DialogTitle>
+   448	                    </DialogHeader>
+   449	                    <div className="py-2 max-h-[50vh] overflow-y-auto space-y-2">
+   450	                        {historyFor?.rows?.length === 0 && (
+   451	                            <p className="text-sm text-muted-foreground text-center py-6">{t('assets.no_history', 'Never assigned yet.')}</p>
+   452	                        )}
+   453	                        {historyFor?.rows?.map((h: any) => (
+   454	                            <div key={h.id} className="rounded-lg border p-3 text-sm">
+   455	                                <div className="flex items-center justify-between gap-2">
+   456	                                    <p className="font-medium">{h.employee?.name ?? '—'}</p>
+   457	                                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${h.returned_at ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700'}`}>
+   458	                                        {h.returned_at ? t('assets.returned', 'Returned') : t('assets.holding', 'Holding')}
+   459	                                    </span>
+   460	                                </div>
+   461	                                <p className="text-[12px] text-muted-foreground mt-1">
+   462	                                    {new Date(h.assigned_at).toLocaleDateString()} → {h.returned_at ? new Date(h.returned_at).toLocaleDateString() : '…'}
+   463	                                    {h.returned_condition && ` · ${t(`assets.cond_${h.returned_condition}`, h.returned_condition)}`}
+   464	                                </p>
+   465	                                {h.notes && <p className="text-[12px] text-muted-foreground mt-1 whitespace-pre-line">{h.notes}</p>}
+   466	                            </div>
+   467	                        ))}
+   468	                    </div>
+   469	                    <DialogFooter>
+   470	                        <Button variant="outline" onClick={() => setHistoryFor(null)}>{t('common.close', 'Close')}</Button>
+   471	                    </DialogFooter>
+   472	                </DialogContent>
+   473	            </Dialog>
+   474	        </div>
+   475	    );
+   476	}

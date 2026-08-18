@@ -25,11 +25,13 @@ class LeaveController extends Controller
         $end = \Carbon\Carbon::parse($request->end_date);
         $days = $start->diffInDays($end) + 1;
 
-        // Allow Admin to assign day off to specific employee
         $user = Auth::user();
         $employeeId = $request->input('employee_id');
         
-        if ($employeeId && ($user->hasRole('Admin') || $user->hasRole('Super Admin'))) {
+        if ($employeeId && (int) $employeeId !== (int) ($user->employee?->id ?? 0)) {
+            if (!$user->hasPermissionTo('leaves.assign')) {
+                return response()->json(['message' => 'Forbidden. You do not have permission to assign leaves to others.'], 403);
+            }
             $employee = \App\Models\Employee::find($employeeId);
         } else {
             $employee = $user?->employee;
@@ -54,12 +56,12 @@ class LeaveController extends Controller
             }
         }
         
-        // Admin assigning leave to ANOTHER employee — not their own record
-        $isAdminAction = $employeeId &&
-            ($user->hasRole('Admin') || $user->hasRole('Super Admin')) &&
+        // Super Admin assigning leave to ANOTHER employee — not their own record
+        $isSuperAdminAction = $employeeId &&
+            $user->hasPermissionTo('leaves.assign') &&
             ((int) $employeeId !== (int) ($user->employee?->id ?? 0));
 
-        if (!$leaveType || (!$typeConfig && !$isAdminAction)) {
+        if (!$leaveType || (!$typeConfig && !$isSuperAdminAction)) {
             return response()->json(['message' => 'A valid leave type is required.'], 422);
         }
 
@@ -73,7 +75,7 @@ class LeaveController extends Controller
             ->whereYear('start_date', $currentYear)
             ->sum('days_count');
 
-        if (!$isAdminAction) {
+        if (!$isSuperAdminAction) {
             if (($usedDays + $days) > $daysAllowed) {
                 $remaining = max(0, $daysAllowed - $usedDays);
                 return response()->json([
@@ -89,16 +91,16 @@ class LeaveController extends Controller
             'end_date' => $request->end_date,
             'days_count' => $days,
             'reason' => $request->reason,
-            'status' => ($employeeId && ($user->hasRole('Admin') || $user->hasRole('Super Admin'))) ? 'approved' : 'pending',
-            'approved_by' => ($employeeId && ($user->hasRole('Admin') || $user->hasRole('Super Admin'))) ? $user->id : null,
+            'status' => 'pending',
+            'approved_by' => null,
         ]);
 
-        // Notify Admins only if it's a pending request from employee
+        // Notify Super Admins only if it's a pending request from employee
         if ($leave->status === 'pending') {
-            $admins = \App\Models\User::role(['Admin', 'Super Admin'])->get();
+            $admins = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\LeaveRequested($leave));
-        } else if ($isAdminAction) {
-            // Notify the employee that an Admin has assigned them a day off / approved leave
+        } else if ($isSuperAdminAction) {
+            // Notify the employee that a Super Admin has assigned them a day off / approved leave
             try {
                 $leave->employee?->user?->notify(new \App\Notifications\LeaveStatusUpdated($leave));
             } catch (\Exception $e) {
@@ -117,12 +119,17 @@ class LeaveController extends Controller
         $user = Auth::user();
         $query = Leave::with(['employee.user'])->orderBy('created_at', 'desc');
 
-        if ($user->hasRole('Employee')) {
-            if (!$user->employee) {
-                return response()->json(['message' => 'Employee profile not found.'], 404);
+        if (!$user->hasRole('Super Admin')) {
+            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            if (empty($managedDepartmentIds)) {
+                $query->where('employee_id', $user->employee?->id ?? -1);
+            } else {
+                $query->where(function ($q) use ($managedDepartmentIds, $user) {
+                    $q->whereHas('employee.user', function ($q2) use ($managedDepartmentIds) {
+                        $q2->whereIn('department_id', $managedDepartmentIds);
+                    })->orWhere('employee_id', $user->employee?->id ?? -1);
+                });
             }
-
-            $query->where('employee_id', $user->employee->id);
         }
 
         $leaves = $query->get()->map(fn (Leave $leave) => $this->transformLeave($leave))->values();
@@ -140,7 +147,7 @@ class LeaveController extends Controller
         $leave = Leave::findOrFail($id);
         $user = Auth::user();
 
-        // A processed decision is immutable until an Admin or Super Admin
+        // A processed decision is immutable until a Super Admin
         // explicitly restores it to Pending from the Archived view.
         if ($leave->status !== 'pending') {
             return response()->json([
@@ -156,6 +163,26 @@ class LeaveController extends Controller
             'approved_by' => $user->id,
             'rejection_reason' => $request->rejection_reason,
         ]);
+
+        if ($newStatus === 'approved') {
+            $today = \Carbon\Carbon::today('Asia/Phnom_Penh')->toDateString();
+            $startDate = \Carbon\Carbon::parse($leave->start_date)->toDateString();
+            $endDate = \Carbon\Carbon::parse($leave->end_date)->toDateString();
+            
+            if ($today >= $startDate && $today <= $endDate) {
+                $attendance = \App\Models\Attendance::where('employee_id', $leave->employee_id)
+                    ->where('date', $today)
+                    ->whereNotNull('clock_in')
+                    ->whereNull('clock_out')
+                    ->first();
+                
+                if ($attendance) {
+                    $attendance->update([
+                        'clock_out' => \Carbon\Carbon::now(),
+                    ]);
+                }
+            }
+        }
 
         // Log Audit Trail
         AuditLogger::log($request, 'LEAVE_STATUS_CHANGED', $leave, [
@@ -190,12 +217,44 @@ class LeaveController extends Controller
             ], 409);
         }
 
+        if (str_starts_with($leave->rejection_reason ?? '', 'Auto-processed:')) {
+            return response()->json([
+                'message' => 'This leave request was auto-processed by the system and cannot be restored.'
+            ], 422);
+        }
+
+        if ($leave->updated_at && $leave->updated_at->diffInMinutes(now()) > 30) {
+            return response()->json([
+                'message' => 'Cannot return leave to pending status after 30 minutes.'
+            ], 422);
+        }
+
         $oldStatus = $leave->status;
         $leave->update([
             'status' => 'pending',
             'approved_by' => null,
             'rejection_reason' => null,
         ]);
+
+        if ($oldStatus === 'approved') {
+            $today = \Carbon\Carbon::today('Asia/Phnom_Penh')->toDateString();
+            $startDate = \Carbon\Carbon::parse($leave->start_date)->toDateString();
+            $endDate = \Carbon\Carbon::parse($leave->end_date)->toDateString();
+            
+            if ($today >= $startDate && $today <= $endDate) {
+                $attendance = \App\Models\Attendance::where('employee_id', $leave->employee_id)
+                    ->where('date', $today)
+                    ->whereNotNull('clock_in')
+                    ->whereNotNull('clock_out')
+                    ->first();
+                
+                if ($attendance) {
+                    $attendance->update([
+                        'clock_out' => null,
+                    ]);
+                }
+            }
+        }
 
         AuditLogger::log($request, 'LEAVE_STATUS_RESTORED', $leave, [
             'from_status' => $oldStatus,
@@ -245,8 +304,8 @@ class LeaveController extends Controller
     {
         $user = Auth::user();
         
-        // Admin can view balances of a specific employee, otherwise defaults to self
-        $employeeId = $request->has('employee_id') && $user->hasRole(['Admin', 'Super Admin']) 
+        // Super Admin can view balances of a specific employee, otherwise defaults to self
+        $employeeId = $request->has('employee_id') && $user->hasRole(['Super Admin']) 
             ? $request->employee_id 
             : $user->employee?->id;
 
@@ -283,9 +342,9 @@ class LeaveController extends Controller
         $leave = Leave::findOrFail($id);
         $user = Auth::user();
 
-        // Only Admin, Super Admin, or the Employee who owns the leave (if it's still pending) can delete it
-        $isAdminAction = $user->hasRole(['Admin', 'Super Admin']);
-        if (!$isAdminAction && ($leave->employee_id !== $user->employee?->id || $leave->status !== 'pending')) {
+        // Only Super Admin or the Employee who owns the leave (if it's still pending) can delete it
+        $isSuperAdminAction = $user->hasRole(['Super Admin']);
+        if (!$isSuperAdminAction && ($leave->employee_id !== $user->employee?->id || $leave->status !== 'pending')) {
             return response()->json([
                 'message' => 'You do not have permission to delete this leave request. Approved leaves can only be revoked by HR.'
             ], 403);
@@ -294,7 +353,7 @@ class LeaveController extends Controller
         $leave->delete(); // This triggers soft delete because of the SoftDeletes trait in the model/migration
 
         // Log Audit Trail for HR Revoke
-        if ($isAdminAction) {
+        if ($isSuperAdminAction) {
             AuditLogger::log(request(), 'LEAVE_REVOKED', $leave, [
                 'leave_id'   => $leave->id,
                 'leave_type' => $leave->leave_type,

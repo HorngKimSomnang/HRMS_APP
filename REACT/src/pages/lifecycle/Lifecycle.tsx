@@ -8,15 +8,11 @@ import { Input } from "@/components/ui/Input";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { FileSignature, History, DoorOpen, AlertTriangle, Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { FileSignature, History, Plus, Trash2, Edit, Eye, CheckCircle, DoorOpen, CheckCircle2 } from "lucide-react";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useAuth } from "@/context/AuthContext";
 
-type Tab = 'overview' | 'contracts' | 'history' | 'offboarding';
-
-const daysUntil = (dateStr: string) => {
-    const diff = new Date(dateStr).getTime() - new Date().setHours(0, 0, 0, 0);
-    return Math.ceil(diff / 86400000);
-};
+type Tab = 'contracts' | 'history' | 'offboarding';
 
 const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString() : '—';
 
@@ -31,53 +27,40 @@ const statusBadge: Record<string, string> = {
     expired: "bg-slate-100 text-slate-600",
     terminated: "bg-red-100 text-red-700",
     pending: "bg-orange-100 text-orange-700",
-    in_progress: "bg-blue-100 text-blue-700",
-    completed: "bg-green-100 text-green-700",
-};
-
-const eventTypeBadge: Record<string, string> = {
-    promotion: "bg-violet-100 text-violet-700",
-    transfer: "bg-blue-100 text-blue-700",
-    salary_change: "bg-green-100 text-green-700",
-    status_change: "bg-slate-100 text-slate-600",
 };
 
 export default function Lifecycle() {
     const { t } = useTranslation();
+    const { hasPermission, user } = useAuth();
     const [searchParams] = useSearchParams();
     const tabParam = searchParams.get('tab');
     const [tab, setTab] = useState<Tab>(
-        tabParam === 'contracts' || tabParam === 'history' || tabParam === 'offboarding' ? tabParam : 'overview'
+        tabParam === 'history' || tabParam === 'offboarding' ? tabParam : 'contracts'
     );
+    
     const [employees, setEmployees] = useState<any[]>([]);
-    const [overview, setOverview] = useState<any>(null);
     const [contracts, setContracts] = useState<any[]>([]);
-    const [events, setEvents] = useState<any[]>([]);
     const [offboardings, setOffboardings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // dialogs
     const [contractForm, setContractForm] = useState<any | null>(null);
-    const [eventForm, setEventForm] = useState<any | null>(null);
+    const [viewContract, setViewContract] = useState<any | null>(null);
     const [offboardForm, setOffboardForm] = useState<any | null>(null);
     const [activeOffboarding, setActiveOffboarding] = useState<any | null>(null);
+    const [offboardingToDelete, setOffboardingToDelete] = useState<any | null>(null);
 
     const loadAll = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const [ov, c, e, o] = await Promise.all([
-                api.get('/lifecycle/overview'),
+            const [c, o] = await Promise.all([
                 api.get('/lifecycle/contracts'),
-                api.get('/lifecycle/events'),
-                api.get('/lifecycle/offboardings'),
+                api.get('/lifecycle/offboardings')
             ]);
-            setOverview(ov.data);
             setContracts(c.data.data ?? []);
-            setEvents(e.data.data ?? []);
             setOffboardings(o.data.data ?? []);
         } catch (err) {
             console.error(err);
-            toast.error("Failed to load lifecycle data");
+            toast.error("Failed to load contracts data");
         } finally {
             if (!silent) setLoading(false);
         }
@@ -96,7 +79,6 @@ export default function Lifecycle() {
             .catch(() => {});
     }, [loadAll]);
 
-    // ---------- actions ----------
     const saveContract = async () => {
         try {
             if (contractForm.id) {
@@ -104,7 +86,7 @@ export default function Lifecycle() {
             } else {
                 await api.post('/lifecycle/contracts', contractForm);
             }
-            toast.success(t('lifecycle.saved', 'Saved'));
+            toast.success(t('common.saved', 'Saved successfully'));
             setContractForm(null);
             loadAll();
         } catch (err: any) {
@@ -116,25 +98,16 @@ export default function Lifecycle() {
         try {
             await api.delete(`/lifecycle/contracts/${id}`);
             setContracts(contracts.filter(c => c.id !== id));
+            toast.success("Contract deleted");
         } catch { toast.error("Failed to delete"); }
     };
 
-    const saveEvent = async () => {
+    const activateContract = async (c: any) => {
         try {
-            await api.post('/lifecycle/events', eventForm);
-            toast.success(t('lifecycle.saved', 'Saved'));
-            setEventForm(null);
+            await api.put(`/lifecycle/contracts/${c.id}`, { ...c, status: 'active' });
+            toast.success("Contract activated");
             loadAll();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || "Failed to save event");
-        }
-    };
-
-    const deleteEvent = async (id: number) => {
-        try {
-            await api.delete(`/lifecycle/events/${id}`);
-            setEvents(events.filter(e => e.id !== id));
-        } catch { toast.error("Failed to delete"); }
+        } catch { toast.error("Failed to activate contract"); }
     };
 
     const saveOffboarding = async () => {
@@ -174,22 +147,100 @@ export default function Lifecycle() {
     };
 
     const tabs: { key: Tab; label: string; icon: any }[] = [
-        { key: 'overview', label: t('lifecycle.tab_overview', 'Overview'), icon: AlertTriangle },
-        { key: 'contracts', label: t('lifecycle.tab_contracts', 'Contracts'), icon: FileSignature },
-        { key: 'history', label: t('lifecycle.tab_history', 'Career History'), icon: History },
-        { key: 'offboarding', label: t('lifecycle.tab_offboarding', 'Offboarding'), icon: DoorOpen },
+        { key: 'contracts', label: t('nav.contracts', 'Contracts'), icon: FileSignature },
+        { key: 'history', label: t('nav.contract_history', 'Contract History'), icon: History },
+        { key: 'offboarding', label: t('nav.offboarding', 'Offboarding'), icon: DoorOpen },
     ];
+
+    const activeContracts = contracts.filter(c => c.status === 'active' || c.status === 'pending');
+    const historyContracts = contracts.filter(c => c.status === 'expired' || c.status === 'terminated');
+
+    const renderTable = (data: any[], showActivate: boolean) => (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>{t('common.employee', 'Employee')}</TableHead>
+                    <TableHead>{t('common.type', 'Type')}</TableHead>
+                    <TableHead>{t('common.start_date', 'Start Date')}</TableHead>
+                    <TableHead>{t('common.end_date', 'End Date')}</TableHead>
+                    <TableHead>{t('common.status', 'Status')}</TableHead>
+                    <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {data.length === 0 && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('common.no_data', 'No contracts found.')}</TableCell></TableRow>
+                )}
+                {data.map(c => (
+                    <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.employee?.name}</TableCell>
+                        <TableCell>
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${contractTypeBadge[c.type]}`}>
+                                {c.type.replace('_', ' ')}
+                            </span>
+                        </TableCell>
+                        <TableCell>{fmt(c.start_date)}</TableCell>
+                        <TableCell>{fmt(c.end_date)}</TableCell>
+                        <TableCell>
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${statusBadge[c.status]}`}>
+                                {c.status}
+                            </span>
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                            {showActivate && c.status === 'pending' && (
+                                <Button variant="ghost" size="icon" onClick={() => activateContract(c)} disabled={!hasPermission('contracts.auto_activate')} title={!hasPermission('contracts.auto_activate') ? 'No permission' : 'Activate Contract'}>
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => setViewContract(c)} disabled={!hasPermission('contracts.view')} title={!hasPermission('contracts.view') ? 'No permission' : 'View'}>
+                                <Eye className="w-4 h-4 text-slate-500" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setContractForm({ ...c, start_date: c.start_date?.slice(0, 10), end_date: c.end_date?.slice(0, 10) ?? '' })} disabled={!hasPermission('contracts.edit')} title={!hasPermission('contracts.edit') ? 'No permission' : 'Edit'}>
+                                <Edit className="w-4 h-4 text-blue-500" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteContract(c.id)} disabled={!hasPermission('contracts.delete')} title={!hasPermission('contracts.delete') ? 'No permission' : 'Delete'}>
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    );
 
     return (
         <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-foreground">{t('lifecycle.title', 'Employee Lifecycle')}</h1>
-                    <p className="text-sm text-muted-foreground">{t('lifecycle.subtitle', 'Contracts, career history and offboarding in one place.')}</p>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 p-8 text-white shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold font-poppins">{t('nav.contract', 'Contract')}</h1>
+                    <p className="text-violet-100 mt-2 text-sm font-medium">Manage active contracts and view contract history.</p>
                 </div>
+                {/* Action button in cover */}
+                <div className="relative z-10 flex-shrink-0">
+                    {tab === 'contracts' && hasPermission('contracts.create') && (
+                        <Button
+                            size="sm"
+                            className="bg-white text-violet-700 hover:bg-violet-50 font-semibold shadow-md"
+                            onClick={() => setContractForm({ employee_id: '', type: 'probation', start_date: '', end_date: '', notes: '', status: 'pending' })}
+                        >
+                            <Plus className="h-4 w-4 mr-1" /> New Contract
+                        </Button>
+                    )}
+                    {tab === 'offboarding' && hasPermission('employees.delete') && (
+                        <Button
+                            size="sm"
+                            className="bg-white text-red-600 hover:bg-red-50 font-semibold shadow-md"
+                            onClick={() => setOffboardForm({ employee_id: '', resignation_date: '', last_working_day: '', reason: '' })}
+                        >
+                            <Plus className="h-4 w-4 mr-1" /> Start Offboarding
+                        </Button>
+                    )}
+                </div>
+                {/* Decorative Pattern */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
+                <div className="absolute bottom-0 right-20 -mb-10 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
 
-            {/* Tabs */}
             <div className="flex items-center gap-1 rounded-lg border bg-card p-1 shadow-sm w-fit">
                 {tabs.map(({ key, label, icon: Icon }) => (
                     <button
@@ -211,222 +262,42 @@ export default function Lifecycle() {
                 </div>
             ) : (
                 <>
-                    {/* ---------- OVERVIEW ---------- */}
-                    {tab === 'overview' && overview && (
-                        <div className="grid gap-5 lg:grid-cols-3">
-                            <div className="rounded-xl border border-orange-100 bg-gradient-to-br from-orange-50/50 via-card to-card p-5 shadow-sm">
-                                <h3 className="text-[15px] font-semibold mb-3 flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4 text-orange-500" />
-                                    {t('lifecycle.expiring_contracts', 'Contracts expiring soon')} ({overview.counts.expiring_contracts})
-                                </h3>
-                                {overview.expiring_contracts.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground py-4">{t('lifecycle.none', 'Nothing here.')}</p>
-                                ) : overview.expiring_contracts.map((c: any) => (
-                                    <div key={c.id} className="py-2 border-b last:border-0 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium">{c.employee?.name}</p>
-                                            <p className="text-[11px] text-muted-foreground">{c.type} · {fmt(c.end_date)}</p>
-                                        </div>
-                                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${daysUntil(c.end_date) <= 7 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                                            {daysUntil(c.end_date)} {t('lifecycle.days', 'days')}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/50 via-card to-card p-5 shadow-sm">
-                                <h3 className="text-[15px] font-semibold mb-3 flex items-center gap-2">
-                                    <FileSignature className="h-4 w-4 text-blue-500" />
-                                    {t('lifecycle.active_probations', 'Active probations')} ({overview.counts.probations})
-                                </h3>
-                                {overview.probations.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground py-4">{t('lifecycle.none', 'Nothing here.')}</p>
-                                ) : overview.probations.map((c: any) => (
-                                    <div key={c.id} className="py-2 border-b last:border-0 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium">{c.employee?.name}</p>
-                                            <p className="text-[11px] text-muted-foreground">{t('lifecycle.ends', 'Ends')}: {fmt(c.end_date)}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="rounded-xl border border-red-100 bg-gradient-to-br from-red-50/50 via-card to-card p-5 shadow-sm">
-                                <h3 className="text-[15px] font-semibold mb-3 flex items-center gap-2">
-                                    <DoorOpen className="h-4 w-4 text-red-500" />
-                                    {t('lifecycle.open_offboardings', 'Open offboardings')} ({overview.counts.open_offboardings})
-                                </h3>
-                                {overview.open_offboardings.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground py-4">{t('lifecycle.none', 'Nothing here.')}</p>
-                                ) : overview.open_offboardings.map((o: any) => (
-                                    <div key={o.id} className="py-2 border-b last:border-0 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium">{o.employee?.name}</p>
-                                            <p className="text-[11px] text-muted-foreground">{t('lifecycle.last_day', 'Last day')}: {fmt(o.last_working_day)}</p>
-                                        </div>
-                                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${statusBadge[o.status]}`}>{o.status.replace('_', ' ')}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/50 via-card to-card p-5 shadow-sm lg:col-span-3">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-[15px] font-semibold flex items-center gap-2">
-                                        <History className="h-4 w-4 text-violet-500" />
-                                        {t('lifecycle.recent_activity', 'Recent activity')}
-                                    </h3>
-                                    {events.length > 0 && (
-                                        <button onClick={() => setTab('history')} className="text-xs font-medium text-blue-600 hover:underline">
-                                            {t('lifecycle.view_all', 'View all')}
-                                        </button>
-                                    )}
-                                </div>
-                                {events.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground py-4">{t('lifecycle.none', 'Nothing here.')}</p>
-                                ) : (
-                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                        {events.slice(0, 6).map((e: any) => (
-                                            <div key={e.id} className="flex items-start gap-3 rounded-lg border p-3">
-                                                <span className={`mt-0.5 text-[11px] font-semibold px-2 py-0.5 rounded capitalize shrink-0 ${eventTypeBadge[e.type]}`}>
-                                                    {e.type.replace('_', ' ')}
-                                                </span>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-medium truncate">{e.employee?.name}</p>
-                                                    <p className="text-[11px] text-muted-foreground truncate">
-                                                        {e.old_value && <span className="line-through mr-1">{e.old_value}</span>}
-                                                        {e.new_value}
-                                                    </p>
-                                                    <p className="text-[11px] text-muted-foreground">{fmt(e.effective_date)}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ---------- CONTRACTS ---------- */}
                     {tab === 'contracts' && (
                         <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/40 via-card to-card shadow-sm">
-                            <div className="flex items-center justify-between p-4 border-b">
-                                <h3 className="text-[15px] font-semibold">{t('lifecycle.tab_contracts', 'Contracts')}</h3>
-                                <Button size="sm" onClick={() => setContractForm({ employee_id: '', type: 'probation', start_date: '', end_date: '', notes: '' })}>
-                                    <Plus className="h-4 w-4 mr-1" /> {t('lifecycle.new_contract', 'New Contract')}
-                                </Button>
+                            <div className="p-4 border-b">
+                                <h3 className="text-[15px] font-semibold">{t('nav.contracts', 'Contracts')}</h3>
                             </div>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>{t('lifecycle.employee', 'Employee')}</TableHead>
-                                        <TableHead>{t('lifecycle.type', 'Type')}</TableHead>
-                                        <TableHead>{t('lifecycle.start', 'Start')}</TableHead>
-                                        <TableHead>{t('lifecycle.end', 'End')}</TableHead>
-                                        <TableHead>{t('lifecycle.status', 'Status')}</TableHead>
-                                        <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {contracts.length === 0 && (
-                                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('lifecycle.none', 'Nothing here.')}</TableCell></TableRow>
-                                    )}
-                                    {contracts.map(c => (
-                                        <TableRow key={c.id}>
-                                            <TableCell className="font-medium">{c.employee?.name}</TableCell>
-                                            <TableCell>
-                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${contractTypeBadge[c.type]}`}>{c.type.replace('_', ' ')}</span>
-                                            </TableCell>
-                                            <TableCell>{fmt(c.start_date)}</TableCell>
-                                            <TableCell>{fmt(c.end_date)}</TableCell>
-                                            <TableCell>
-                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${statusBadge[c.status]}`}>{c.status}</span>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="sm" onClick={() => setContractForm({ ...c, start_date: c.start_date?.slice(0, 10), end_date: c.end_date?.slice(0, 10) ?? '' })}>
-                                                    {t('common.edit', 'Edit')}
-                                                </Button>
-                                                <Button variant="ghost" size="sm" className="text-red-500" onClick={() => deleteContract(c.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                            {renderTable(activeContracts, true)}
                         </div>
                     )}
 
-                    {/* ---------- CAREER HISTORY ---------- */}
                     {tab === 'history' && (
-                        <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/40 via-card to-card shadow-sm">
+                        <div className="rounded-xl border border-slate-200 bg-card shadow-sm">
                             <div className="flex items-center justify-between p-4 border-b">
-                                <h3 className="text-[15px] font-semibold">{t('lifecycle.tab_history', 'Career History')}</h3>
-                                <Button size="sm" onClick={() => setEventForm({ employee_id: '', type: 'promotion', old_value: '', new_value: '', effective_date: '', notes: '', apply_to_employee: true })}>
-                                    <Plus className="h-4 w-4 mr-1" /> {t('lifecycle.record_event', 'Record Event')}
-                                </Button>
+                                <h3 className="text-[15px] font-semibold">{t('nav.contract_history', 'Contract History')}</h3>
                             </div>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>{t('lifecycle.employee', 'Employee')}</TableHead>
-                                        <TableHead>{t('lifecycle.type', 'Type')}</TableHead>
-                                        <TableHead>{t('lifecycle.change', 'Change')}</TableHead>
-                                        <TableHead>{t('lifecycle.effective', 'Effective')}</TableHead>
-                                        <TableHead>{t('lifecycle.recorded_by', 'Recorded by')}</TableHead>
-                                        <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {events.length === 0 && (
-                                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('lifecycle.none', 'Nothing here.')}</TableCell></TableRow>
-                                    )}
-                                    {events.map(e => (
-                                        <TableRow key={e.id}>
-                                            <TableCell className="font-medium">{e.employee?.name}</TableCell>
-                                            <TableCell>
-                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${eventTypeBadge[e.type]}`}>{e.type.replace('_', ' ')}</span>
-                                            </TableCell>
-                                            <TableCell className="text-sm">
-                                                {e.old_value && <span className="text-muted-foreground line-through mr-2">{e.old_value}</span>}
-                                                <span className="font-medium">{e.new_value}</span>
-                                            </TableCell>
-                                            <TableCell>{fmt(e.effective_date)}</TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">{e.creator?.name ?? '—'}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="sm" className="text-red-500" onClick={() => deleteEvent(e.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                            {renderTable(historyContracts, false)}
                         </div>
                     )}
 
-                    {/* ---------- OFFBOARDING ---------- */}
                     {tab === 'offboarding' && (
                         <div className="rounded-xl border border-red-100 bg-gradient-to-br from-red-50/40 via-card to-card shadow-sm">
-                            <div className="flex items-center justify-between p-4 border-b">
-                                <h3 className="text-[15px] font-semibold">{t('lifecycle.tab_offboarding', 'Offboarding')}</h3>
-                                <Button size="sm" onClick={() => setOffboardForm({ employee_id: '', resignation_date: '', last_working_day: '', reason: '' })}>
-                                    <Plus className="h-4 w-4 mr-1" /> {t('lifecycle.start_offboarding', 'Start Offboarding')}
-                                </Button>
+                            <div className="p-4 border-b">
+                                <h3 className="text-[15px] font-semibold">{t('nav.offboarding', 'Offboarding')}</h3>
                             </div>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>{t('lifecycle.employee', 'Employee')}</TableHead>
-                                        <TableHead>{t('lifecycle.resigned', 'Resigned')}</TableHead>
-                                        <TableHead>{t('lifecycle.last_day', 'Last day')}</TableHead>
-                                        <TableHead>{t('lifecycle.checklist', 'Checklist')}</TableHead>
-                                        <TableHead>{t('lifecycle.status', 'Status')}</TableHead>
-                                        <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
+                                        <TableHead>{t('common.employee', 'Employee')}</TableHead>
+                                        <TableHead>Resigned</TableHead>
+                                        <TableHead>Last day</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {offboardings.length === 0 && (
-                                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('lifecycle.none', 'Nothing here.')}</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t('common.no_data', 'No offboardings found.')}</TableCell></TableRow>
                                     )}
                                     {offboardings.map(o => (
                                         <TableRow key={o.id}>
@@ -434,20 +305,20 @@ export default function Lifecycle() {
                                             <TableCell>{fmt(o.resignation_date)}</TableCell>
                                             <TableCell>{fmt(o.last_working_day)}</TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-24 h-2 rounded-full bg-slate-100 overflow-hidden">
-                                                        <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${checklistProgress(o)}%` }} />
-                                                    </div>
-                                                    <span className="text-[11px] text-muted-foreground">{checklistProgress(o)}%</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${statusBadge[o.status]}`}>{o.status.replace('_', ' ')}</span>
+                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded capitalize ${statusBadge[o.status] || 'bg-slate-100 text-slate-600'}`}>{o.status.replace('_', ' ')}</span>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="sm" onClick={() => setActiveOffboarding(o)}>
-                                                    {t('common.manage', 'Manage')}
-                                                </Button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-50" onClick={() => setActiveOffboarding({ ...o, isView: true })}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => setActiveOffboarding(o)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setOffboardingToDelete(o)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -458,17 +329,17 @@ export default function Lifecycle() {
                 </>
             )}
 
-            {/* ---------- Contract Dialog ---------- */}
+            {/* ---------- Contract Form Dialog ---------- */}
             <Dialog open={!!contractForm} onOpenChange={(open) => !open && setContractForm(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{contractForm?.id ? t('common.edit', 'Edit') : t('lifecycle.new_contract', 'New Contract')}</DialogTitle>
+                        <DialogTitle>{contractForm?.id ? t('common.edit', 'Edit') : 'New Contract'}</DialogTitle>
                     </DialogHeader>
                     {contractForm && (
                         <div className="space-y-3 py-2">
                             {!contractForm.id && (
                                 <div>
-                                    <Label>{t('lifecycle.employee', 'Employee')}</Label>
+                                    <Label>Employee</Label>
                                     <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
                                         value={contractForm.employee_id}
                                         onChange={e => setContractForm({ ...contractForm, employee_id: e.target.value })}>
@@ -478,31 +349,32 @@ export default function Lifecycle() {
                                 </div>
                             )}
                             <div>
-                                <Label>{t('lifecycle.type', 'Type')}</Label>
+                                <Label>Type</Label>
                                 <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
                                     value={contractForm.type}
                                     onChange={e => setContractForm({ ...contractForm, type: e.target.value })}>
-                                    <option value="probation">{t('lifecycle.probation', 'Probation')}</option>
-                                    <option value="fixed_term">{t('lifecycle.fixed_term', 'Fixed term')}</option>
-                                    <option value="permanent">{t('lifecycle.permanent', 'Permanent')}</option>
+                                    <option value="probation">Probation</option>
+                                    <option value="fixed_term">Fixed term</option>
+                                    <option value="permanent">Permanent</option>
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <Label>{t('lifecycle.start', 'Start')}</Label>
+                                    <Label>Start</Label>
                                     <Input type="date" value={contractForm.start_date} onChange={e => setContractForm({ ...contractForm, start_date: e.target.value })} />
                                 </div>
                                 <div>
-                                    <Label>{t('lifecycle.end', 'End')}</Label>
+                                    <Label>End</Label>
                                     <Input type="date" value={contractForm.end_date ?? ''} onChange={e => setContractForm({ ...contractForm, end_date: e.target.value })} />
                                 </div>
                             </div>
                             {contractForm.id && (
                                 <div>
-                                    <Label>{t('lifecycle.status', 'Status')}</Label>
+                                    <Label>Status</Label>
                                     <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
                                         value={contractForm.status}
                                         onChange={e => setContractForm({ ...contractForm, status: e.target.value })}>
+                                        <option value="pending">Pending</option>
                                         <option value="active">Active</option>
                                         <option value="expired">Expired</option>
                                         <option value="terminated">Terminated</option>
@@ -510,7 +382,7 @@ export default function Lifecycle() {
                                 </div>
                             )}
                             <div>
-                                <Label>{t('lifecycle.notes', 'Notes')}</Label>
+                                <Label>Notes</Label>
                                 <Input value={contractForm.notes ?? ''} onChange={e => setContractForm({ ...contractForm, notes: e.target.value })} />
                             </div>
                         </div>
@@ -522,64 +394,44 @@ export default function Lifecycle() {
                 </DialogContent>
             </Dialog>
 
-            {/* ---------- Event Dialog ---------- */}
-            <Dialog open={!!eventForm} onOpenChange={(open) => !open && setEventForm(null)}>
+            {/* ---------- View Contract Dialog ---------- */}
+            <Dialog open={!!viewContract} onOpenChange={(open) => !open && setViewContract(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('lifecycle.record_event', 'Record Event')}</DialogTitle>
+                        <DialogTitle>Contract Details</DialogTitle>
                     </DialogHeader>
-                    {eventForm && (
-                        <div className="space-y-3 py-2">
-                            <div>
-                                <Label>{t('lifecycle.employee', 'Employee')}</Label>
-                                <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
-                                    value={eventForm.employee_id}
-                                    onChange={e => setEventForm({ ...eventForm, employee_id: e.target.value })}>
-                                    <option value="">—</option>
-                                    {employees.map((emp: any) => <option key={emp.id} value={emp.id}>{emp.name ?? `${emp.first_name} ${emp.last_name}`}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <Label>{t('lifecycle.type', 'Type')}</Label>
-                                <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
-                                    value={eventForm.type}
-                                    onChange={e => setEventForm({ ...eventForm, type: e.target.value })}>
-                                    <option value="promotion">{t('lifecycle.promotion', 'Promotion')}</option>
-                                    <option value="transfer">{t('lifecycle.transfer', 'Transfer')}</option>
-                                    <option value="salary_change">{t('lifecycle.salary_change', 'Salary change')}</option>
-                                    <option value="status_change">{t('lifecycle.status_change', 'Status change')}</option>
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
+                    {viewContract && (
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label>{t('lifecycle.from', 'From')}</Label>
-                                    <Input placeholder={t('lifecycle.old_value_ph', 'e.g. Junior Developer')} value={eventForm.old_value} onChange={e => setEventForm({ ...eventForm, old_value: e.target.value })} />
+                                    <Label className="text-muted-foreground">Employee</Label>
+                                    <div className="font-medium">{viewContract.employee?.name}</div>
                                 </div>
                                 <div>
-                                    <Label>{t('lifecycle.to', 'To')}</Label>
-                                    <Input placeholder={t('lifecycle.new_value_ph', 'e.g. Senior Developer')} value={eventForm.new_value} onChange={e => setEventForm({ ...eventForm, new_value: e.target.value })} />
+                                    <Label className="text-muted-foreground">Status</Label>
+                                    <div className="font-medium capitalize">{viewContract.status}</div>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Type</Label>
+                                    <div className="font-medium capitalize">{viewContract.type.replace('_', ' ')}</div>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Notes</Label>
+                                    <div className="font-medium">{viewContract.notes || '—'}</div>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Start Date</Label>
+                                    <div className="font-medium">{fmt(viewContract.start_date)}</div>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">End Date</Label>
+                                    <div className="font-medium">{fmt(viewContract.end_date)}</div>
                                 </div>
                             </div>
-                            <div>
-                                <Label>{t('lifecycle.effective', 'Effective')}</Label>
-                                <Input type="date" value={eventForm.effective_date} onChange={e => setEventForm({ ...eventForm, effective_date: e.target.value })} />
-                            </div>
-                            <div>
-                                <Label>{t('lifecycle.notes', 'Notes')}</Label>
-                                <Input value={eventForm.notes} onChange={e => setEventForm({ ...eventForm, notes: e.target.value })} />
-                            </div>
-                            {(eventForm.type === 'promotion' || eventForm.type === 'transfer') && (
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" checked={eventForm.apply_to_employee}
-                                        onChange={e => setEventForm({ ...eventForm, apply_to_employee: e.target.checked })} />
-                                    {t('lifecycle.apply_to_employee', 'Also update the employee record (job title / department)')}
-                                </label>
-                            )}
                         </div>
                     )}
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setEventForm(null)}>{t('common.cancel', 'Cancel')}</Button>
-                        <Button onClick={saveEvent} disabled={!eventForm?.employee_id || !eventForm?.effective_date}>{t('common.save', 'Save')}</Button>
+                        <Button variant="outline" onClick={() => setViewContract(null)}>Close</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -588,12 +440,12 @@ export default function Lifecycle() {
             <Dialog open={!!offboardForm} onOpenChange={(open) => !open && setOffboardForm(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('lifecycle.start_offboarding', 'Start Offboarding')}</DialogTitle>
+                        <DialogTitle>Start Offboarding</DialogTitle>
                     </DialogHeader>
                     {offboardForm && (
                         <div className="space-y-3 py-2">
                             <div>
-                                <Label>{t('lifecycle.employee', 'Employee')}</Label>
+                                <Label>Employee</Label>
                                 <select className="w-full mt-1 rounded-md border px-3 py-2 text-sm bg-background"
                                     value={offboardForm.employee_id}
                                     onChange={e => setOffboardForm({ ...offboardForm, employee_id: e.target.value })}>
@@ -603,16 +455,16 @@ export default function Lifecycle() {
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <Label>{t('lifecycle.resigned', 'Resigned')}</Label>
+                                    <Label>Resigned</Label>
                                     <Input type="date" value={offboardForm.resignation_date} onChange={e => setOffboardForm({ ...offboardForm, resignation_date: e.target.value })} />
                                 </div>
                                 <div>
-                                    <Label>{t('lifecycle.last_day', 'Last day')}</Label>
+                                    <Label>Last day</Label>
                                     <Input type="date" value={offboardForm.last_working_day} onChange={e => setOffboardForm({ ...offboardForm, last_working_day: e.target.value })} />
                                 </div>
                             </div>
                             <div>
-                                <Label>{t('lifecycle.reason', 'Reason')}</Label>
+                                <Label>Reason</Label>
                                 <Input value={offboardForm.reason} onChange={e => setOffboardForm({ ...offboardForm, reason: e.target.value })} />
                             </div>
                         </div>
@@ -638,45 +490,79 @@ export default function Lifecycle() {
                     {activeOffboarding && (
                         <div className="space-y-4 py-2">
                             <div className="text-sm text-muted-foreground">
-                                {t('lifecycle.last_day', 'Last day')}: <span className="font-medium text-foreground">{fmt(activeOffboarding.last_working_day)}</span>
+                                Last day: <span className="font-medium text-foreground">{fmt(activeOffboarding.last_working_day)}</span>
                                 {activeOffboarding.reason && <> · {activeOffboarding.reason}</>}
                             </div>
                             <div className="space-y-2">
                                 {(activeOffboarding.checklist ?? []).map((item: any) => (
-                                    <label key={item.key} className="flex items-center gap-3 rounded-lg border p-2.5 cursor-pointer hover:bg-slate-50 transition-colors">
-                                        <input type="checkbox" checked={item.done} onChange={() => toggleChecklistItem(activeOffboarding, item.key)} />
+                                    <label key={item.key} className={`flex items-center gap-3 rounded-lg border p-2.5 transition-colors ${activeOffboarding.isView ? 'bg-slate-50 opacity-70' : 'cursor-pointer hover:bg-slate-50'}`}>
+                                        <input type="checkbox" checked={item.done} disabled={activeOffboarding.isView} onChange={() => toggleChecklistItem(activeOffboarding, item.key)} />
                                         <span className={`text-sm ${item.done ? 'line-through text-muted-foreground' : ''}`}>{item.label}</span>
                                         {item.done && <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />}
                                     </label>
                                 ))}
                             </div>
-                            <div className="flex items-center gap-2">
+                            {!activeOffboarding.isView && (
+                                <div className="flex items-center gap-2">
                                 {activeOffboarding.status !== 'completed' && (
                                     <>
                                         {activeOffboarding.status === 'pending' && (
                                             <Button size="sm" variant="outline" onClick={() => updateOffboarding(activeOffboarding.id, { status: 'in_progress' })}>
-                                                {t('lifecycle.mark_in_progress', 'Mark In Progress')}
+                                                Mark In Progress
                                             </Button>
                                         )}
                                         <Button size="sm" onClick={() => updateOffboarding(activeOffboarding.id, { status: 'completed' })}
                                             disabled={checklistProgress(activeOffboarding) < 100}>
-                                            {t('lifecycle.complete', 'Complete Offboarding')}
+                                            Complete Offboarding
                                         </Button>
                                     </>
                                 )}
                                 {activeOffboarding.status === 'completed' && (
                                     <span className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                        <CheckCircle2 className="h-4 w-4" /> {t('lifecycle.completed', 'Completed')} {activeOffboarding.completed_at ? `· ${fmt(activeOffboarding.completed_at)}` : ''}
+                                        <CheckCircle2 className="h-4 w-4" /> Completed {activeOffboarding.completed_at ? `· ${fmt(activeOffboarding.completed_at)}` : ''}
                                     </span>
                                 )}
-                            </div>
-                            {checklistProgress(activeOffboarding) < 100 && activeOffboarding.status !== 'completed' && (
-                                <p className="text-[11px] text-muted-foreground">{t('lifecycle.complete_hint', 'All checklist items must be done before completing.')}</p>
+                                </div>
+                            )}
+                            {checklistProgress(activeOffboarding) < 100 && activeOffboarding.status !== 'completed' && !activeOffboarding.isView && (
+                                <p className="text-[11px] text-muted-foreground">All checklist items must be done before completing.</p>
                             )}
                         </div>
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Offboarding Confirmation Modal */}
+            <Dialog open={!!offboardingToDelete} onOpenChange={(open) => !open && setOffboardingToDelete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600 flex items-center gap-2">
+                            <Trash2 className="h-5 w-5" />
+                            Delete Offboarding Record
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-sm text-muted-foreground">
+                            Are you sure you want to delete this offboarding record? This action cannot be undone.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setOffboardingToDelete(null)}>Cancel</Button>
+                        <Button variant="destructive" onClick={() => {
+                            if (offboardingToDelete) {
+                                api.delete(`/lifecycle/offboardings/${offboardingToDelete.id}`).then(() => {
+                                    setOffboardings(current => current.filter(off => off.id !== offboardingToDelete.id));
+                                    toast.success("Offboarding deleted");
+                                    setOffboardingToDelete(null);
+                                }).catch(() => toast.error("Failed to delete"));
+                            }
+                        }}>
+                            Delete Record
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }

@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 
 export default function OvertimeList() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const canReviewOvertime = user?.roles?.some(
         (role: any) => role.name === 'Admin' || role.name === 'Super Admin'
     ) ?? false;
@@ -208,12 +208,16 @@ export default function OvertimeList() {
                                                         exit={{ opacity: 0, scale: 0.9 }}
                                                         className="flex justify-end gap-2"
                                                     >
-                                                        <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 hover:scale-105 transition-all outline-none" onClick={() => setStatusUpdate({ id: ot.id, status: 'approved' })} title="Approve">
-                                                            <Check className="h-4 w-4 stroke-[3]" />
-                                                        </Button>
-                                                        <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-red-600 hover:text-red-700 hover:bg-red-500/10 hover:scale-105 transition-all outline-none" onClick={() => setStatusUpdate({ id: ot.id, status: 'rejected' })} title="Reject">
-                                                            <X className="h-4 w-4 stroke-[3]" />
-                                                        </Button>
+                                                        {hasPermission('overtime.approve') && (
+                                                            <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 hover:scale-105 transition-all outline-none" onClick={() => setStatusUpdate({ id: ot.id, status: 'approved' })} disabled={!hasPermission('overtime.approve')} title={!hasPermission('overtime.approve') ? 'No permission' : 'Approve'}>
+                                                                <Check className="h-4 w-4 stroke-[3]" />
+                                                            </Button>
+                                                        )}
+                                                        {hasPermission('overtime.approve') && (
+                                                            <Button size="icon" variant="outline" className="h-9 w-9 rounded-full bg-background shadow-sm text-red-600 hover:text-red-700 hover:bg-red-500/10 hover:scale-105 transition-all outline-none" onClick={() => setStatusUpdate({ id: ot.id, status: 'rejected' })} disabled={!hasPermission('overtime.approve')} title={!hasPermission('overtime.approve') ? 'No permission' : 'Reject'}>
+                                                                <X className="h-4 w-4 stroke-[3]" />
+                                                            </Button>
+                                                        )}
                                                     </motion.div>
                                                 )}
                                                 {ot.status !== 'pending' && (
