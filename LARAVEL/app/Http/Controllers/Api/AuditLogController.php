@@ -41,7 +41,7 @@ class AuditLogController extends Controller
 
         AuditLog::create([
             'user_id' => Auth::id(),
-            'role' => Auth::user()->role->name ?? 'Super Admin',
+            'role' => Auth::user()->getActiveRole()?->name ?? 'Unknown',
             'action' => 'AUDIT_EXPORTED',
             'ip_address' => $request->ip(),
             'context' => [
