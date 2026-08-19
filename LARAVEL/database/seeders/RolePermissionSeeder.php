@@ -93,7 +93,9 @@ class RolePermissionSeeder extends Seeder
         // Ensure all Super Admin users are assigned to all departments
         $allDepartmentIds = Department::pluck('id');
         if ($allDepartmentIds->isNotEmpty()) {
-            User::where('role_id', $superAdminRole->id)->get()->each(function ($superAdmin) use ($allDepartmentIds) {
+            User::whereHas('assignedRoles', function ($q) use ($superAdminRole) {
+                $q->where('roles.id', $superAdminRole->id);
+            })->get()->each(function ($superAdmin) use ($allDepartmentIds) {
                 $superAdmin->managedDepartments()->sync($allDepartmentIds);
             });
         }
