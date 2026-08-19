@@ -109,12 +109,12 @@ export default function Reports() {
         "reportTypes",
         ["attendance"],
     );
-    
+
     // Default to the current month's start and end dates
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
-    
+
     const [dateRange, setDateRange] = useRetainedReportState(
         "dateRange",
         { start: firstDay, end: lastDay },
@@ -128,7 +128,7 @@ export default function Reports() {
         {},
     );
     const [loading, setLoading] = useState(false);
-    
+
     // Employee filter
     const [employees, setEmployees] = useState<any[]>([]);
     const [selectedEmployeeId, setSelectedEmployeeId] = useRetainedReportState(
@@ -203,7 +203,7 @@ export default function Reports() {
         if (!silent) setLoading(true);
         try {
             const params: any = { start_date: dateRange.start || new Date().toISOString().split('T')[0], end_date: dateRange.end || new Date().toISOString().split('T')[0] };
-            
+
             const newMap: Record<string, any[]> = {};
             await Promise.all(reportTypes.map(async (type) => {
                 const endpoint = type === "custom_entities"
@@ -223,7 +223,7 @@ export default function Reports() {
                 const res = await api.get(endpoint, { params: typeParams });
                 newMap[type] = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
             }));
-            
+
             setReportDataMap(current => ({ ...current, ...newMap }));
         } catch (error) {
             console.error("Failed to fetch report", error);
@@ -415,24 +415,24 @@ export default function Reports() {
             let currentY = 20;
 
             // ── Color palette ─────────────────────────────────────────────────
-            const navyDark: [number, number, number]  = [15, 23, 60];
-            const navyMid:  [number, number, number]  = [30, 58, 138];
+            const navyDark: [number, number, number] = [15, 23, 60];
+            const navyMid: [number, number, number] = [30, 58, 138];
             const accentBlue: [number, number, number] = [59, 130, 246];
             const slateLight: [number, number, number] = [241, 245, 249];
             const slateBorder: [number, number, number] = [203, 213, 225];
-            const textDark: [number, number, number]  = [15, 23, 42];
-            const textMid:  [number, number, number]  = [71, 85, 105];
+            const textDark: [number, number, number] = [15, 23, 42];
+            const textMid: [number, number, number] = [71, 85, 105];
             const textLight: [number, number, number] = [148, 163, 184];
-            const white: [number, number, number]     = [255, 255, 255];
-            const rowAlt: [number, number, number]    = [248, 250, 252];
+            const white: [number, number, number] = [255, 255, 255];
+            const rowAlt: [number, number, number] = [248, 250, 252];
 
             // ── Section accent colors ─────────────────────────────────────────
             const sectionColors: Record<string, [number, number, number]> = {
-                'Attendance Report':  [34, 197, 94],
-                'Leaves Report':      [251, 146, 60],
-                'Payroll Report':     [99, 102, 241],
-                'Overtime Report':    [236, 72, 153],
-                'Employee Report':    [20, 184, 166],
+                'Attendance Report': [34, 197, 94],
+                'Leaves Report': [251, 146, 60],
+                'Payroll Report': [99, 102, 241],
+                'Overtime Report': [236, 72, 153],
+                'Employee Report': [20, 184, 166],
             };
 
             const drawPageHeader = (isFirstPage: boolean) => {
@@ -665,12 +665,16 @@ export default function Reports() {
                     <p className="text-blue-100 mt-2 text-sm font-medium">{isSuperAdmin ? "Review reports submitted by the HR Manager." : "Generate and export system reports."}</p>
                 </div>
                 <div className="relative z-10 flex gap-2">
-                    <Button variant="outline" onClick={exportToExcel} disabled={!hasData} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
-                        <Download className="mr-2 h-4 w-4" /> Export Excel
-                    </Button>
-                    <Button variant="outline" onClick={exportToPDF} disabled={!hasData} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
-                        <Download className="mr-2 h-4 w-4" /> Export PDF
-                    </Button>
+                    {hasPermission('reports.export') && (
+                        <>
+                            <Button variant="outline" onClick={exportToExcel} disabled={!hasData} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
+                                <Download className="mr-2 h-4 w-4" /> Export Excel
+                            </Button>
+                            <Button variant="outline" onClick={exportToPDF} disabled={!hasData} className="bg-white/20 hover:bg-white/30 text-white border-white/50 backdrop-blur-sm disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
+                                <Download className="mr-2 h-4 w-4" /> Export PDF
+                            </Button>
+                        </>
+                    )}
                 </div>
                 {/* Decorative Pattern */}
                 <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
