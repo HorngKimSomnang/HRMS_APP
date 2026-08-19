@@ -53,6 +53,12 @@ api.interceptors.response.use(
                 localStorage.removeItem('user');
                 window.location.href = '/login';
             }
+        } else if (error.response?.status === 403) {
+            import('sonner').then(({ toast }) => {
+                toast.error('Your permissions changed. Please refresh the page.', {
+                    duration: 5000,
+                });
+            });
         }
         return Promise.reject(error);
     }
