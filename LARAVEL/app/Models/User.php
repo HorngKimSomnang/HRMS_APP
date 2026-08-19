@@ -14,14 +14,18 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
-
     public function department()
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function getActiveRole()
+    {
+        $token = $this->currentAccessToken();
+        if ($token && $token->active_role_id) {
+            return Role::find($token->active_role_id);
+        }
+        return null;
     }
 
     public function scopeRole($query, string|array $roles)
@@ -30,44 +34,43 @@ class User extends Authenticatable
             $roles = [$roles];
         }
 
-        return $query->whereHas('role', function ($q) use ($roles) {
+        return $query->whereHas('assignedRoles', function ($q) use ($roles) {
             $q->whereIn('name', $roles);
         });
     }
 
     public function hasRole(string|array $roles): bool
     {
-        if (!$this->role) {
+        $activeRole = $this->getActiveRole();
+        if (!$activeRole) {
             return false;
         }
 
         if (is_array($roles)) {
-            return in_array($this->role->name, $roles);
+            return in_array($activeRole->name, $roles);
         }
 
-        return $this->role->name === $roles;
+        return $activeRole->name === $roles;
     }
 
     public function hasPermissionTo(string $ability): bool
     {
-        if (!$this->role) {
+        $activeRole = $this->getActiveRole();
+        if (!$activeRole) {
             return false;
         }
         
-        if ($this->role->is_system && $this->role->name === 'Super Admin') {
+        if ($activeRole->is_super_admin || ($activeRole->is_system && $activeRole->name === 'Super Admin')) {
             return true;
         }
 
-        // Split ability (e.g. "employee.view" -> feature "employee", action "view")
-        // or support direct matching
         $parts = explode('.', $ability);
         
-        return $this->role->permissions()
+        return $activeRole->permissions()
             ->where(function ($query) use ($parts, $ability) {
                 if (count($parts) === 2) {
                     $query->where('feature', $parts[0])->where('action', $parts[1]);
                 } else {
-                    // Fallback if they pass something else
                     $query->where('feature', $ability);
                 }
             })
@@ -89,14 +92,18 @@ class User extends Authenticatable
 
     public function getAllPermissions()
     {
-        if (!$this->role) {
+        $activeRole = $this->getActiveRole();
+        if (!$activeRole) {
             return collect();
         }
         
-        // If Super Admin, return all permissions in the system? 
-        // Or just return the role's assigned permissions. Let's return assigned.
-        // The frontend AuthContext usually bypasses checks if isSuperAdmin anyway.
-        return $this->role->permissions->map(function ($p) {
+        if ($activeRole->is_super_admin || ($activeRole->is_system && $activeRole->name === 'Super Admin')) {
+            return Permission::all()->map(function ($p) {
+                return (object)['name' => $p->feature . '.' . $p->action];
+            });
+        }
+
+        return $activeRole->permissions->map(function ($p) {
             return (object)['name' => $p->feature . '.' . $p->action];
         });
     }
@@ -145,7 +152,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role_id',
         'department_id',
     ];
 
