@@ -17,7 +17,7 @@ class RoleController extends Controller
         $user = auth()->user();
         $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
         
-        $query = User::with(['role', 'employee', 'managedDepartments']);
+        $query = User::with(['employee', 'managedDepartments']);
         
         if (empty($managedDepartmentIds)) {
             // Only see themselves if they manage no departments
@@ -43,80 +43,7 @@ class RoleController extends Controller
         ]);
     }
 
-    // POST /api/admin/users/{user}/roles
-    public function assignRole(Request $request, User $user)
-    {
-        $request->validate([
-            'role' => 'required|string|exists:roles,name',
-        ]);
 
-        $roleName = $request->role;
-
-        // Validation for Department Manager
-        if ($roleName === 'Department Manager') {
-            if (!$user->employee || empty($user->employee->department_id) && empty($user->department_id)) {
-                return response()->json([
-                    'message' => 'User must have a department set before being assigned as Department Manager.'
-                ], 422);
-            }
-        }
-
-        if ($user->hasRole($roleName)) {
-            return response()->json(['message' => 'User already has this role.'], 400);
-        }
-
-        $role = Role::where('name', $roleName)->firstOrFail();
-        $user->update(['role_id' => $role->id]);
-
-        AuditLogger::log($request, 'ROLE_ASSIGNED', $user, [
-            'assigned_role' => $roleName,
-            'message' => "Assigned role '{$roleName}' to user {$user->id}"
-        ]);
-
-        return response()->json([
-            'message' => "Role '{$roleName}' assigned successfully.",
-            'roles' => $user->roles->pluck('name')
-        ]);
-    }
-
-    // DELETE /api/admin/users/{user}/roles/{role}
-    public function removeRole(Request $request, User $user, $role)
-    {
-        if (!$user->hasRole($role)) {
-            return response()->json(['message' => 'User does not have this role.'], 400);
-        }
-
-        // Prevent Super Admin from removing their own Super Admin role
-        if ($role === 'Super Admin' && $request->user()->id === $user->id) {
-            return response()->json([
-                'message' => 'You cannot remove your own Super Admin role to prevent lockout.'
-            ], 403);
-        }
-
-        // Optional: Check if it's the last Super Admin in the system
-        if ($role === 'Super Admin') {
-            $superAdminCount = User::whereHas('role', fn($q) => $q->where('name', 'Super Admin'))->count();
-            if ($superAdminCount <= 1) {
-                return response()->json([
-                    'message' => 'Cannot remove the last Super Admin from the system.'
-                ], 403);
-            }
-        }
-
-        $employeeRole = Role::where('name', 'Employee')->first();
-        $user->update(['role_id' => $employeeRole?->id]);
-        $user->tokens()->delete();
-
-        AuditLogger::log($request, 'ROLE_REMOVED', $user, [
-            'removed_role' => $role,
-            'message' => "Removed role '{$role}' from user {$user->id}"
-        ]);
-
-        return response()->json([
-            'message' => "Role '{$role}' removed successfully.",
-            'roles' => $user->roles->pluck('name')
-        ]);
-    }
 
     // GET /api/admin/roles
     public function indexRoles()
@@ -126,11 +53,7 @@ class RoleController extends Controller
     }
 
     // GET /api/admin/permissions
-    public function indexPermissions()
-    {
-        $permissions = Permission::all();
-        return response()->json($permissions);
-    }
+
 
     // GET /api/admin/roles/{role}
     public function show(Role $role)
@@ -142,7 +65,7 @@ class RoleController extends Controller
     // POST /api/admin/roles
     public function store(Request $request)
     {
-        if (!$request->user()->role?->is_super_admin) {
+        if (!$request->user()->hasRole('Super Admin')) {
             abort(403, 'Only Super Admins can manage roles.');
         }
 
@@ -179,7 +102,7 @@ class RoleController extends Controller
     // PUT /api/admin/roles/{role}
     public function update(Request $request, Role $role)
     {
-        if (!$request->user()->role?->is_super_admin) {
+        if (!$request->user()->hasRole('Super Admin')) {
             abort(403, 'Only Super Admins can manage roles.');
         }
 
@@ -225,7 +148,7 @@ class RoleController extends Controller
     // DELETE /api/admin/roles/{role}
     public function destroy(Request $request, Role $role)
     {
-        if (!$request->user()->role?->is_super_admin) {
+        if (!$request->user()->hasRole('Super Admin')) {
             abort(403, 'Only Super Admins can manage roles.');
         }
 
