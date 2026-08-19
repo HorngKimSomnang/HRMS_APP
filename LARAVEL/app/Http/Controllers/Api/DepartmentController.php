@@ -19,7 +19,7 @@ class DepartmentController extends Controller
             })
             ->update(['description' => 'System default department for unassigned employees.']);
 
-        $departments = Department::with(['managers.employee', 'managers.role'])->get()->map(function ($department) {
+        $departments = Department::with(['managers.employee'])->get()->map(function ($department) {
             $department->employees_count = $this->calculateHeadcount($department);
             return $department;
         });
@@ -42,7 +42,7 @@ class DepartmentController extends Controller
 
     public function show(Department $department)
     {
-        $department->load(['managers.employee', 'managers.role']);
+        $department->load(['managers.employee']);
         $department->employees_count = $this->calculateHeadcount($department);
         return response()->json($department);
     }
@@ -60,7 +60,7 @@ class DepartmentController extends Controller
         ]);
 
         $department->update($validated);
-        $department->load(['managers.employee', 'managers.role']);
+        $department->load(['managers.employee']);
         $department->employees_count = $this->calculateHeadcount($department);
         return response()->json($department);
     }
