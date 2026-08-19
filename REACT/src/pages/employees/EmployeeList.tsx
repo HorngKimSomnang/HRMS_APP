@@ -4,6 +4,7 @@ import { Pencil, UserMinus, Plus, Search, Eye, Archive, KeyRound, RotateCcw, Use
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/context/AuthContext';
+import { invalidateApiCache } from '@/services/apiCache';
 import api from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -128,6 +129,9 @@ export default function EmployeeList() {
             };
             await api.post(`/employees/${accessUserObj.employee.id}/permissions/bulk`, payload);
             toast.success('Access updated successfully!');
+            
+            invalidateApiCache(['admin', 'departments', 'employees', 'users', 'roles']);
+            
             setAccessModalOpen(false);
             fetchEmployees(true);
             setSelectedAccessEmployee(null);
@@ -580,7 +584,13 @@ export default function EmployeeList() {
                                                                             const nextIds = exists 
                                                                                 ? prev.role_ids.filter(id => id !== role.id) 
                                                                                 : [...prev.role_ids, role.id];
-                                                                            return { ...prev, role_ids: nextIds };
+                                                                                
+                                                                            let nextManagedDepts = prev.managed_departments;
+                                                                            if (exists && role.is_super_admin) {
+                                                                                nextManagedDepts = [];
+                                                                            }
+                                                                            
+                                                                            return { ...prev, role_ids: nextIds, managed_departments: nextManagedDepts };
                                                                         });
                                                                     }}
                                                                     className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
