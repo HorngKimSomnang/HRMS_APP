@@ -37,7 +37,7 @@ class ResetSuperAdmin extends Command
         // Assign role if not already assigned
         if (!$user->hasRole('Super Admin')) {
             $superAdminRole = \App\Models\Role::where('name', 'Super Admin')->first();
-            $user->update(['role_id' => $superAdminRole->id]);
+            $user->assignedRoles()->sync([$superAdminRole->id]);
             $this->info('✅ Role "Super Admin" assigned.');
         } else {
             $this->info('ℹ️  Role "Super Admin" already assigned.');
