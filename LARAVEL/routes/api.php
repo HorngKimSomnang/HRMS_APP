@@ -42,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Authenticate WebSocket private channel subscriptions
     \Illuminate\Support\Facades\Broadcast::routes(['middleware' => ['auth:sanctum']]);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/switch-role', [AuthController::class, 'switchRole']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::put('/profile/update', [AuthController::class, 'updateProfile']);
     Route::get('/user', [AuthController::class, 'me']);
@@ -269,7 +270,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/settings', [\App\Http\Controllers\Api\SettingController::class, 'update']);
     Route::post('/settings/logo', [\App\Http\Controllers\Api\SettingController::class, 'uploadLogo']);
     Route::apiResource('shifts', \App\Http\Controllers\Api\ShiftController::class)->except(['index', 'show'])->middleware('permission:shifts.create|shifts.edit|shifts.delete');
-    Route::apiResource('users', \App\Http\Controllers\Api\UserController::class)->middleware('permission:employees.edit');
     
     Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index'])->middleware('permission:audit_logs.view');
     Route::post('/audit-logs/export', [\App\Http\Controllers\Api\AuditLogController::class, 'export'])->middleware('permission:audit_logs.view');
@@ -278,14 +278,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin')->group(function () {
         Route::get('/users', [\App\Http\Controllers\Api\RoleController::class, 'indexUsers'])->middleware('permission:roles.view');
         Route::get('/users/{user}/roles', [\App\Http\Controllers\Api\RoleController::class, 'getUserRoles'])->middleware('permission:roles.view');
-        Route::post('/users/{user}/roles', [\App\Http\Controllers\Api\RoleController::class, 'assignRole'])->middleware('permission:roles.edit');
-        Route::delete('/users/{user}/roles/{role}', [\App\Http\Controllers\Api\RoleController::class, 'removeRole'])->middleware('permission:roles.edit');
         Route::get('/roles', [\App\Http\Controllers\Api\RoleController::class, 'indexRoles'])->middleware('permission:roles.view');
         Route::get('/roles/{role}', [\App\Http\Controllers\Api\RoleController::class, 'show'])->middleware('permission:roles.view');
         Route::post('/roles', [\App\Http\Controllers\Api\RoleController::class, 'store'])->middleware('permission:roles.create');
         Route::put('/roles/{role}', [\App\Http\Controllers\Api\RoleController::class, 'update'])->middleware('permission:roles.edit');
         Route::delete('/roles/{role}', [\App\Http\Controllers\Api\RoleController::class, 'destroy'])->middleware('permission:roles.delete');
-        Route::get('/permissions', [\App\Http\Controllers\Api\RoleController::class, 'indexPermissions'])->middleware('permission:roles.view');
+        Route::get('/features', [\App\Http\Controllers\Api\PermissionController::class, 'getFeatures'])->middleware('permission:roles.view');
+        Route::apiResource('permissions', \App\Http\Controllers\Api\PermissionController::class)->only(['index', 'store', 'destroy'])->middleware('permission:permissions.manage');
         Route::post('/users/{user}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])->middleware('permission:roles.edit');
     });
 });
