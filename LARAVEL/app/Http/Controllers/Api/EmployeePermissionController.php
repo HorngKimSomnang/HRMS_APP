@@ -154,7 +154,7 @@ class EmployeePermissionController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        if (!$request->user()->role?->is_super_admin) {
+        if (!$request->user()->hasRole('Super Admin')) {
             abort(403, 'Only Super Admins can manage employee access.');
         }
 
@@ -169,11 +169,11 @@ class EmployeePermissionController extends Controller
         $targetUser = $employee->user;
 
         $superAdminRole = \App\Models\Role::where('is_super_admin', true)->first();
-        $targetUserWasSuperAdmin = $superAdminRole && $targetUser->role_id === $superAdminRole->id;
+        $targetUserWasSuperAdmin = $superAdminRole && $targetUser->hasRole('Super Admin');
         $targetUserIsSuperAdmin = $superAdminRole && in_array($superAdminRole->id, $validated['role_ids']);
 
         if ($superAdminRole && $targetUserWasSuperAdmin && !$targetUserIsSuperAdmin) {
-            $superAdminCount = \App\Models\User::where('role_id', $superAdminRole->id)->count();
+            $superAdminCount = \App\Models\User::whereHas('assignedRoles', fn($q) => $q->where('roles.id', $superAdminRole->id))->count();
             if ($superAdminCount <= 1) {
                 return response()->json(['message' => 'Cannot change role: There must be at least one Super Admin in the system.'], 403);
             }
@@ -209,12 +209,8 @@ class EmployeePermissionController extends Controller
         }
 
         DB::transaction(function () use ($targetUser, $employee, $validated, $superAdminRole, $targetUserIsSuperAdmin) {
-            $currentActiveRole = $targetUser->role_id;
-            $newActiveRole = in_array($currentActiveRole, $validated['role_ids']) ? $currentActiveRole : $validated['role_ids'][0];
-
             // Employee model no longer has department_id; it was moved to User.
             $targetUser->update([
-                'role_id'       => $newActiveRole,
                 'department_id' => $validated['department_id'],
             ]);
 
