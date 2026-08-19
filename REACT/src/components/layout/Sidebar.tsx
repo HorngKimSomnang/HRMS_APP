@@ -4,10 +4,11 @@ import {
     LayoutDashboard, Users, CalendarCheck, Settings, LogOut,
     FileText, CheckSquare, FileBarChart, Wallet, Clock,
     Building2, UserCog, ChevronRight, ChevronDown, ScrollText,
-    Package, ShieldCheck, FileSignature
+    Package, ShieldCheck, FileSignature, RefreshCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
 
@@ -57,11 +58,15 @@ function CollapsibleSection({ label, children, defaultExpanded = true }: { label
 }
 
 export function Sidebar() {
-    const { logout, user, hasPermission } = useAuth();
+    const { user, logout, hasPermission } = useAuth();
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-    const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin');
+    // The backend AuthController now injects active_role on the user object
+    const isSuperAdmin = user?.active_role?.is_super_admin || user?.active_role?.name === 'Super Admin';
+    const activeRoleName = user?.active_role?.name || 'No Role';
+    const hasMultipleRoles = user?.roles && user.roles.length > 1;
 
     useEffect(() => {
         api.get('/settings').then(res => {
@@ -171,7 +176,6 @@ export function Sidebar() {
                     {/* ══════════════════════════════════════ */}
                     {isSuperAdmin && (
                         <CollapsibleSection label={t('nav.section_system')}>
-                            <NavItem to="/admins" icon={Users} label={t('nav.admins')} highlight />
                             <NavItem to="/settings/shifts" icon={CalendarCheck} label={t('nav.shift_management')} highlight />
                             <NavItem to="/settings" icon={Settings} label={t('nav.settings')} highlight />
                             <NavItem to="/audit-logs" icon={ScrollText} label={t('nav.audit_logs')} highlight />
@@ -183,29 +187,52 @@ export function Sidebar() {
 
             {/* User footer */}
             <div className="p-4 border-t border-white/10 bg-black/10">
-                <NavLink
-                    to="/profile"
-                    className={({ isActive }) => cn(
-                        "flex items-center gap-3 mb-3 px-2 py-2 rounded-lg transition-all cursor-pointer group",
-                        isActive ? "bg-white/20" : "hover:bg-white/10"
+                <div className="flex flex-col gap-1 mb-2">
+                    <NavLink
+                        to="/profile"
+                        className={({ isActive }) => cn(
+                            "flex items-center gap-3 px-2 py-2 rounded-lg transition-all cursor-pointer group",
+                            isActive ? "bg-white/20" : "hover:bg-white/10"
+                        )}
+                    >
+                        <div className="h-8 w-8 rounded-full bg-white/15 ring-1 ring-white/20 flex items-center justify-center text-white font-bold text-sm group-hover:ring-2 group-hover:ring-white/40 transition-all shrink-0">
+                            {user?.name?.[0]?.toUpperCase() ?? 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate leading-tight">{user?.name}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                                <span className={cn(
+                                    "inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset truncate",
+                                    isSuperAdmin 
+                                        ? "bg-indigo-400/10 text-indigo-200 ring-indigo-400/30" 
+                                        : "bg-blue-400/10 text-blue-200 ring-blue-400/30"
+                                )}>
+                                    {activeRoleName}
+                                </span>
+                            </div>
+                        </div>
+                        <ChevronRight className="h-3 w-3 text-white/40 group-hover:text-white/70 transition-colors shrink-0" />
+                    </NavLink>
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                    {hasMultipleRoles && (
+                        <button
+                            onClick={() => navigate('/select-role')}
+                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-blue-100/80 transition-all hover:bg-white/10 hover:text-white"
+                        >
+                            <RefreshCcw className="h-4 w-4" />
+                            Switch Role
+                        </button>
                     )}
-                >
-                    <div className="h-8 w-8 rounded-full bg-white/15 ring-1 ring-white/20 flex items-center justify-center text-white font-bold text-sm group-hover:ring-2 group-hover:ring-white/40 transition-all">
-                        {user?.name?.[0]?.toUpperCase() ?? 'U'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-                        <p className="text-xs text-blue-200/70 truncate">{user?.email}</p>
-                    </div>
-                    <ChevronRight className="h-3 w-3 text-white/40 group-hover:text-white/70 transition-colors shrink-0" />
-                </NavLink>
-                <button
-                    onClick={logout}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-blue-100/80 transition-all hover:bg-red-500/30 hover:text-white"
-                >
-                    <LogOut className="h-4 w-4" />
-                    {t('nav.logout')}
-                </button>
+                    <button
+                        onClick={logout}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-blue-100/80 transition-all hover:bg-red-500/30 hover:text-white"
+                    >
+                        <LogOut className="h-4 w-4" />
+                        {t('nav.logout')}
+                    </button>
+                </div>
             </div>
         </div>
     );
