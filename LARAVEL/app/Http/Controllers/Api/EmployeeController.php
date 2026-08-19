@@ -140,11 +140,14 @@ class EmployeeController extends Controller
             $department = \App\Models\Department::where('name', $departmentName)->first();
             
             $userUpdates = [];
-            if ($role) $userUpdates['role_id'] = $role->id;
             if ($department) $userUpdates['department_id'] = $department->id;
             
             if (!empty($userUpdates)) {
                 $user->update($userUpdates);
+            }
+
+            if ($role) {
+                $user->assignedRoles()->sync([$role->id]);
             }
 
             $documentsData = [
@@ -390,7 +393,7 @@ class EmployeeController extends Controller
                 $roleName = $request->role;
                 $role = \App\Models\Role::where('name', $roleName)->first();
                 if ($role) {
-                    $userUpdates['role_id'] = $role->id;
+                    $user->assignedRoles()->sync([$role->id]);
                 }
             }
             if ($request->has('department')) {
