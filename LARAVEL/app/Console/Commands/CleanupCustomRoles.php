@@ -51,7 +51,7 @@ class CleanupCustomRoles extends Command
                     // Ensure the user has the 'Employee' role
                     if (!$user->hasRole('Employee') && !$user->hasRole('Super Admin')) {
                         $employeeRole = \App\Models\Role::where('name', 'Employee')->first();
-                        $user->update(['role_id' => $employeeRole->id]);
+                        $user->assignedRoles()->sync([$employeeRole->id]);
                     }
 
                 // Delete the custom role
