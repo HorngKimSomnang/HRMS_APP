@@ -52,39 +52,64 @@ class AuthController extends Controller
         }
 
         $user = User::where('email', $request->email)->firstOrFail();
-        $user->load(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
+        $user->load(['assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
 
-        // Resolve active role at login if necessary
         $assignedRoles = $user->assignedRoles;
-        $superAdminRole = $assignedRoles->firstWhere('is_super_admin', true);
-        if ($superAdminRole) {
-            if (!$user->role || !$user->role->is_super_admin) {
-                $user->update(['role_id' => $superAdminRole->id]);
-                $user->load('role');
-            }
+        $roleCount = $assignedRoles->count();
+
+        $tokenModel = $user->createToken('auth_token');
+
+        if ($roleCount === 1) {
+            $role = $assignedRoles->first();
+            $tokenModel->accessToken->active_role_id = $role->id;
+            $tokenModel->accessToken->save();
+            $token = $tokenModel->plainTextToken;
+            
+            AuditLogger::logAuth($request, 'LOGIN_SUCCESS', $user);
+            
+            return response()->json([
+                   'message'      => 'Hi ' . $user->name . ', welcome to home',
+                   'access_token' => $token,
+                   'token_type'   => 'Bearer',
+                   'user'         => $user,
+                   'active_role'  => $role,
+                   'permissions'  => $role->permissions->pluck('name'),
+                   'direct_permissions' => collect(),
+            ]);
         } else {
-            if (!$user->role || $user->role->permissions()->count() === 0) {
-                foreach ($assignedRoles as $assignedRole) {
-                    if ($assignedRole->permissions()->count() > 0) {
-                        $user->update(['role_id' => $assignedRole->id]);
-                        $user->load('role');
-                        break;
-                    }
-                }
-            }
+            $token = $tokenModel->plainTextToken;
+            AuditLogger::logAuth($request, 'LOGIN_REQUIRES_ROLE_SELECTION', $user);
+            
+            return response()->json([
+                'requires_role_selection' => true,
+                'access_token' => $token,
+                'token_type'   => 'Bearer',
+                'user'         => $user,
+                'roles'        => $assignedRoles,
+                'permissions'  => [],
+                'direct_permissions' => [],
+            ]);
+        }
+    }
+
+    public function switchRole(Request $request) {
+        $request->validate([
+            'role_id' => 'required|exists:roles,id'
+        ]);
+
+        $user = $request->user();
+        if (!$user->assignedRoles()->where('roles.id', $request->role_id)->exists()) {
+            return response()->json(['message' => 'Unauthorized role'], 403);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        AuditLogger::logAuth($request, 'LOGIN_SUCCESS', $user);
+        $token = $user->currentAccessToken();
+        $token->active_role_id = $request->role_id;
+        $token->save();
 
         return response()->json([
-               'message'      => 'Hi ' . $user->name . ', welcome to home',
-               'access_token' => $token,
-               'token_type'   => 'Bearer',
-               'user'         => $user,
-               'permissions'  => $user->getAllPermissions()->pluck('name'),
-               'direct_permissions' => $user->getDirectPermissions()->pluck('name'),
+            'message' => 'Role switched successfully',
+            'permissions' => $user->getAllPermissions()->pluck('name')->values(),
+            'active_role' => $user->getActiveRole()
         ]);
     }
 
@@ -98,12 +123,16 @@ class AuthController extends Controller
     }
 
     public function me(Request $request) {
-        $user = $request->user()->load(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
+        $user = $request->user()->load(['assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
         // Return plain name strings for permissions — same shape as login(), avoids Eloquent object bleed
+        
+        $userArray = $user->toArray();
+        $userArray['active_role'] = $user->getActiveRole();
+
         return response()->json([
-            'user'               => $user,
+            'user'               => $userArray,
             'permissions'        => $user->getAllPermissions()->pluck('name')->values(),
-            'direct_permissions' => $user->getDirectPermissions()->pluck('name')->values(),
+            'direct_permissions' => collect(),
         ]);
     }
 
@@ -195,36 +224,4 @@ class AuthController extends Controller
         ]);
     }
 
-    public function switchRole(Request $request)
-    {
-        $request->validate([
-            'role_id' => 'required|exists:roles,id'
-        ]);
-
-        $user = $request->user();
-        
-        // Ensure the user actually has this role assigned to them
-        $hasRole = $user->assignedRoles()->where('roles.id', $request->role_id)->exists();
-        if (!$hasRole) {
-            return response()->json(['message' => 'You are not assigned to this role.'], 403);
-        }
-
-        // Update the active role
-        $user->update(['role_id' => $request->role_id]);
-        
-        $user->load(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
-        
-        AuditLogger::logAuth($request, 'ROLE_SWITCHED', $user, [
-            'switched_role_id' => $request->role_id,
-            'switched_role_name' => $user->role->name,
-            'message' => "Switched active role to '{$user->role->name}'"
-        ]);
-
-        return response()->json([
-            'message' => 'Role switched successfully',
-            'user' => $user,
-            'permissions' => $user->getAllPermissions()->pluck('name')->values(),
-            'direct_permissions' => $user->getDirectPermissions()->pluck('name')->values(),
-        ]);
-    }
 }
