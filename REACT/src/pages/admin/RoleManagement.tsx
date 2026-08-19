@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Search, Users, Building2, Briefcase, Info, Save, Pencil, Eye } from 'lucide-react';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
+import { invalidateApiCache } from '@/services/apiCache';
 import { useAuth } from '@/context/AuthContext';
 
 export default function RoleManagement() {
@@ -156,12 +157,16 @@ export default function RoleManagement() {
       };
       await api.post(`/employees/${selectedUser.employee.id}/permissions/bulk`, payload);
       toast.success('Role and department management updated successfully!');
+      
+      invalidateApiCache(['admin', 'departments', 'employees', 'users', 'roles']);
+      
       setIsModalOpen(false);
       fetchUsers();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update employee details');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const filteredUsers = users.filter((u) => {
@@ -372,7 +377,13 @@ export default function RoleManagement() {
                                       const nextIds = exists 
                                         ? prev.role_ids.filter(id => id !== role.id) 
                                         : [...prev.role_ids, role.id];
-                                      return { ...prev, role_ids: nextIds };
+                                        
+                                      let nextManagedDepts = prev.managed_departments;
+                                      if (exists && role.is_super_admin) {
+                                          nextManagedDepts = [];
+                                      }
+                                      
+                                      return { ...prev, role_ids: nextIds, managed_departments: nextManagedDepts };
                                     });
                                   }}
                                   className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
