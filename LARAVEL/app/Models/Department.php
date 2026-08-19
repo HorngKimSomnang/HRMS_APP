@@ -15,7 +15,7 @@ class Department extends Model
         static::created(function ($department) {
             $superAdminRole = Role::where('name', 'Super Admin')->first();
             if ($superAdminRole) {
-                $superAdmins = User::where('role_id', $superAdminRole->id)->pluck('id');
+                $superAdmins = User::whereHas('assignedRoles', fn($q) => $q->where('roles.id', $superAdminRole->id))->pluck('id');
                 if ($superAdmins->isNotEmpty()) {
                     $department->managers()->attach($superAdmins);
                 }
