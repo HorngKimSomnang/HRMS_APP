@@ -6,7 +6,8 @@ interface User {
     id: number;
     name: string;
     email: string;
-    roles?: { name: string, is_super_admin?: boolean }[];
+    roles?: { id: number, name: string, is_super_admin?: boolean }[];
+    active_role?: { id: number, name: string, is_super_admin?: boolean } | null;
     permissions?: any[];
     direct_permissions?: any[];
 }
@@ -14,9 +15,10 @@ interface User {
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    login: (token: string, user: User) => void;
+    login: (token: string, user: User, requiresRoleSelection?: boolean) => void;
     logout: () => void;
     updateUser: (user: User) => void;
+    switchRoleContext: (permissions: any[], activeRole: any) => void;
     hasPermission: (permission: string) => boolean;
     isAuthenticated: boolean;
     loading: boolean;
@@ -82,25 +84,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => clearTimeout(timer);
     }, []);
 
-    const login = (newToken: string, newUser: User) => {
+    const login = (newToken: string, newUser: User, requiresRoleSelection: boolean = false) => {
         setToken(newToken);
         setUser(newUser);
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(newUser));
-        window.location.href = '/dashboard';
+        // We no longer call window.location.href here, as PublicRoute and PrivateRoute handle the SPA redirects seamlessly!
     };
 
-    const logout = () => {
+    const logout = async () => {
+        if (token) {
+            try {
+                await api.post('/logout');
+            } catch (e) {
+                console.error("Logout API failed", e);
+            }
+        }
         setToken(null);
         setUser(null);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        // The PrivateRoute will seamlessly redirect to /login
+    };
+
+    const switchRoleContext = (permissions: any[], activeRole: any) => {
+        if (!user) return;
+        const updatedUser = { ...user, permissions, active_role: activeRole };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
     };
 
     const hasPermission = (permission: string) => {
         if (!user) return false;
-        if (user.roles?.some((r: any) => r.is_super_admin || r.name === 'Super Admin')) return true;
+        
+        // If they don't have an active role, they fail closed
+        if (!user.active_role) return false;
+
+        // Check super admin on the ACTIVE role, not any owned role
+        if (user.active_role.is_super_admin || user.active_role.name === 'Super Admin') return true;
+
         const perms = (user as any).permissions || (user as any).direct_permissions || [];
         return perms.some((p: any) => {
             const pName = typeof p === 'string' ? p : p.name;
@@ -114,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, updateUser, hasPermission, isAuthenticated: !!token && !!user, loading }}>
+        <AuthContext.Provider value={{ user, token, login, logout, updateUser, switchRoleContext, hasPermission, isAuthenticated: !!token && !!user, loading }}>
             {children}
         </AuthContext.Provider>
     );
