@@ -34,6 +34,9 @@ echo "Starting Laravel backend..."
 cd LARAVEL
 php artisan serve --host=0.0.0.0 --port=8000 &
 php artisan reverb:start --host=0.0.0.0 --port=8080 &
+if ! pgrep -f "queue:work" > /dev/null; then
+  php artisan queue:work &
+fi
 cd ..
 
 # React frontend
