@@ -18,19 +18,6 @@ import { Search, ShieldCheck, Save, Shield, Info, Pencil, Trash2, Eye, Copy } fr
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 import { useAuth } from '@/context/AuthContext';
 
-const SIDEBAR_SECTIONS = [
-  { name: 'MAIN', features: ['dashboard', 'notice_board'] },
-  { name: 'USER MANAGEMENT', features: ['employees', 'roles'] },
-  { name: 'ORGANIZATION', features: ['departments', 'contracts', 'assets', 'holidays'] },
-  { name: 'OPERATIONS', features: ['attendance', 'leaves', 'overtime', 'documents', 'tasks'] },
-  { name: 'FINANCE', features: ['payroll'] },
-  { name: 'REPORTS', features: ['reports'] },
-  { name: 'SYSTEM CONTROLS', features: ['admins', 'shifts', 'audit_logs', 'settings_general', 'settings_attendance', 'settings_leaves', 'settings_payroll', 'settings_security'] }
-];
-
-// Fallback for any unmapped features
-const FEATURE_ORDER = SIDEBAR_SECTIONS.flatMap(s => s.features);
-
 const ACTION_ORDER = [
   'view',
   'create',
@@ -100,6 +87,17 @@ export default function RolesList() {
   // Selected row state for the header Manage Permissions button
   const [selectedRole, setSelectedRole] = useState<any>(null);
   
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'roles' | 'permissions'>('roles');
+
+  // Permission CRUD State
+  const [isCreatePermModalOpen, setIsCreatePermModalOpen] = useState(false);
+  const [newPermFeature, setNewPermFeature] = useState('');
+  const [newPermAction, setNewPermAction] = useState('');
+  const [deletePermConfirmOpen, setDeletePermConfirmOpen] = useState(false);
+  const [permToDelete, setPermToDelete] = useState<any>(null);
+  const [sidebarSections, setSidebarSections] = useState<any[]>([]);
+  
   // Form State
   const [formData, setFormData] = useState({
     name: '',
@@ -108,14 +106,19 @@ export default function RolesList() {
 
   const loadData = async () => {
     try {
-      const [rolesRes, permsRes] = await Promise.all([
+      const [rolesRes, permsRes, featuresRes] = await Promise.all([
         api.get('/admin/roles'),
-        api.get('/admin/permissions')
+        api.get('/admin/permissions'),
+        api.get('/admin/features')
       ]);
       
       setRoles(rolesRes.data);
       const perms = permsRes.data;
       setPermissions(perms);
+      
+      const featuresData = featuresRes.data;
+      setSidebarSections(featuresData);
+      const featureOrder = featuresData.flatMap((s: any) => s.features);
       
       const grouped: Record<string, string[]> = {};
       
@@ -208,8 +211,9 @@ export default function RolesList() {
       loadData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to save role');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSavePermissions = async () => {
@@ -226,8 +230,9 @@ export default function RolesList() {
       loadData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to save permissions');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
   const handleDuplicateRole = async (role: any) => {
     if (!role) return;
@@ -246,8 +251,9 @@ export default function RolesList() {
       loadData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to duplicate role');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
 
@@ -262,6 +268,45 @@ export default function RolesList() {
       loadData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete role');
+    }
+  };
+
+  const handleCreatePermission = async () => {
+    if (!newPermFeature || !newPermAction) {
+      toast.error('Both feature and action are required.');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await api.post('/admin/permissions', { feature: newPermFeature, action: newPermAction });
+      toast.success('Permission created successfully');
+      setIsCreatePermModalOpen(false);
+      setNewPermFeature('');
+      setNewPermAction('');
+      loadData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to create permission');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePermission = async () => {
+    if (!permToDelete) return;
+    
+    setLoading(true);
+    try {
+      await api.delete(`/admin/permissions/${permToDelete.id}`);
+      toast.success('Permission deleted successfully');
+      setDeletePermConfirmOpen(false);
+      setPermToDelete(null);
+      loadData();
+    } catch (error: any) {
+      // It will return 409 if assigned to roles
+      toast.error(error.response?.data?.message || 'Failed to delete permission');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -328,6 +373,22 @@ export default function RolesList() {
       />
     </div>
 
+    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg w-max mb-6 border border-slate-200/60 shadow-inner">
+      <button
+        onClick={() => setActiveTab('roles')}
+        className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${activeTab === 'roles' ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}`}
+      >
+        Roles
+      </button>
+      <button
+        onClick={() => setActiveTab('permissions')}
+        className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${activeTab === 'permissions' ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'}`}
+      >
+        Permissions
+      </button>
+    </div>
+
+    {activeTab === 'roles' ? (
     <div className="border border-indigo-100/80 rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -385,11 +446,12 @@ export default function RolesList() {
                   </TableCell>
                   <TableCell className="max-w-xs w-0">
                     {role.permissions && role.permissions.length > 0 ? (() => {
+                      const featureOrder = sidebarSections.flatMap(s => s.features);
                       const sortedPerms = [...role.permissions].sort((a: any, b: any) => {
                         const featureA = a.name.split('.')[0];
                         const featureB = b.name.split('.')[0];
-                        const idxA = FEATURE_ORDER.indexOf(featureA);
-                        const idxB = FEATURE_ORDER.indexOf(featureB);
+                        const idxA = featureOrder.indexOf(featureA);
+                        const idxB = featureOrder.indexOf(featureB);
                         return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
                       });
                       return (
@@ -454,6 +516,74 @@ export default function RolesList() {
           </TableBody>
         </Table>
       </div>
+    ) : (
+      <div className="border border-indigo-100/80 rounded-2xl bg-card shadow-sm overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-2 text-slate-800">
+            <ShieldCheck className="w-4 h-4 text-indigo-600" />
+            <h3 className="font-bold text-sm">
+              Permissions ({permissions.length})
+            </h3>
+          </div>
+          {isCurrentUserSuperAdmin && hasPermission('permissions.manage') && (
+            <Button 
+              onClick={() => {
+                setNewPermFeature(sidebarSections[0]?.features[0] || '');
+                setNewPermAction('');
+                setIsCreatePermModalOpen(true);
+              }}
+              variant="outline"  
+              className="h-9 gap-2 text-slate-700 border-slate-200 shadow-sm"
+            >
+              <div className="border border-slate-400 rounded-sm w-3 h-3 flex items-center justify-center mr-1" />
+              New permission
+            </Button>
+          )}
+        </div>
+
+        <Table>
+          <TableHeader className="bg-slate-50/80">
+            <TableRow>
+              <TableHead className="w-1/3">Permission name</TableHead>
+              <TableHead>Used by</TableHead>
+              <TableHead className="text-right w-24">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {permissions.map((perm) => (
+              <TableRow key={perm.id} className="hover:bg-slate-50/50">
+                <TableCell className="font-mono text-sm text-slate-800">
+                  {perm.name}
+                </TableCell>
+                <TableCell>
+                  {perm.roles && perm.roles.length > 0 ? (
+                    <span className="text-slate-600">
+                      {perm.roles.map((r: any) => r.name).join(', ')}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">— unused</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => {
+                      setPermToDelete(perm);
+                      setDeletePermConfirmOpen(true);
+                    }}
+                    disabled={!isCurrentUserSuperAdmin || !hasPermission('permissions.manage')}
+                    className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-md flex flex-col">
@@ -539,9 +669,9 @@ export default function RolesList() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {SIDEBAR_SECTIONS.map((section) => {
+                      {sidebarSections.map((section) => {
                         // Only get features that actually exist in the groupedPermissions
-                        const sectionFeatures = section.features.filter(f => groupedPermissions[f]);
+                        const sectionFeatures = section.features.filter((f: string) => groupedPermissions[f]);
                         if (sectionFeatures.length === 0) return null;
 
                         return (
@@ -666,6 +796,92 @@ export default function RolesList() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">Delete Role</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreatePermModalOpen} onOpenChange={setIsCreatePermModalOpen}>
+        <DialogContent className="max-w-sm flex flex-col p-6">
+          <DialogHeader>
+            <div className="flex justify-between items-center w-full">
+              <DialogTitle className="text-base">New permission</DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Feature</label>
+              <select
+                value={newPermFeature}
+                onChange={(e) => setNewPermFeature(e.target.value)}
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sidebarSections.map((section) => (
+                  <optgroup key={section.name} label={section.name}>
+                    {section.features.map((f: string) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Action</label>
+              <Input
+                value={newPermAction}
+                onChange={(e) => setNewPermAction(e.target.value)}
+                placeholder="e.g. view, create, edit"
+                className="font-mono text-sm"
+                autoFocus
+              />
+              {newPermAction && !/^[a-z_]+$/.test(newPermAction) ? (
+                <p className="text-xs text-red-500 mt-1">
+                  Must only contain lowercase letters and underscores.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">
+                  Lowercase letters and underscores only.
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-2 flex gap-2 sm:justify-end">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCreatePermModalOpen(false)}
+              className="text-slate-700 bg-white hover:bg-slate-50"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreatePermission} 
+              disabled={loading || !newPermFeature || !/^[a-z_]+$/.test(newPermAction)} 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[80px]"
+            >
+              {loading ? '...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deletePermConfirmOpen} onOpenChange={setDeletePermConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            Are you sure you want to delete the permission <span className="font-bold font-mono">{permToDelete?.name}</span>? 
+            <p className="mt-2 text-sm text-slate-500">
+              Note: System permissions cannot be deleted if they are assigned to any roles.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletePermConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={loading} onClick={handleDeletePermission} className="bg-red-600 hover:bg-red-700 text-white">
+              {loading ? 'Deleting...' : 'Delete Permission'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
