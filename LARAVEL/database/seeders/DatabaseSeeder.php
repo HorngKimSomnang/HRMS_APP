@@ -34,7 +34,7 @@ class DatabaseSeeder extends Seeder
         );
         $adminRole = \App\Models\Role::where('name', 'Super Admin')->first();
         if ($adminRole) {
-            $admin->update(['role_id' => $adminRole->id]);
+            $admin->assignedRoles()->sync([$adminRole->id]);
         }
 
         // 4. Create Employee User
@@ -47,7 +47,7 @@ class DatabaseSeeder extends Seeder
         );
         $employeeRole = \App\Models\Role::where('name', 'Employee')->first();
         if ($employeeRole) {
-            $employeeUser->update(['role_id' => $employeeRole->id]);
+            $employeeUser->assignedRoles()->sync([$employeeRole->id]);
         }
 
         $department = \App\Models\Department::create([
