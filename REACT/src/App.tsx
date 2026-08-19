@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import Login from '@/pages/auth/Login';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import Dashboard from '@/pages/dashboard/Dashboard';
@@ -6,11 +6,10 @@ import EmployeeList from '@/pages/employees/EmployeeList';
 import CreateEmployee from '@/pages/employees/CreateEmployee';
 import EditEmployee from '@/pages/employees/EditEmployee';
 import ViewEmployee from '@/pages/employees/ViewEmployee';
-import AdminList from '@/pages/admin/AdminList';
-import CreateAdmin from '@/pages/admin/CreateAdmin';
-import EditAdmin from '@/pages/admin/EditAdmin';
+
 import RolesList from '@/pages/admin/RolesList';
 import RoleManagement from '@/pages/admin/RoleManagement';
+import RoleSelection from '@/pages/auth/RoleSelection';
 
 import AttendanceList from '@/pages/attendance/AttendanceList';
 import Departments from '@/pages/departments/Departments';
@@ -33,11 +32,20 @@ import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 
 function PrivateRoute() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) return <div>Loading...</div>; // Or a proper spinner
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  // Enforce role selection if they have multiple roles but haven't selected one
+  const location = useLocation();
+  const path = location.pathname;
+  if (user && !user.active_role && user.roles && user.roles.length > 1 && path !== '/select-role') {
+      return <Navigate to="/select-role" replace />;
+  }
+
+  return <Outlet />;
 }
 
 function SuperAdminRoute() {
@@ -45,7 +53,7 @@ function SuperAdminRoute() {
 
   if (loading) return <div>Loading...</div>;
 
-  const isSuperAdmin = user?.roles?.some((r: any) => r.name === 'Super Admin');
+  const isSuperAdmin = user?.active_role?.is_super_admin || user?.active_role?.name === 'Super Admin';
 
   return isSuperAdmin ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
@@ -55,7 +63,7 @@ function PermissionRoute({ permission }: { permission: string }) {
 
   if (loading) return <div>Loading...</div>;
 
-  const isSuperAdmin = user?.roles?.some((r: any) => r?.name === 'Super Admin');
+  const isSuperAdmin = user?.active_role?.is_super_admin || user?.active_role?.name === 'Super Admin';
   const allowed = isSuperAdmin || hasPermission(permission);
 
   return allowed ? <Outlet /> : <Navigate to="/dashboard" replace />;
@@ -79,6 +87,7 @@ function App() {
         </Route>
 
         <Route element={<PrivateRoute />}>
+          <Route path="/select-role" element={<RoleSelection />} />
           <Route element={<DashboardLayout />}>
             {/* Employee/Standard Access */}
             <Route path="/dashboard" element={<Dashboard />} />
@@ -122,13 +131,8 @@ function App() {
 
             {/* Super Admin Only Access */}
             <Route element={<SuperAdminRoute />}>
-              <Route path="/admins" element={<AdminList />} />
-              <Route path="/admins/create" element={<CreateAdmin />} />
-              <Route path="/admins/edit/:id" element={<EditAdmin />} />
               <Route path="/roles" element={<RolesList />} />
               <Route path="/roles/manage" element={<RoleManagement />} />
-
-
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/shifts" element={<Shifts />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
