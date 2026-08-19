@@ -33,9 +33,21 @@ export default function Login() {
         try {
             const response = await api.post('/login', { email, password });
 
-            const { access_token, user, permissions, direct_permissions } = response.data;
+            const { access_token, user, permissions, direct_permissions, requires_role_selection } = response.data;
 
             if (access_token && user) {
+                if (requires_role_selection) {
+                    // Temporarily store the user with empty permissions 
+                    // until they select a role
+                    login(access_token, {
+                        ...user,
+                        roles: response.data.roles || user.roles || [],
+                        permissions: [],
+                        direct_permissions: []
+                    }, true);
+                    return;
+                }
+
                 const hasSuperAdmin = user.roles?.some((r: any) => r.name === 'Super Admin');
                 
                 // Permissions can come from the root response or the user object depending on the endpoint
@@ -43,8 +55,7 @@ export default function Login() {
                 const userDirectPerms = direct_permissions || user.direct_permissions || [];
                 
                 const hasPermissions = userPerms.length > 0 || userDirectPerms.length > 0;
-                const hasMultipleRoles = user.roles && user.roles.length > 1;
-                if (!hasSuperAdmin && !hasPermissions && !hasMultipleRoles) {
+                if (!hasSuperAdmin && !hasPermissions) {
                     setError('Unauthorized. This portal is only accessible to system managers and administrators.');
                     setLoading(false);
                     return;
@@ -52,12 +63,12 @@ export default function Login() {
 
                 login(access_token, {
                     ...user,
+                    active_role: response.data.active_role || user.active_role,
                     permissions: userPerms,
                     direct_permissions: userDirectPerms
                 });
                 
                 toast.success('Logged in successfully');
-                navigate('/dashboard');
             }
         } catch (error: any) {
             console.error('Login error', error);
