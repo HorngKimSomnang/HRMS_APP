@@ -23,7 +23,7 @@ class ManagementScope implements Scope
             $user = Auth::user();
 
             // Super Admin bypasses all scope restrictions
-            if ($user->role && $user->role->is_super_admin) {
+            if ($user->hasRole('Super Admin')) {
                 return;
             }
 
@@ -36,7 +36,9 @@ class ManagementScope implements Scope
                 if ($model instanceof \App\Models\Employee) {
                     $query->where('user_id', $userId);
                     if (!empty($managedDeptIds)) {
-                        $query->orWhereIn('department_id', $managedDeptIds);
+                        $query->orWhereHas('user', function ($u) use ($managedDeptIds) {
+                            $u->whereIn('department_id', $managedDeptIds);
+                        });
                     }
                 }
                 // If model is Task (assigned_to is employee_id)
@@ -44,7 +46,9 @@ class ManagementScope implements Scope
                     $query->whereHas('employee', function ($q) use ($userId, $managedDeptIds) {
                         $q->where('user_id', $userId);
                         if (!empty($managedDeptIds)) {
-                            $q->orWhereIn('department_id', $managedDeptIds);
+                            $q->orWhereHas('user', function ($u) use ($managedDeptIds) {
+                                $u->whereIn('department_id', $managedDeptIds);
+                            });
                         }
                     })->orWhere('assigned_by', $userId); // also allow tasks created by user
                 }
@@ -53,7 +57,9 @@ class ManagementScope implements Scope
                     $query->whereHas('employee', function ($q) use ($userId, $managedDeptIds) {
                         $q->where('user_id', $userId);
                         if (!empty($managedDeptIds)) {
-                            $q->orWhereIn('department_id', $managedDeptIds);
+                            $q->orWhereHas('user', function ($u) use ($managedDeptIds) {
+                                $u->whereIn('department_id', $managedDeptIds);
+                            });
                         }
                     });
                 }
@@ -62,7 +68,9 @@ class ManagementScope implements Scope
                     $query->whereHas('employee', function ($q) use ($userId, $managedDeptIds) {
                         $q->where('user_id', $userId);
                         if (!empty($managedDeptIds)) {
-                            $q->orWhereIn('department_id', $managedDeptIds);
+                            $q->orWhereHas('user', function ($u) use ($managedDeptIds) {
+                                $u->whereIn('department_id', $managedDeptIds);
+                            });
                         }
                     });
                 }
