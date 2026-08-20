@@ -44,7 +44,7 @@ export default function RoleSelection() {
             switchRoleContext(permissions, active_role);
             
             toast.success('Role selected successfully');
-            navigate('/dashboard');
+            window.location.href = '/dashboard';
         } catch (error: any) {
             console.error('Failed to select role', error);
             toast.error(error.response?.data?.message || 'Failed to select role. Please try again.');
@@ -107,6 +107,18 @@ export default function RoleSelection() {
                             </Button>
                         ))}
                     </div>
+
+                    {user?.active_role && (
+                        <div className="mt-6 flex justify-center">
+                            <Button 
+                                variant="ghost" 
+                                onClick={() => navigate(-1)}
+                                className="text-slate-500 hover:text-slate-700"
+                            >
+                                Cancel & Go Back
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </motion.div>
         </div>

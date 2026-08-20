@@ -18,7 +18,7 @@ class TaskController extends Controller
         $query = Task::with(['employee', 'creator']);
 
         if (!$user->hasRole('Super Admin')) {
-            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            $managedDepartmentIds = $user->getManagedDepartmentIds();
             if (empty($managedDepartmentIds)) {
                 $query->where('assigned_to', $user->employee?->id ?? -1)
                       ->orderByRaw("CASE 
@@ -126,7 +126,7 @@ class TaskController extends Controller
 
             // Notify admins when task is completed
             if ($request->status === 'completed') {
-                $admins = \App\Models\User::whereHas('role', fn($q) => $q->where('name', 'Super Admin'))->get();
+                $admins = \App\Models\User::whereHas('assignedRoles', fn($q) => $q->where('name', 'Super Admin'))->get();
                 \Illuminate\Support\Facades\Notification::send(
                     $admins,
                     new \App\Notifications\TaskCompleted($task)

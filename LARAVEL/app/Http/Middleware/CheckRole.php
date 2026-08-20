@@ -20,6 +20,14 @@ class CheckRole
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
+        // Detect a stale/revoked active role.
+        if (!$user->getActiveRole()) {
+            return response()->json([
+                'message' => 'No active role. Please select a role to continue.',
+                'code'    => 'NO_ACTIVE_ROLE',
+            ], 403);
+        }
+
         // Expand pipe-separated roles
         $allRoles = [];
         foreach ($roles as $role) {

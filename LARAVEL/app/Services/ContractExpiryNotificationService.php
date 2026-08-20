@@ -14,7 +14,7 @@ class ContractExpiryNotificationService
     public function sendForDate(Carbon $today): array
     {
         $today = $today->copy()->setTimezone('Asia/Phnom_Penh')->startOfDay();
-        $admins = User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
+        $admins = User::whereHas('assignedRoles', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
         $contractsFound = 0;
         $notificationsSent = 0;
 

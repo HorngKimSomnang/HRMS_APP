@@ -26,18 +26,7 @@ import { toast } from 'sonner';
 import { useLiveRefresh } from '@/hooks/useLiveRefresh';
 import { subscribeApiCacheInvalidation } from '@/services/apiCache';
 
-interface CustomEntitySummary {
-    id: number;
-    name: string;
-    slug: string;
-}
 
-interface CustomEntityField {
-    key: string;
-    label: string;
-    type: 'text' | 'number' | 'date' | 'boolean' | 'dropdown' | 'textarea' | 'file';
-    options?: string[] | null;
-}
 
 const reportSessionState: Record<string, unknown> = {};
 const activeReportInvalidators = new Set<(types: Set<string>) => void>();
@@ -47,7 +36,6 @@ const allReportTypes = new Set([
     "overtime",
     "payroll",
     "employees",
-    "custom_entities",
 ]);
 
 const reportTypesForResources = (resources?: string[]) => {
@@ -59,7 +47,7 @@ const reportTypesForResources = (resources?: string[]) => {
     if (resources.some(resource => ["leaves", "leave-types"].includes(resource))) types.add("leaves");
     if (resources.includes("overtimes")) types.add("overtime");
     if (resources.includes("payslips")) types.add("payroll");
-    if (resources.includes("entities")) types.add("custom_entities");
+
 
     const hasSpecificResource = types.size > 0;
     if (!hasSpecificResource && resources.includes("reports")) {
@@ -135,14 +123,7 @@ export default function Reports() {
         "selectedEmployeeId",
         "",
     );
-    const [customEntities, setCustomEntities] = useState<CustomEntitySummary[]>([]);
-    const [selectedEntitySlug, setSelectedEntitySlug] = useRetainedReportState(
-        "selectedEntitySlug",
-        "",
-    );
-    const [customEntityFields, setCustomEntityFields] = useState<CustomEntityField[]>([]);
-    const [customFieldKey, setCustomFieldKey] = useRetainedReportState("customFieldKey", "");
-    const [customFieldValue, setCustomFieldValue] = useRetainedReportState("customFieldValue", "");
+
 
     useEffect(() => {
         const invalidateVisibleReports = (types: Set<string>) => {
@@ -159,66 +140,31 @@ export default function Reports() {
 
     const fetchReportSources = useCallback(async () => {
         try {
-            const [employeeRes, entityRes] = await Promise.all([
-                api.get('/employees?status=active&all=true'),
-                api.get('/entities'),
-            ]);
-            const data = employeeRes.data;
+            const res = await api.get('/employees?status=active&all=true');
+            const data = res.data;
             setEmployees(Array.isArray(data) ? data : (data?.data || []));
-
-            const entityData = Array.isArray(entityRes.data?.data) ? entityRes.data.data : [];
-            setCustomEntities(entityData);
-            setSelectedEntitySlug(current => current || entityData[0]?.slug || "");
         } catch (error) {
             console.error(error);
         }
-    }, [setSelectedEntitySlug]);
+    }, []);
 
-    // Fetch employees and custom report sources.
+    // Fetch employees.
     useEffect(() => {
         fetchReportSources();
     }, [fetchReportSources]);
 
-    useEffect(() => {
-        if (!selectedEntitySlug) {
-            setCustomEntityFields([]);
-            return;
-        }
-
-        api.get(`/entities/${selectedEntitySlug}`).then(res => {
-            setCustomEntityFields(res.data?.data?.fields || []);
-            setCustomFieldKey("");
-            setCustomFieldValue("");
-        }).catch(err => {
-            console.error(err);
-            setCustomEntityFields([]);
-        });
-    }, [selectedEntitySlug, setCustomFieldKey, setCustomFieldValue]);
-
     const generateReport = async (silent = false) => {
         if (reportTypes.length === 0) return toast("Please select at least one report type.");
-        if (reportTypes.includes("custom_entities") && !selectedEntitySlug) {
-            return toast("Please select a custom entity.");
-        }
         if (!silent) setLoading(true);
         try {
             const params: any = { start_date: dateRange.start || new Date().toISOString().split('T')[0], end_date: dateRange.end || new Date().toISOString().split('T')[0] };
 
             const newMap: Record<string, any[]> = {};
             await Promise.all(reportTypes.map(async (type) => {
-                const endpoint = type === "custom_entities"
-                    ? "/reports/custom-entities"
-                    : `/reports/${type}`;
+                const endpoint = `/reports/${type}`;
                 const typeParams = { ...params };
                 if (selectedEmployeeId && type !== "employees") {
                     typeParams.employee_id = selectedEmployeeId;
-                }
-                if (type === "custom_entities") {
-                    typeParams.entity_slug = selectedEntitySlug;
-                    if (customFieldKey && customFieldValue.trim()) {
-                        typeParams.field_key = customFieldKey;
-                        typeParams.field_value = customFieldValue.trim();
-                    }
                 }
                 const res = await api.get(endpoint, { params: typeParams });
                 newMap[type] = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
@@ -244,22 +190,10 @@ export default function Reports() {
             'overtimes',
             'payslips',
             'employees',
-            'entities',
         ],
     });
 
-    const formatCustomValue = (field: CustomEntityField, value: any): string => {
-        if (value === null || value === undefined || value === "") return "-";
-        if (field.type === "boolean") return value ? "Yes" : "No";
-        if (field.type === "date") {
-            const parsed = new Date(value);
-            return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString();
-        }
-        if (field.type === "file" && typeof value === "object") {
-            return value?.name || "Attached file";
-        }
-        return String(value);
-    };
+
 
     const getReportConfig = (type: string) => {
         if (type === "attendance") {
@@ -321,17 +255,6 @@ export default function Reports() {
                     row.end_time,
                     row.hours,
                     row.status
-                ]
-            };
-        } else if (type === "custom_entities") {
-            const selectedEntity = customEntities.find(entity => entity.slug === selectedEntitySlug);
-            return {
-                title: `${selectedEntity?.name || "Custom Entity"} Report`,
-                headers: ["Submitted", "Submitted By", ...customEntityFields.map(field => field.label)],
-                mapRow: (row: any) => [
-                    row.created_at ? new Date(row.created_at).toLocaleString() : "-",
-                    row.creator?.name || "Admin / System",
-                    ...customEntityFields.map(field => formatCustomValue(field, row.data?.[field.key]))
                 ]
             };
         } else {
@@ -688,7 +611,6 @@ export default function Reports() {
                     { id: "overtime", label: "Overtime" },
                     { id: "payroll", label: "Payroll" },
                     { id: "employees", label: "Employees" },
-                    { id: "custom_entities", label: "Custom Data" }
                 ].map(tab => {
                     const isSelected = reportTypes.includes(tab.id);
                     return (
@@ -737,85 +659,7 @@ export default function Reports() {
                         </select>
                     </div>
                 )}
-                {reportTypes.includes("custom_entities") && (
-                    <>
-                        <div className="grid gap-2 min-w-[220px]">
-                            <label className="text-sm font-medium">Custom Entity</label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                value={selectedEntitySlug}
-                                onChange={(e) => {
-                                    setSelectedEntitySlug(e.target.value);
-                                    setReportDataMap(current => {
-                                        const next = { ...current };
-                                        delete next.custom_entities;
-                                        return next;
-                                    });
-                                }}
-                            >
-                                {customEntities.length === 0 && <option value="">No custom entities</option>}
-                                {customEntities.map(entity => (
-                                    <option key={entity.id} value={entity.slug}>{entity.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="grid gap-2 min-w-[200px]">
-                            <label className="text-sm font-medium">Filter by Field</label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                value={customFieldKey}
-                                onChange={(e) => {
-                                    setCustomFieldKey(e.target.value);
-                                    setCustomFieldValue("");
-                                }}
-                            >
-                                <option value="">All Records</option>
-                                {customEntityFields.map(field => (
-                                    <option key={field.key} value={field.key}>{field.label}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {customFieldKey && (() => {
-                            const field = customEntityFields.find(item => item.key === customFieldKey);
-                            if (!field) return null;
 
-                            return (
-                                <div className="grid gap-2 min-w-[200px]">
-                                    <label className="text-sm font-medium">Filter Value</label>
-                                    {field.type === "dropdown" ? (
-                                        <select
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                            value={customFieldValue}
-                                            onChange={(e) => setCustomFieldValue(e.target.value)}
-                                        >
-                                            <option value="">All Values</option>
-                                            {(field.options || []).map(option => (
-                                                <option key={option} value={option}>{option}</option>
-                                            ))}
-                                        </select>
-                                    ) : field.type === "boolean" ? (
-                                        <select
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                            value={customFieldValue}
-                                            onChange={(e) => setCustomFieldValue(e.target.value)}
-                                        >
-                                            <option value="">All Values</option>
-                                            <option value="true">Yes</option>
-                                            <option value="false">No</option>
-                                        </select>
-                                    ) : (
-                                        <Input
-                                            type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
-                                            value={customFieldValue}
-                                            placeholder={`Enter ${field.label.toLowerCase()}`}
-                                            onChange={(e) => setCustomFieldValue(e.target.value)}
-                                        />
-                                    )}
-                                </div>
-                            );
-                        })()}
-                    </>
-                )}
                 <Button onClick={() => generateReport()} disabled={loading}>
                     {loading ? "Loading..." : (isSuperAdmin ? "View Report" : "Generate Report")}
                 </Button>
@@ -833,7 +677,6 @@ export default function Reports() {
                         overtime: 'border-cyan-100 from-cyan-50/40',
                         payroll: 'border-violet-100 from-violet-50/40',
                         employees: 'border-blue-100 from-blue-50/40',
-                        custom_entities: 'border-teal-100 from-teal-50/40',
                     }[type] ?? 'border-border from-transparent';
 
                     return (

@@ -206,6 +206,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:overtime.edit|overtime.approve')->group(function () {
         Route::put('/overtimes/{overtime}', [\App\Http\Controllers\Api\OvertimeController::class, 'update']);
         Route::patch('/overtimes/{overtime}', [\App\Http\Controllers\Api\OvertimeController::class, 'update']);
+        Route::post('/overtimes/{overtime}/restore', [\App\Http\Controllers\Api\OvertimeController::class, 'restore']);
     });
     Route::middleware('permission:overtime.delete')->group(function () {
         Route::delete('/overtimes/{overtime}', [\App\Http\Controllers\Api\OvertimeController::class, 'destroy']);

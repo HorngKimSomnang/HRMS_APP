@@ -197,10 +197,6 @@ export default function DashboardLayout() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button onClick={toggleLanguage} className="bg-secondary/20 border border-secondary/50 px-3 py-1.5 rounded-md text-sm hover:bg-secondary/40 transition-colors font-medium">
-                            {i18n.language === 'en' ? '🇰🇭 ខ្មែរ' : '🇬🇧 EN'}
-                        </button>
-
                         {/* Notification Bell */}
                         <div className="relative" ref={notificationRef}>
                         <Button
@@ -292,7 +288,7 @@ export default function DashboardLayout() {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 50, scale: 0.9 }}
                             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            className="fixed bottom-6 right-6 bg-blue-600 text-white shadow-2xl rounded-xl p-4 flex items-center gap-4 z-50 border border-blue-500/50"
+                            className="fixed bottom-6 right-6 bg-blue-600 text-white shadow-2xl rounded-xl p-4 flex items-center gap-4 z-[9999] border border-blue-500/50"
                         >
                             <div className="bg-white/20 p-2 rounded-full h-10 w-10 flex items-center justify-center shrink-0">
                                 <Bell className="h-5 w-5 animate-bounce" />

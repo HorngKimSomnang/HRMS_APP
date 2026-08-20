@@ -7,8 +7,13 @@ import CreateEmployee from '@/pages/employees/CreateEmployee';
 import EditEmployee from '@/pages/employees/EditEmployee';
 import ViewEmployee from '@/pages/employees/ViewEmployee';
 
-import RolesList from '@/pages/admin/RolesList';
-import RoleManagement from '@/pages/admin/RoleManagement';
+import RolesList from './pages/admin/RolesList';
+import PermissionManagement from './pages/admin/PermissionManagement';
+import AccessManagement from './pages/admin/AccessManagement';
+import AdminList from '@/pages/admin/AdminList';
+import CreateAdmin from '@/pages/admin/CreateAdmin';
+import EditAdmin from '@/pages/admin/EditAdmin';
+
 import RoleSelection from '@/pages/auth/RoleSelection';
 
 import AttendanceList from '@/pages/attendance/AttendanceList';
@@ -131,8 +136,16 @@ function App() {
 
             {/* Super Admin Only Access */}
             <Route element={<SuperAdminRoute />}>
+              <Route path="/admins" element={<AdminList />} />
+              <Route path="/admins/create" element={<CreateAdmin />} />
+              <Route path="/admins/edit/:id" element={<EditAdmin />} />
               <Route path="/roles" element={<RolesList />} />
-              <Route path="/roles/manage" element={<RoleManagement />} />
+              <Route path="/permissions" element={<PermissionManagement />} />
+              <Route element={<PermissionRoute permission="access_management.view" />}>
+                  <Route path="/access-management" element={<AccessManagement />} />
+                  <Route path="/access-management/:employeeId" element={<AccessManagement />} />
+              </Route>
+
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/shifts" element={<Shifts />} />
               <Route path="/audit-logs" element={<AuditLogs />} />

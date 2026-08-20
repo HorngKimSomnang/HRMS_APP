@@ -40,7 +40,7 @@ class ReportController extends Controller
         }
 
         $user = Auth::user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $managedDepartmentIds = $user->getManagedDepartmentIds();
 
         $query = Attendance::with(['employee.user'])
                     ->whereBetween('date', [$request->start_date, $request->end_date]);
@@ -87,7 +87,7 @@ class ReportController extends Controller
         ]);
 
         $user = Auth::user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $managedDepartmentIds = $user->getManagedDepartmentIds();
 
         $query = \App\Models\Leave::with(['employee.user'])
                     ->where(function($q) use ($request) {
@@ -127,7 +127,7 @@ class ReportController extends Controller
         ]);
 
         $user = Auth::user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $managedDepartmentIds = $user->getManagedDepartmentIds();
 
         $query = Employee::with('user');
 
@@ -163,7 +163,7 @@ class ReportController extends Controller
         ]);
 
         $user = Auth::user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $managedDepartmentIds = $user->getManagedDepartmentIds();
 
         $query = \App\Models\Payslip::with(['employee.user']);
 
@@ -203,7 +203,7 @@ class ReportController extends Controller
         ]);
 
         $user = Auth::user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $managedDepartmentIds = $user->getManagedDepartmentIds();
 
         $query = \App\Models\Overtime::with(['employee.user'])
                     ->whereBetween('date', [$request->start_date, $request->end_date]);

@@ -31,10 +31,17 @@ class EmployeeResource extends JsonResource
 
             'department_id' => $this->user?->department_id ?? $this->department_id,
             'department' => $this->user?->department ? $this->user->department->name : ($this->department ? $this->department->name : null),
-            'all_departments' => ($this->user?->managedDepartments && $this->user->managedDepartments->count() > 0)
-                ? $this->user->managedDepartments->pluck('name')->toArray()
+            'all_departments' => (count($this->user?->getManagedDepartmentIds() ?? []) > 0)
+                ? \App\Models\Department::whereIn('id', $this->user->getManagedDepartmentIds())->pluck('name')->toArray()
                 : collect([$this->user?->department ? $this->user->department->name : ($this->department ? $this->department->name : null)])->filter()->unique()->values()->toArray(),
-            'managed_departments' => $this->user?->managedDepartments ? $this->user->managedDepartments->pluck('name')->toArray() : [],
+            'managed_departments' => $this->user ? \App\Models\Department::whereIn('id', $this->user->getManagedDepartmentIds())->pluck('name')->toArray() : [],
+            'role_departments' => $this->user ? \Illuminate\Support\Facades\DB::table('user_roles')
+                ->join('user_role_departments', 'user_roles.id', '=', 'user_role_departments.user_role_id')
+                ->where('user_roles.user_id', $this->user->id)
+                ->get()
+                ->groupBy('role_id')
+                ->map(fn($group) => $group->pluck('department_id')->map('intval')->toArray())
+                ->toArray() : [],
             'job_title' => $this->job_title,
             // 'branch_id' => $this->branch_id,
             // 'branch' => $this->branch ? $this->branch->name : null,

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatShiftOption, type ShiftOption } from '@/utils/shift';
 
@@ -13,14 +13,14 @@ export default function EditEmployee() {
     const navigate = useNavigate();
     const { user } = useAuth();
     
-    const isSuperAdmin = user?.role?.is_super_admin === true || user?.role?.name === 'Super Admin';
+    const isSuperAdmin = user?.roles?.some((r: any) => r.is_super_admin) ?? false;
     
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [isSelf, setIsSelf] = useState(false);
+    const [employeeDbId, setEmployeeDbId] = useState<number | null>(null);
     const [shifts, setShifts] = useState<ShiftOption[]>([]);
-    const [roles, setRoles] = useState<any[]>([]);
-    const [departments, setDepartments] = useState<any[]>([]);
+    const [departments, setDepartments] = useState<any[]>([])
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -39,8 +39,8 @@ export default function EditEmployee() {
         salary: '',
         employee_code: '',
         joining_date: '',
-        role: ''
     });
+    const [currentRoleNames, setCurrentRoleNames] = useState<string>('');
 
     const [profilePicture, setProfilePicture] = useState<File | null>(null);
     const [docNationalId, setDocNationalId] = useState<File | null>(null);
@@ -54,6 +54,11 @@ export default function EditEmployee() {
             if (user?.id === emp.user_id) {
                 setIsSelf(true);
             }
+            setEmployeeDbId(emp.id);
+            // Fetch user's roles separately from assigned_roles
+            const usersRes = await api.get('/admin/users');
+            const userObj = usersRes.data.find((u: any) => u.id === emp.user_id);
+            setCurrentRoleNames(userObj?.assigned_roles?.map((r: any) => r.name).join(', ') || 'None');
             setFormData({
                 first_name: emp.first_name,
                 last_name: emp.last_name,
@@ -68,10 +73,9 @@ export default function EditEmployee() {
                 address: emp.address || '',
                 department: emp.department || '',
                 job_title: emp.job_title,
-                salary: emp.salary || '',
+                salary: emp.salary !== null && emp.salary !== undefined ? emp.salary : '',
                 employee_code: emp.employee_code,
                 joining_date: emp.joining_date ? emp.joining_date.split('T')[0].split(' ')[0] : '',
-                role: emp.role || 'Employee'
             });
         } catch (error) {
             console.error('Failed to fetch employee', error);
@@ -82,14 +86,12 @@ export default function EditEmployee() {
 
     const fetchOptions = useCallback(async () => {
         try {
-            const [shiftRes, roleRes, deptRes] = await Promise.allSettled([
+            const [shiftRes, deptRes] = await Promise.allSettled([
                 api.get('/shifts'),
-                api.get('/admin/roles'),
                 api.get('/departments')
             ]);
             
             setShifts(shiftRes.status === 'fulfilled' ? (shiftRes.value.data.data || []) : []);
-            setRoles(roleRes.status === 'fulfilled' ? (roleRes.value.data || []) : []);
             setDepartments(deptRes.status === 'fulfilled' ? (deptRes.value.data || []) : []);
         } catch (error) {
             console.error("Failed to fetch options", error);
@@ -295,21 +297,22 @@ export default function EditEmployee() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Role</label>
-                        <select
-                            name="role"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            onChange={handleChange}
-                            value={formData.role}
-                            disabled={isSelf}
-                            required
-                        >
-                            <option value="">Select Role</option>
-                            {roles.map(r => (
-                                <option key={r.id} value={r.name}>{r.name}</option>
-                            ))}
-                        </select>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium">Current Role(s)</label>
+                        <div className="flex items-center gap-3 min-h-10 px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-sm text-slate-700">
+                            <span className="flex-1">{currentRoleNames || 'None assigned'}</span>
+                            {employeeDbId && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/access-management/${employeeDbId}`)}
+                                    className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 shrink-0 transition-colors"
+                                >
+                                    <Shield className="h-3.5 w-3.5" />
+                                    Manage Access →
+                                </button>
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Roles are managed via Access Management, not here.</p>
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Department</label>
@@ -330,8 +333,17 @@ export default function EditEmployee() {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Salary (Monthly){(isSelf && !isSuperAdmin) && "(Read-only for your own profile)"}</label>
-                        <Input name="salary" type="number" value={formData.salary} onChange={handleChange} disabled={isSelf && !isSuperAdmin} className={(isSelf && !isSuperAdmin) ? "bg-muted cursor-not-allowed" : ""} />
+                        <label className="text-sm font-medium">
+                            Salary (Monthly){isSelf && !isSuperAdmin && <span className="text-muted-foreground font-normal"> — Read-only for your own profile</span>}
+                        </label>
+                        <Input
+                            name="salary"
+                            type="number"
+                            value={formData.salary}
+                            onChange={handleChange}
+                            disabled={isSelf && !isSuperAdmin}
+                            className={(isSelf && !isSuperAdmin) ? "bg-muted cursor-not-allowed" : ""}
+                        />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Assigned Shift</label>

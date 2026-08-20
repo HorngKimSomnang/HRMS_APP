@@ -13,7 +13,7 @@ class DocumentController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $managedDepartmentIds = $user->getManagedDepartmentIds();
         if (empty($managedDepartmentIds)) {
             $employee = Employee::find($user->employee?->id ?? -1);
             return response()->json($employee ? $this->formatEmployeeDocuments($employee) : []);
@@ -51,7 +51,7 @@ class DocumentController extends Controller
         }
 
         $user = Auth::user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+        $managedDepartmentIds = $user->getManagedDepartmentIds();
         $isManaged = !empty($managedDepartmentIds) && in_array($employee->user?->department_id, $managedDepartmentIds);
         if (!$isManaged && (int) ($user->employee?->id ?? 0) !== (int) $employee->id) {
             return response()->json(['message' => 'Unauthorized'], 403);

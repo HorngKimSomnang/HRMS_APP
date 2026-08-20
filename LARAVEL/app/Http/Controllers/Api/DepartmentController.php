@@ -19,7 +19,27 @@ class DepartmentController extends Controller
             })
             ->update(['description' => 'System default department for unassigned employees.']);
 
-        $departments = Department::with(['managers.employee'])->get()->map(function ($department) {
+        $user = auth()->user();
+        
+        if ($user->hasRole('Super Admin')) {
+            $departmentsQuery = Department::query();
+        } else {
+            $managedIds = $user->getManagedDepartmentIds();
+            if (empty($managedIds)) {
+                $departmentsQuery = Department::where('id', $user->department_id ?? -1);
+            } else {
+                $departmentsQuery = Department::whereIn('id', $managedIds);
+            }
+        }
+
+        $departments = $departmentsQuery->get()->map(function ($department) {
+            $managerUserRoleIds = \Illuminate\Support\Facades\DB::table('user_role_departments')
+                ->where('department_id', $department->id)
+                ->pluck('user_role_id');
+            $managerUserIds = \Illuminate\Support\Facades\DB::table('user_roles')
+                ->whereIn('id', $managerUserRoleIds)
+                ->pluck('user_id');
+            $department->managers = \App\Models\User::whereIn('id', $managerUserIds)->with('employee')->get();
             $department->employees_count = $this->calculateHeadcount($department);
             return $department;
         });
@@ -42,7 +62,13 @@ class DepartmentController extends Controller
 
     public function show(Department $department)
     {
-        $department->load(['managers.employee']);
+        $managerUserRoleIds = \Illuminate\Support\Facades\DB::table('user_role_departments')
+            ->where('department_id', $department->id)
+            ->pluck('user_role_id');
+        $managerUserIds = \Illuminate\Support\Facades\DB::table('user_roles')
+            ->whereIn('id', $managerUserRoleIds)
+            ->pluck('user_id');
+        $department->managers = \App\Models\User::whereIn('id', $managerUserIds)->with('employee')->get();
         $department->employees_count = $this->calculateHeadcount($department);
         return response()->json($department);
     }
@@ -60,7 +86,13 @@ class DepartmentController extends Controller
         ]);
 
         $department->update($validated);
-        $department->load(['managers.employee']);
+        $managerUserRoleIds = \Illuminate\Support\Facades\DB::table('user_role_departments')
+            ->where('department_id', $department->id)
+            ->pluck('user_role_id');
+        $managerUserIds = \Illuminate\Support\Facades\DB::table('user_roles')
+            ->whereIn('id', $managerUserRoleIds)
+            ->pluck('user_id');
+        $department->managers = \App\Models\User::whereIn('id', $managerUserIds)->with('employee')->get();
         $department->employees_count = $this->calculateHeadcount($department);
         return response()->json($department);
     }
@@ -79,7 +111,9 @@ class DepartmentController extends Controller
             ], 422);
         }
 
-        $department->managers()->detach();
+        \Illuminate\Support\Facades\DB::table('user_role_departments')
+            ->where('department_id', $department->id)
+            ->delete();
         $department->delete();
         return response()->json(['message' => 'Department deleted successfully.']);
     }

@@ -30,7 +30,7 @@ api.interceptors.request.use(
     }
 );
 
-// Response interceptor to handle 401
+// Response interceptor to handle 401 / 403
 api.interceptors.response.use(
     (response) => {
         const method = response.config.method?.toLowerCase();
@@ -47,18 +47,26 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             invalidateApiCache();
-            // Don't redirect if we're already on the login page or if it's the login request itself failing
             if (window.location.pathname !== '/login') {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 window.location.href = '/login';
             }
         } else if (error.response?.status === 403) {
-            import('sonner').then(({ toast }) => {
-                toast.error('Your permissions changed. Please refresh the page.', {
-                    duration: 5000,
+            const code = error.response?.data?.code;
+
+            if (code === 'NO_ACTIVE_ROLE') {
+                // Role was revoked mid-session. Fire a custom event so AuthContext
+                // can react (re-fetch user, redirect to /select-role or logout)
+                // without needing hooks inside this service module.
+                window.dispatchEvent(new CustomEvent('auth:no-active-role'));
+            } else {
+                import('sonner').then(({ toast }) => {
+                    toast.error('Your permissions changed. Please refresh the page.', {
+                        duration: 5000,
+                    });
                 });
-            });
+            }
         }
         return Promise.reject(error);
     }

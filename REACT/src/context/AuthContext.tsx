@@ -84,6 +84,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => clearTimeout(timer);
     }, []);
 
+    // Listen for mid-session role revocation detected by the API interceptor.
+    // When fired, re-fetch the user's current roles and route appropriately.
+    useEffect(() => {
+        const handleNoActiveRole = async () => {
+            try {
+                const response = await api.get('/user');
+                const fetchedUser = response.data.user || response.data;
+                const roles: { id: number; name: string; is_super_admin?: boolean }[] = fetchedUser.roles || [];
+
+                if (roles.length === 0) {
+                    // No roles left — full logout
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    setToken(null);
+                    setUser(null);
+                    return;
+                }
+
+                if (roles.length === 1) {
+                    // Exactly one role — silently re-establish it via switch-role
+                    try {
+                        const switchRes = await api.post('/switch-role', { role_id: roles[0].id });
+                        const updatedUser = {
+                            ...fetchedUser,
+                            active_role: switchRes.data.active_role || roles[0],
+                            permissions: switchRes.data.permissions || fetchedUser.permissions || [],
+                        };
+                        setUser(updatedUser);
+                        localStorage.setItem('user', JSON.stringify(updatedUser));
+                    } catch {
+                        // switch-role failed — send to select-role to pick manually
+                        const cleared = { ...fetchedUser, active_role: null };
+                        setUser(cleared);
+                        localStorage.setItem('user', JSON.stringify(cleared));
+                    }
+                    return;
+                }
+
+                // 2+ roles — clear active_role and let PrivateRoute redirect to /select-role
+                const cleared = { ...fetchedUser, active_role: null, permissions: [] };
+                setUser(cleared);
+                localStorage.setItem('user', JSON.stringify(cleared));
+            } catch {
+                // Can't even reach /api/user — full logout
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setToken(null);
+                setUser(null);
+            }
+        };
+
+        window.addEventListener('auth:no-active-role', handleNoActiveRole);
+        return () => window.removeEventListener('auth:no-active-role', handleNoActiveRole);
+    }, []);
+
     const login = (newToken: string, newUser: User, requiresRoleSelection: boolean = false) => {
         setToken(newToken);
         setUser(newUser);

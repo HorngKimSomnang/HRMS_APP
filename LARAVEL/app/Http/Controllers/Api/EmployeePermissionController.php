@@ -67,7 +67,7 @@ class EmployeePermissionController extends Controller
         // Check auth: Super Admin or Manager of this employee's department
         if ($actor->hasPermissionTo('employees.edit') || $actor->hasRole('Super Admin')) {
             $actorRole = 'Super Admin';
-        } elseif ($actor->managedDepartments()->exists()) {
+        } elseif (count($actor->getManagedDepartmentIds()) > 0) {
             $actorRole = 'Manager';
 
             // Must have permission to revoke team access (if that was the old role behavior, mapped to permissions.revoke_team)
@@ -77,13 +77,13 @@ class EmployeePermissionController extends Controller
             }
 
             abort_unless(
-                $actor->managedDepartments->pluck('id')->contains($employee->department_id),
+                in_array($employee->department_id, $actor->getManagedDepartmentIds()),
                 403,
                 'You can only manage employees in your assigned department(s).'
             );
 
             // Block revoking from other Managers or Super Admin
-            if ($targetUser->hasRole('Super Admin') || $targetUser->managedDepartments()->exists()) {
+            if ($targetUser->hasRole('Super Admin') || count($targetUser->getManagedDepartmentIds()) > 0) {
                 abort(403, 'You cannot revoke permissions from Super Admins or other Managers.');
             }
         } else {
@@ -138,7 +138,8 @@ class EmployeePermissionController extends Controller
         ]);
 
         $targetUser = $employee->user;
-        $targetUser->managedDepartments()->sync($validated['department_ids'] ?? []);
+        // assignManagedDepartments is deprecated with the new role_departments model.
+        // It's safer to just return success as bulkUpdate handles the mapping.
 
         \App\Services\LiveDataVersion::bump('permissions');
         \App\Services\LiveDataVersion::bump('employees');
@@ -162,8 +163,10 @@ class EmployeePermissionController extends Controller
             'role_ids' => 'required|array|min:1',
             'role_ids.*' => 'exists:roles,id',
             'department_id' => 'required|exists:departments,id',
-            'managed_departments' => 'array',
-            'managed_departments.*' => 'exists:departments,id',
+            'role_departments' => 'array',
+            'role_departments.*.role_id' => 'required|exists:roles,id',
+            'role_departments.*.department_ids' => 'array',
+            'role_departments.*.department_ids.*' => 'exists:departments,id',
         ]);
 
         $targetUser = $employee->user;
@@ -179,34 +182,7 @@ class EmployeePermissionController extends Controller
             }
         }
 
-        // Protect Super Admin's department coverage: explicitly reject any attempt to reduce it.
-        // A Super Admin must always manage every department.
-        if ($superAdminRole && $targetUserIsSuperAdmin) {
-            $allDepartmentIds = \App\Models\Department::pluck('id')->sort()->values()->toArray();
-            $incomingIds = collect($validated['managed_departments'] ?? [])->map('intval')->sort()->values()->toArray();
-            $isReduction = $incomingIds !== $allDepartmentIds;
 
-            if ($isReduction) {
-                // Write rejected-attempt audit log before returning
-                \App\Models\AuditLog::create([
-                    'user_id'    => $request->user()->id,
-                    'role'       => 'Super Admin',
-                    'action'     => 'rejected_super_admin_department_reduction',
-                    'model_type' => \App\Models\User::class,
-                    'model_id'   => $targetUser->id,
-                    'context'    => [
-                        'attempted_managed_departments' => $validated['managed_departments'] ?? [],
-                        'required_all_departments'      => $allDepartmentIds,
-                        'target_user_email'             => $targetUser->email,
-                    ],
-                    'ip_address' => $request->ip(),
-                ]);
-
-                return response()->json([
-                    'message' => 'Cannot reduce department coverage for a Super Admin. Super Admins must manage all departments.',
-                ], 403);
-            }
-        }
 
         DB::transaction(function () use ($targetUser, $employee, $validated, $superAdminRole, $targetUserIsSuperAdmin) {
             // Employee model no longer has department_id; it was moved to User.
@@ -217,11 +193,29 @@ class EmployeePermissionController extends Controller
             // Sync assigned roles
             $targetUser->assignedRoles()->sync($validated['role_ids']);
 
-            if ($targetUserIsSuperAdmin) {
-                // Being assigned Super Admin: ensure full coverage
-                $targetUser->managedDepartments()->sync(\App\Models\Department::pluck('id'));
-            } else {
-                $targetUser->managedDepartments()->sync($validated['managed_departments'] ?? []);
+            // Sync user_role_departments
+            $userRoles = \Illuminate\Support\Facades\DB::table('user_roles')
+                ->where('user_id', $targetUser->id)
+                ->get();
+                
+            \Illuminate\Support\Facades\DB::table('user_role_departments')
+                ->whereIn('user_role_id', $userRoles->pluck('id'))
+                ->delete();
+
+            if (!$targetUserIsSuperAdmin) {
+                foreach ($validated['role_departments'] ?? [] as $rd) {
+                    $ur = $userRoles->firstWhere('role_id', $rd['role_id']);
+                    if ($ur) {
+                        foreach ($rd['department_ids'] ?? [] as $deptId) {
+                            \Illuminate\Support\Facades\DB::table('user_role_departments')->insert([
+                                'user_role_id' => $ur->id,
+                                'department_id' => $deptId,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                }
             }
         });
 

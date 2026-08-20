@@ -19,13 +19,15 @@ class OvertimeController extends Controller
         $user = Auth::user();
         $query = Overtime::with(['employee.user', 'approver'])->orderBy('created_at', 'desc');
 
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
-        if (empty($managedDepartmentIds)) {
-            $query->where('employee_id', $user->employee?->id ?? -1);
-        } else {
-            $query->whereHas('employee.user', function ($q) use ($managedDepartmentIds) {
-                $q->whereIn('department_id', $managedDepartmentIds);
-            });
+        if (!$user->hasRole('Super Admin')) {
+            $managedDepartmentIds = $user->getManagedDepartmentIds();
+            if (empty($managedDepartmentIds)) {
+                $query->where('employee_id', $user->employee?->id ?? -1);
+            } else {
+                $query->whereHas('employee.user', function ($q) use ($managedDepartmentIds) {
+                    $q->whereIn('department_id', $managedDepartmentIds);
+                });
+            }
         }
 
         return response()->json($query->get());
@@ -103,7 +105,7 @@ class OvertimeController extends Controller
 
         try {
             $overtime->loadMissing('employee.user');
-            $reviewers = User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
+            $reviewers = User::whereHas('assignedRoles', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
             Notification::send($reviewers, new OvertimeRequested($overtime));
         } catch (\Exception $exception) {
             Log::error('Failed to send overtime request notification: '.$exception->getMessage());
@@ -202,5 +204,38 @@ class OvertimeController extends Controller
 
         $overtime->delete();
         return response()->json(['message' => 'Overtime request deleted successfully.']);
+    }
+
+    public function restore(Request $request, Overtime $overtime)
+    {
+        $user = Auth::user();
+
+        if (!$user->hasPermissionTo('overtime.edit') && !$user->hasPermissionTo('overtime.approve')) {
+            return response()->json(['message' => 'Forbidden. You do not have permission to restore overtime.'], 403);
+        }
+
+        if ($overtime->status !== 'pending') {
+            $minutesSinceUpdate = now()->diffInMinutes($overtime->updated_at);
+            if ($minutesSinceUpdate > 30) {
+                return response()->json(['message' => 'Cannot return overtime to pending status after 30 minutes.'], 403);
+            }
+            
+
+        }
+
+        $oldStatus = $overtime->status;
+        $overtime->status = 'pending';
+        $overtime->approved_by = null;
+        $overtime->save();
+
+        AuditLogger::log($request, 'OVERTIME_STATUS_RESTORED', $overtime, [
+            'from' => $oldStatus,
+            'to' => 'pending'
+        ]);
+
+        return response()->json([
+            'message' => 'Overtime restored to pending successfully.',
+            'data' => $overtime->load(['employee.user', 'approver'])
+        ]);
     }
 }

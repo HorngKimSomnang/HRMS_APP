@@ -657,8 +657,8 @@ export default function PayrollAdmin() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4">
                 {[
-                    { label:"Prepared for Review", value:payslips.filter((p:any)=>["draft","pending","approved"].includes(p.status)).length, color:"text-amber-600", bg:"bg-amber-50 border-amber-200", icon:Clock },
-                    { label:"Paid Payslips", value:payslips.filter((p:any)=>p.status==="paid").length, color:"text-emerald-600", bg:"bg-emerald-50 border-emerald-200", icon:CheckCircle },
+                    { label:"Prepared for Review", value:filteredPayslips.filter((p:any)=>["draft","pending","approved"].includes(p.status)).length, color:"text-amber-600", bg:"bg-amber-50 border-amber-200", icon:Clock },
+                    { label:"Paid Payslips", value:filteredPayslips.filter((p:any)=>p.status==="paid").length, color:"text-emerald-600", bg:"bg-emerald-50 border-emerald-200", icon:CheckCircle },
                 ].map(s=>(
                     <div key={s.label} className={`rounded-xl border ${s.bg} p-5 flex items-center gap-4`}>
                         <s.icon className={`h-7 w-7 ${s.color}`}/>

@@ -16,6 +16,7 @@ const ACTION_CFG: Record<string, { label: string; color: string; icon: any }> = 
     LOGIN_FAILED:                { label: "Login Failed",       color: "bg-red-50 text-red-700 border-red-200",             icon: LogIn },
     LOGOUT:                      { label: "Logout",             color: "bg-slate-50 text-slate-600 border-slate-200",       icon: LogOut },
     PASSWORD_CHANGED:            { label: "Password Changed",   color: "bg-amber-50 text-amber-700 border-amber-200",       icon: KeyRound },
+    ROLE_SWITCHED:               { label: "Role Switched",      color: "bg-purple-50 text-purple-700 border-purple-200",    icon: UserCog },
     // Employee
     EMPLOYEE_CREATED:            { label: "Employee Created",   color: "bg-teal-50 text-teal-700 border-teal-200",          icon: UserPlus },
     EMPLOYEE_UPDATED:            { label: "Employee Updated",   color: "bg-cyan-50 text-cyan-700 border-cyan-200",          icon: UserCog },
@@ -29,6 +30,7 @@ const ACTION_CFG: Record<string, { label: string; color: string; icon: any }> = 
     PAYSLIP_STATUS_CHANGED:      { label: "Payslip Auth",       color: "bg-indigo-50 text-indigo-700 border-indigo-200",   icon: CheckCircle2 },
     // Settings
     SYSTEM_SETTINGS_UPDATED:     { label: "Settings Changed",   color: "bg-amber-50 text-amber-700 border-amber-200",      icon: Settings2 },
+    CONTRACT_UPDATED:            { label: "Contract Updated",   color: "bg-sky-50 text-sky-700 border-sky-200",            icon: FileCheck },
 };
 
 function getActionCfg(action: string) {
@@ -48,7 +50,7 @@ const CONTEXT_LABELS: Record<string, { label: string; format?: (v: any) => strin
     status:          { label: "Status",         format: v => String(v).toUpperCase() },
     from_status:     { label: "From",           format: v => String(v).toUpperCase() },
     net_salary:      { label: "Net Salary",     format: v => `$${Number(v).toLocaleString()}` },
-    override:        { label: "Override",       format: v => v ? "⚠ God Mode" : "No" },
+    override:        { label: "Override",       format: v => v ? "⚠ Manual Override" : "No" },
     rejection_reason:{ label: "Reason" },
     hours:           { label: "OT Hours",       format: v => `${v} hrs` },
     calculated_pay:  { label: "OT Pay",         format: v => `$${Number(v).toLocaleString()}` },
@@ -63,6 +65,8 @@ const CONTEXT_LABELS: Record<string, { label: string; format?: (v: any) => strin
     type:            { label: "Type",           format: v => String(v).replace(/_/g, " ").toUpperCase() },
     email:           { label: "Email" },
     reason:          { label: "Reason" },
+    from_role:       { label: "From Role" },
+    to_role:         { label: "To Role" },
 };
 
 const HIDE_IN_BADGES = new Set(["user_agent", "changes"]);
@@ -185,9 +189,9 @@ export default function AuditLogs() {
     useLiveRefresh(() => fetchLogs(true), { resources: 'audit-logs' });
 
     // Derived stats from current page
-    const godModeCount   = logs.filter(l => l.context?.override === true).length;
-    const superAdminActs = logs.filter(l => l.role === "Super Admin").length;
-    const adminActs      = logs.filter(l => l.role === "Admin").length;
+    const employeeActs = logs.filter(l => l.user_id !== null && l.role !== 'System').length;
+    const systemActs   = logs.filter(l => l.user_id === null || l.role === 'System').length;
+    const superAdminActs = logs.filter(l => l.role === 'Super Admin').length;
 
     return (
         <div className="space-y-6">
@@ -229,8 +233,8 @@ export default function AuditLogs() {
                 {[
                     { label: "Total Entries",    value: meta?.total ?? "—",  color: "text-slate-700",  bg: "bg-slate-50 border-slate-200" },
                     { label: "Super Admin Acts", value: superAdminActs,       color: "text-violet-700", bg: "bg-violet-50 border-violet-200" },
-                    { label: "Admin Acts",       value: adminActs,            color: "text-blue-700",   bg: "bg-blue-50 border-blue-200" },
-                    { label: "God Mode Used",    value: godModeCount,         color: "text-red-700",    bg: "bg-red-50 border-red-200" },
+                    { label: "Employee Acts",    value: employeeActs,         color: "text-blue-700",   bg: "bg-blue-50 border-blue-200" },
+                    { label: "System Acts",      value: systemActs,           color: "text-slate-500",  bg: "bg-slate-50 border-slate-300" },
                 ].map(s => (
                     <div key={s.label} className={`rounded-xl border ${s.bg} px-5 py-4`}>
                         <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -278,6 +282,7 @@ export default function AuditLogs() {
                     </optgroup>
                     <optgroup label="System">
                         <option value="SYSTEM_SETTINGS_UPDATED">Settings Changed</option>
+                        <option value="ROLE_SWITCHED">Role Switched</option>
                     </optgroup>
                 </select>
 
@@ -288,9 +293,9 @@ export default function AuditLogs() {
                 >
                     <option value="">All Roles</option>
                     <option value="Super Admin">Super Admin</option>
-                    <option value="Admin">Admin</option>
+                    <option value="Manager">Manager</option>
                     <option value="Employee">Employee</option>
-                    <option value="Unknown">Unknown</option>
+                    <option value="System">System</option>
                 </select>
 
                 <button

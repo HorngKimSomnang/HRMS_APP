@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/table";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { Check, X, Clock, CalendarDays, CheckCircle2, XCircle, Banknote } from "lucide-react";
+import { Check, X, Clock, CalendarDays, CheckCircle2, XCircle, Banknote, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -20,6 +20,7 @@ export default function OvertimeList() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
     const [statusUpdate, setStatusUpdate] = useState<{ id: number, status: 'approved' | 'rejected' } | null>(null);
+    const [restoreId, setRestoreId] = useState<number | null>(null);
 
     const fetchOvertimes = async (isPolling = false) => {
         if (!isPolling) setLoading(true);
@@ -51,11 +52,25 @@ export default function OvertimeList() {
         try {
             await api.put(`/overtimes/${id}`, { status });
             toast.success(`Overtime request ${status}`);
+            fetchOvertimes();
         } catch (error: any) {
             setOvertimes(previousOvertimes);
             console.error("Failed to update status", error);
             const msg = error.response?.data?.message || "Failed to update status";
             toast(msg);
+        }
+    };
+
+    const confirmRestore = async () => {
+        if (!restoreId) return;
+        try {
+            await api.post(`/overtimes/${restoreId}/restore`);
+            toast.success("Overtime request returned to pending status.");
+            fetchOvertimes();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Failed to return overtime to pending status.");
+        } finally {
+            setRestoreId(null);
         }
     };
 
@@ -221,7 +236,39 @@ export default function OvertimeList() {
                                                     </motion.div>
                                                 )}
                                                 {ot.status !== 'pending' && (
-                                                    <span className="text-xs text-muted-foreground italic">Processed</span>
+                                                    <motion.div
+                                                        initial={{ opacity: 0, scale: 0.9 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        className="flex items-center justify-end gap-2"
+                                                    >
+                                                        {(() => {
+                                                            const isAutoProcessed = ot.rejection_reason && ot.rejection_reason.startsWith('Auto-processed');
+                                                            const minutesSinceUpdate = (new Date().getTime() - new Date(ot.updated_at).getTime()) / 60000;
+                                                            const cannotReturn = isAutoProcessed || minutesSinceUpdate > 30;
+                                                            
+                                                            return (
+                                                                <div className="flex items-center gap-1">
+                                                                    {hasPermission('overtime.approve') && (
+                                                                        <Button
+                                                                            size="icon"
+                                                                            variant="outline"
+                                                                            className={`h-8 w-8 rounded-full ${cannotReturn ? 'text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200'}`}
+                                                                            onClick={() => {
+                                                                                if (cannotReturn) {
+                                                                                    toast.error(isAutoProcessed ? "This request was auto-processed and cannot be restored." : "Cannot return to pending status after 30 minutes.");
+                                                                                } else {
+                                                                                    setRestoreId(ot.id);
+                                                                                }
+                                                                            }}
+                                                                            title={cannotReturn ? "Cannot be restored" : "Return to Pending"}
+                                                                        >
+                                                                            <RotateCcw className="h-3.5 w-3.5 stroke-[2.5]" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </motion.div>
                                                 )}
                                             </AnimatePresence>
                                         )}
@@ -249,12 +296,25 @@ export default function OvertimeList() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setStatusUpdate(null)}>Cancel</Button>
-                        <Button 
-                            variant={statusUpdate?.status === 'rejected' ? 'destructive' : 'default'}
-                            onClick={confirmStatusUpdate}
-                        >
-                            Confirm {statusUpdate?.status}
-                        </Button>
+                        <Button variant="default" className={statusUpdate?.status === 'rejected' ? 'bg-red-600 hover:bg-red-700 text-white' : ''} onClick={confirmStatusUpdate}>Confirm {statusUpdate?.status}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!restoreId} onOpenChange={(open) => !open && setRestoreId(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirm Return to Pending</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-sm text-muted-foreground">
+                            Are you sure you want to return this overtime request to <strong>pending</strong> status?
+                            This will allow the request to be approved or rejected again.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setRestoreId(null)}>Cancel</Button>
+                        <Button variant="default" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={confirmRestore}>Return to Pending</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

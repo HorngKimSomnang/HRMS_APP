@@ -131,7 +131,7 @@ class AttendanceController extends Controller
 
 
 
-        $admins = User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
+        $admins = User::whereHas('assignedRoles', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
         Notification::send($admins, new EmployeeClockedIn($attendance));
 
         $msg = $isLate ? 'Clocked in successfully (Late)' : 'Clocked in successfully';
@@ -289,7 +289,7 @@ class AttendanceController extends Controller
             \App\Services\LiveDataVersion::bump('leaves');
         }
 
-        $admins = User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
+        $admins = User::whereHas('assignedRoles', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
         Notification::send($admins, new EmployeeClockedIn($attendance, 'clocked out'));
 
         return $this->successResponse($attendance, 'Clocked out successfully');
@@ -525,7 +525,7 @@ class AttendanceController extends Controller
                 
                 try {
                     $overtime->loadMissing('employee.user');
-                    $reviewers = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
+                    $reviewers = \App\Models\User::whereHas('assignedRoles', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
                     \Illuminate\Support\Facades\Notification::send($reviewers, new \App\Notifications\OvertimeRequested($overtime));
                 } catch (\Exception $exception) {
                     \Illuminate\Support\Facades\Log::error('Failed to send overtime request notification: '.$exception->getMessage());

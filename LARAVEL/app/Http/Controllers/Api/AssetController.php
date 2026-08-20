@@ -33,24 +33,39 @@ class AssetController extends Controller
         }
 
         $user = auth()->user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
-        if (empty($managedDepartmentIds)) {
-            $query->whereHas('currentAssignment', function ($q) use ($user) {
-                $q->where('employee_id', $user->employee?->id ?? -1);
-            });
-            $stats = [];
-        } else {
-            $query->where(function ($q) use ($managedDepartmentIds) {
-                $q->whereHas('currentAssignment.employee.user', function ($q2) use ($managedDepartmentIds) {
-                    $q2->whereIn('users.department_id', $managedDepartmentIds);
-                })->orWhereDoesntHave('currentAssignment');
-            });
+        
+        if ($user->hasRole('Super Admin')) {
             $stats = [
                 'total' => Asset::count(),
                 'available' => Asset::where('status', 'available')->count(),
                 'assigned' => Asset::where('status', 'assigned')->count(),
                 'maintenance' => Asset::where('status', 'maintenance')->count(),
                 'total_value' => (float) Asset::whereNot('status', 'retired')->sum('purchase_cost'),
+            ];
+        } else {
+            $managedDepartmentIds = $user->getManagedDepartmentIds();
+            
+            if (empty($managedDepartmentIds)) {
+                $query->whereHas('currentAssignment', function ($q) use ($user) {
+                    $q->where('employee_id', $user->employee?->id ?? -1);
+                });
+            } else {
+                $query->where(function ($q) use ($managedDepartmentIds) {
+                    $q->whereHas('currentAssignment.employee.user', function ($q2) use ($managedDepartmentIds) {
+                        $q2->whereIn('users.department_id', $managedDepartmentIds);
+                    })->orWhereDoesntHave('currentAssignment');
+                });
+            }
+            
+            // Calculate stats for the scoped query (without the limits/ordering)
+            $statsQuery = clone $query;
+            $scopedAssets = $statsQuery->get();
+            $stats = [
+                'total' => $scopedAssets->count(),
+                'available' => $scopedAssets->where('status', 'available')->count(),
+                'assigned' => $scopedAssets->where('status', 'assigned')->count(),
+                'maintenance' => $scopedAssets->where('status', 'maintenance')->count(),
+                'total_value' => (float) $scopedAssets->where('status', '!=', 'retired')->sum('purchase_cost'),
             ];
         }
 

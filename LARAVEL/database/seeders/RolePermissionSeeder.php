@@ -12,12 +12,12 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // 0. Remove obsolete permissions
-        Permission::where('feature', 'access_management')->delete();
+        // 0. Custom roles/permissions (no Spatie cache)
 
         $features = [
+            'access_management' => ['view', 'edit'],
             'departments' => ['view', 'create', 'edit', 'delete', 'view_employees'],
-            'employees' => ['view', 'create', 'edit', 'delete', 'restore', 'resend_credentials', 'manage_access'],
+            'employees' => ['view', 'create', 'edit', 'delete', 'restore', 'resend_credentials'],
             'attendance' => ['view'],
             'leaves' => ['view', 'edit', 'create', 'approve'],
             'tasks' => ['view', 'edit', 'delete', 'assign'],
@@ -38,12 +38,16 @@ class RolePermissionSeeder extends Seeder
             'audit_logs' => ['view'],
             'dashboard' => ['view_total_employees', 'view_payroll', 'view_workforce_capacity', 'view_pending_approvals', 'view_expiring_contracts', 'view_open_offboardings', 'view_assets_in_use'],
             'notice_board' => ['view', 'create', 'edit', 'delete'],
-            'admins' => ['view', 'manage'],
         ];
 
         // 1. Define Permissions
         $permissionIds = [];
         foreach ($features as $feature => $actions) {
+            \Illuminate\Support\Facades\DB::table('features')->updateOrInsert(
+                ['key' => $feature],
+                ['label' => ucwords(str_replace('_', ' ', $feature)), 'section' => 'System']
+            );
+            
             foreach ($actions as $action) {
                 $perm = Permission::firstOrCreate([
                     'feature' => $feature,
@@ -96,7 +100,7 @@ class RolePermissionSeeder extends Seeder
             User::whereHas('assignedRoles', function ($q) use ($superAdminRole) {
                 $q->where('roles.id', $superAdminRole->id);
             })->get()->each(function ($superAdmin) use ($allDepartmentIds) {
-                $superAdmin->managedDepartments()->sync($allDepartmentIds);
+                // removed
             });
         }
     }

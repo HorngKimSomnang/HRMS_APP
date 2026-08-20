@@ -26,7 +26,6 @@ import 'holiday_screen.dart';
 import 'payslip_screen.dart';
 import 'overtime_screen.dart';
 import 'attendance_history_screen.dart';
-import 'report_screen.dart';
 import 'document_viewer_screen.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -1411,21 +1410,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => const AttendanceHistoryScreen(),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 100,
-                        child: _QuickActionIcon(
-                          icon: LucideIcons.barChart2,
-                          color: const Color(0xFFF59E0B),
-                          title: "Report",
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ReportScreen(),
                             ),
                           ),
                         ),

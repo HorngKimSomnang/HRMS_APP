@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Role extends Model
 {
-    protected $fillable = ['name', 'is_system'];
+    protected $fillable = ['name', 'is_system', 'is_department_scoped'];
 
     protected $casts = [
         'is_system' => 'boolean',
+        'is_department_scoped' => 'boolean',
     ];
 
     public function permissions()

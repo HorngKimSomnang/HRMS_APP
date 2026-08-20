@@ -21,6 +21,14 @@ class CheckPermission
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
+        // Detect a stale/revoked active role — getActiveRole() already self-healed
+        // the token (set active_role_id to null). Tell the frontend to re-select a role.
+        if (!$user->getActiveRole()) {
+            return response()->json([
+                'message' => 'No active role. Please select a role to continue.',
+                'code'    => 'NO_ACTIVE_ROLE',
+            ], 403);
+        }
 
         // Support pipe-separated permissions passed as a single string (e.g. "leaves.edit|attendance.edit")
         $allRequired = [];

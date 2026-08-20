@@ -91,20 +91,17 @@ class PayslipController extends Controller
             ->orderBy('month', 'desc');
 
         if ($personal) {
-            $query->where('employee_id', $user->employee?->id ?? -1)
-                  ->where('status', 'paid');
+            $query->where('employee_id', $user->employee?->id ?? -1);
         } else if (!$user->hasRole('Super Admin')) {
-            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            $managedDepartmentIds = $user->getManagedDepartmentIds();
             if (empty($managedDepartmentIds)) {
-                $query->where('employee_id', $user->employee?->id ?? -1)
-                      ->where('status', 'paid');
+                $query->where('employee_id', $user->employee?->id ?? -1);
             } else {
                 $query->where(function ($q) use ($managedDepartmentIds, $user) {
                     $q->whereHas('employee.user', function ($q2) use ($managedDepartmentIds) {
                         $q2->whereIn('department_id', $managedDepartmentIds);
                     })->orWhere(function ($q3) use ($user) {
-                        $q3->where('employee_id', $user->employee?->id ?? -1)
-                           ->where('status', 'paid');
+                        $q3->where('employee_id', $user->employee?->id ?? -1);
                     });
                 });
             }

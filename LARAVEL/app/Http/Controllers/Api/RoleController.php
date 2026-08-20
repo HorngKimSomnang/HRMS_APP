@@ -15,19 +15,22 @@ class RoleController extends Controller
     public function indexUsers()
     {
         $user = auth()->user();
-        $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
         
-        $query = User::with(['employee', 'managedDepartments']);
+        $query = User::with(['employee']);
         
-        if (empty($managedDepartmentIds)) {
-            // Only see themselves if they manage no departments
-            $query->where('id', $user->id);
-        } else {
-            // See users in managed departments, plus themselves
-            $query->where(function($q) use ($managedDepartmentIds, $user) {
-                $q->whereIn('department_id', $managedDepartmentIds)
-                  ->orWhere('id', $user->id);
-            });
+        if (!$user->hasRole('Super Admin')) {
+            $managedDepartmentIds = $user->getManagedDepartmentIds();
+            
+            if (empty($managedDepartmentIds)) {
+                // Only see themselves if they manage no departments
+                $query->where('id', $user->id);
+            } else {
+                // See users in managed departments, plus themselves
+                $query->where(function($q) use ($managedDepartmentIds, $user) {
+                    $q->whereIn('department_id', $managedDepartmentIds)
+                      ->orWhere('id', $user->id);
+                });
+            }
         }
         
         $users = $query->get();
@@ -72,12 +75,14 @@ class RoleController extends Controller
         $request->validate([
             'name' => 'required|string|unique:roles,name',
             'permissions' => 'array',
-            'permissions.*' => 'string'
+            'permissions.*' => 'string',
+            'is_department_scoped' => 'boolean'
         ]);
 
         $role = Role::create([
             'name' => $request->name,
             'is_system' => false,
+            'is_department_scoped' => $request->boolean('is_department_scoped', true),
         ]);
 
         if ($request->has('permissions')) {
@@ -111,11 +116,16 @@ class RoleController extends Controller
         $request->validate([
             'name' => 'required|string|unique:roles,name,' . $role->id,
             'permissions' => 'array',
-            'permissions.*' => 'string'
+            'permissions.*' => 'string',
+            'is_department_scoped' => 'boolean'
         ]);
 
         if (!$role->is_system) {
-            $role->update(['name' => $request->name]);
+            $updateData = ['name' => $request->name];
+            if ($request->has('is_department_scoped')) {
+                $updateData['is_department_scoped'] = $request->boolean('is_department_scoped');
+            }
+            $role->update($updateData);
         }
 
         if ($request->has('permissions')) {

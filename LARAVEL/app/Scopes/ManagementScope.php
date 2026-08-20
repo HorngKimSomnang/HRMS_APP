@@ -27,8 +27,8 @@ class ManagementScope implements Scope
                 return;
             }
 
-            // Get the managed department IDs for the user
-            $managedDeptIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            // Get the managed department IDs for the user's active role
+            $managedDeptIds = $user->getManagedDepartmentIds();
             $userId = $user->id;
 
             $builder->where(function ($query) use ($userId, $managedDeptIds, $model) {

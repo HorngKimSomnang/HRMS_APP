@@ -4,7 +4,7 @@ import {
     LayoutDashboard, Users, CalendarCheck, Settings, LogOut,
     FileText, CheckSquare, FileBarChart, Wallet, Clock,
     Building2, UserCog, ChevronRight, ChevronDown, ScrollText,
-    Package, ShieldCheck, FileSignature, RefreshCcw
+    Package, ShieldCheck, FileSignature, RefreshCcw, Shield, Key
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -16,6 +16,7 @@ function NavItem({ to, icon: Icon, label, highlight = false }: { to: string; ico
     return (
         <NavLink
             to={to}
+            end
             className={({ isActive }) => cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all group",
                 highlight
@@ -34,20 +35,37 @@ function NavItem({ to, icon: Icon, label, highlight = false }: { to: string; ico
     );
 }
 
+function SectionLink({ to, label }: { to: string; label: string }) {
+    return (
+        <NavLink
+            to={to}
+            end
+            className={({ isActive }) => cn(
+                "w-full flex items-center justify-between mt-2 mb-1 px-3 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer group",
+                isActive 
+                    ? "text-white bg-white/20 shadow-sm" 
+                    : "text-white/90 hover:text-white hover:bg-white/10"
+            )}
+        >
+            <span>{label}</span>
+        </NavLink>
+    );
+}
+
 function CollapsibleSection({ label, children, defaultExpanded = true }: { label: string; children: React.ReactNode; defaultExpanded?: boolean }) {
     const [expanded, setExpanded] = useState(defaultExpanded);
 
     return (
-        <div className="mb-2">
+        <div className="mb-1">
             <button 
                 onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center justify-between mt-3 mb-1.5 px-2 text-[10px] font-bold uppercase tracking-widest text-blue-200/60 hover:text-white transition-colors cursor-pointer group"
+                className="w-full flex items-center justify-between mt-2 mb-1 px-3 py-2 rounded-lg text-sm font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors cursor-pointer group"
             >
                 <span>{label}</span>
                 {expanded ? (
-                    <ChevronDown className="h-3 w-3 opacity-50 group-hover:opacity-100 transition-all" />
+                    <ChevronDown className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-all" />
                 ) : (
-                    <ChevronRight className="h-3 w-3 opacity-50 group-hover:opacity-100 transition-all" />
+                    <ChevronRight className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-all" />
                 )}
             </button>
             <div className={`grid gap-0.5 overflow-hidden transition-all ${expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
@@ -56,6 +74,7 @@ function CollapsibleSection({ label, children, defaultExpanded = true }: { label
         </div>
     );
 }
+
 
 export function Sidebar() {
     const { user, logout, hasPermission } = useAuth();
@@ -94,25 +113,27 @@ export function Sidebar() {
             <div className="flex-1 py-3 overflow-y-auto no-scrollbar">
                 <nav className="flex flex-col px-3">
 
-                    {/* ── MAIN ── */}
-                    <CollapsibleSection label={t('nav.section_main')}>
-                        <NavItem to="/dashboard" icon={LayoutDashboard} label={t('nav.dashboard')} />
-                    </CollapsibleSection>
+                    {/* ── DASHBOARD (Standalone) ── */}
+                    <SectionLink to="/dashboard" label={t('nav.dashboard')} />
 
                     {/* ══════════════════════════════════════ */}
                     {/* HR OPERATIONS                        */}
                     {/* ══════════════════════════════════════ */}
 
                     {/* ── USER MANAGEMENT ── */}
-                    {(isSuperAdmin || hasPermission('employees.view') || hasPermission('roles.view')) && (
+                    {(isSuperAdmin || hasPermission('employees.view') || hasPermission('roles.view') || hasPermission('access_management.view')) && (
                         <CollapsibleSection label="User Management">
                             {(isSuperAdmin || hasPermission('employees.view')) && (
                                 <NavItem to="/employees" icon={Users} label={t('nav.employees')} />
                             )}
+                            {(isSuperAdmin || hasPermission('access_management.view')) && (
+                                <NavItem to="/access-management" icon={Key} label="Access Management" />
+                            )}
                             {(isSuperAdmin || hasPermission('roles.view')) && (
                                 <>
-                                    <NavItem to="/roles" icon={ShieldCheck} label="Roles & Permissions" />
 
+                                    <NavItem to="/roles" icon={ShieldCheck} label="Role Management" />
+                                    <NavItem to="/permissions" icon={Shield} label="Permission Management" />
                                 </>
                             )}
                         </CollapsibleSection>
@@ -157,18 +178,14 @@ export function Sidebar() {
                         </CollapsibleSection>
                     )}
 
-                    {/* ── FINANCE ── */}
+                    {/* ── PAYROLL (Standalone) ── */}
                     {(isSuperAdmin || hasPermission('payroll.view')) && (
-                        <CollapsibleSection label={t('nav.section_finance')}>
-                            <NavItem to="/payroll" icon={Wallet} label={isSuperAdmin ? t('nav.payroll_auth') : t('nav.payroll_requests')} />
-                        </CollapsibleSection>
+                        <SectionLink to="/payroll" label={isSuperAdmin ? t('nav.payroll_auth') : t('nav.payroll_requests')} />
                     )}
 
-                    {/* ── REPORTS ── */}
+                    {/* ── REPORTS (Standalone) ── */}
                     {(isSuperAdmin || hasPermission('reports.view')) && (
-                        <CollapsibleSection label={t('nav.section_reports')}>
-                            <NavItem to="/reports" icon={FileBarChart} label={t('nav.reports')} />
-                        </CollapsibleSection>
+                        <SectionLink to="/reports" label={t('nav.reports')} />
                     )}
 
                     {/* ══════════════════════════════════════ */}

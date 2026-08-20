@@ -52,7 +52,7 @@ class AuthController extends Controller
         }
 
         $user = User::where('email', $request->email)->firstOrFail();
-        $user->load(['assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
+        $user->load(['assignedRoles', 'department', 'employee.department', 'employee.contracts']);
 
         $assignedRoles = $user->assignedRoles;
         $roleCount = $assignedRoles->count();
@@ -102,14 +102,22 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthorized role'], 403);
         }
 
+        $previousRole = $user->getActiveRole();
         $token = $user->currentAccessToken();
         $token->active_role_id = $request->role_id;
         $token->save();
 
+        $newRole = $user->getActiveRole();
+
+        AuditLogger::logAuth($request, 'ROLE_SWITCHED', $user, [
+            'from_role' => $previousRole?->name ?? 'None',
+            'to_role'   => $newRole?->name ?? 'Unknown',
+        ]);
+
         return response()->json([
             'message' => 'Role switched successfully',
             'permissions' => $user->getAllPermissions()->pluck('name')->values(),
-            'active_role' => $user->getActiveRole()
+            'active_role' => $newRole
         ]);
     }
 
@@ -123,7 +131,7 @@ class AuthController extends Controller
     }
 
     public function me(Request $request) {
-        $user = $request->user()->load(['assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments']);
+        $user = $request->user()->load(['assignedRoles', 'department', 'employee.department', 'employee.contracts']);
         // Return plain name strings for permissions — same shape as login(), avoids Eloquent object bleed
         
         $userArray = $user->toArray();
@@ -167,6 +175,7 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password changed successfully.']);
     }
+
 
     public function updateProfile(Request $request) {
         $user = $request->user();
@@ -220,7 +229,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profile updated successfully',
-            'user' => $user->fresh(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts', 'managedDepartments'])
+            'user' => $user->fresh(['role', 'assignedRoles', 'department', 'employee.department', 'employee.contracts'])
         ]);
     }
 

@@ -85,8 +85,12 @@ class AuditLogger
 
     private static function resolveRole(mixed $user): string
     {
-        if ($user->hasRole('Super Admin')) return 'Super Admin';
-        return 'Employee';
+        $activeRole = $user->getActiveRole();
+        if ($activeRole) return $activeRole->name;
+        // Fallback: first assigned role
+        $first = $user->assignedRoles->first();
+        if ($first) return $first->name;
+        return 'System';
     }
 
     /**

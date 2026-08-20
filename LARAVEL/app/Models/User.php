@@ -22,10 +22,19 @@ class User extends Authenticatable
     public function getActiveRole()
     {
         $token = $this->currentAccessToken();
-        if ($token && $token->active_role_id) {
-            return Role::find($token->active_role_id);
+        if (!$token || !$token->active_role_id) {
+            return null;
         }
-        return null;
+        // Cross-check that the user still holds this role in the pivot table.
+        // If the role was revoked mid-session, self-heal the token and fail closed.
+        $stillHasRole = $this->assignedRoles()
+            ->where('roles.id', $token->active_role_id)
+            ->exists();
+        if (!$stillHasRole) {
+            $token->update(['active_role_id' => null]);
+            return null;
+        }
+        return Role::find($token->active_role_id);
     }
 
     public function scopeRole($query, string|array $roles)
@@ -119,21 +128,61 @@ class User extends Authenticatable
         return $this->hasOne(Employee::class);
     }
 
-    public function managedDepartments()
+    public function getManagedDepartmentIds()
     {
-        return $this->belongsToMany(Department::class, 'department_manager', 'user_id', 'department_id');
+        $activeRole = $this->getActiveRole();
+        if (!$activeRole || $activeRole->is_system) {
+            return [];
+        }
+
+        $userRoleId = \Illuminate\Support\Facades\DB::table('user_roles')
+            ->where('user_id', $this->id)
+            ->where('role_id', $activeRole->id)
+            ->value('id');
+
+        if (!$userRoleId) return [];
+
+        return \Illuminate\Support\Facades\DB::table('user_role_departments')
+            ->where('user_role_id', $userRoleId)
+            ->pluck('department_id')
+            ->toArray();
     }
 
     public function assignedRoles()
     {
-        return $this->belongsToMany(Role::class, 'user_roles');
+        return $this->belongsToMany(Role::class, 'user_roles')->withTimestamps();
     }
 
-    protected $appends = ['needs_password_change', 'roles'];
+    protected $appends = ['needs_password_change', 'roles', 'role_departments'];
 
     public function getRolesAttribute()
     {
         return $this->assignedRoles;
+    }
+
+    public function getRoleDepartmentsAttribute()
+    {
+        $userRoles = \Illuminate\Support\Facades\DB::table('user_roles')
+            ->where('user_id', $this->id)
+            ->get();
+            
+        if ($userRoles->isEmpty()) return [];
+            
+        $departments = \Illuminate\Support\Facades\DB::table('user_role_departments')
+            ->whereIn('user_role_id', $userRoles->pluck('id'))
+            ->get();
+            
+        $result = [];
+        foreach ($userRoles as $ur) {
+            $depts = $departments->where('user_role_id', $ur->id)->pluck('department_id')->toArray();
+            if (!empty($depts)) {
+                $result[] = [
+                    'role_id' => $ur->role_id,
+                    'department_ids' => $depts
+                ];
+            }
+        }
+        return $result;
     }
 
     public function getNeedsPasswordChangeAttribute()

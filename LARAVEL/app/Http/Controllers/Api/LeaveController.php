@@ -97,7 +97,7 @@ class LeaveController extends Controller
 
         // Notify Super Admins only if it's a pending request from employee
         if ($leave->status === 'pending') {
-            $admins = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
+            $admins = \App\Models\User::whereHas('assignedRoles', fn($q) => $q->whereIn('name', ['Super Admin']))->get();
             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\LeaveRequested($leave));
         } else if ($isSuperAdminAction) {
             // Notify the employee that a Super Admin has assigned them a day off / approved leave
@@ -120,7 +120,7 @@ class LeaveController extends Controller
         $query = Leave::with(['employee.user'])->orderBy('created_at', 'desc');
 
         if (!$user->hasRole('Super Admin')) {
-            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            $managedDepartmentIds = $user->getManagedDepartmentIds();
             if (empty($managedDepartmentIds)) {
                 $query->where('employee_id', $user->employee?->id ?? -1);
             } else {

@@ -22,7 +22,7 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $isManager = $user->managedDepartments()->exists();
+        $isManager = count($user->getManagedDepartmentIds()) > 0;
         
         if (!$user->hasRole('Super Admin') && !$user->hasPermissionTo('employees.view') && !$isManager) {
             abort(403, 'Forbidden. You do not have permission to view employees.');
@@ -42,7 +42,7 @@ class EmployeeController extends Controller
 
         $user = auth()->user();
         if (!$user->hasRole('Super Admin')) {
-            $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+            $managedDepartmentIds = $user->getManagedDepartmentIds();
             if (empty($managedDepartmentIds)) {
                 $query->where('id', $user->employee?->id ?? -1);
             } else {
@@ -309,7 +309,7 @@ class EmployeeController extends Controller
     public function show(string|int $id)
     {
         $user = auth()->user();
-        $isManager = $user->managedDepartments()->exists();
+        $isManager = count($user->getManagedDepartmentIds()) > 0;
         
         if (!$user->hasRole('Super Admin') && !$user->hasPermissionTo('employees.view') && !$isManager) {
             abort(403, 'Forbidden. You do not have permission to view this employee.');
@@ -319,7 +319,7 @@ class EmployeeController extends Controller
             $employee = Employee::with(['user.department'])->findOrFail($id);
             
             if (!$user->hasRole('Super Admin') && !$user->hasPermissionTo('employees.view') && $isManager) {
-                $managedDepartmentIds = $user->managedDepartments()->pluck('departments.id')->toArray();
+                $managedDepartmentIds = $user->getManagedDepartmentIds();
                 $empDeptId = $employee->user?->department_id;
                 if (!in_array($empDeptId, $managedDepartmentIds) && $employee->id !== $user->employee?->id) {
                     abort(403, 'Forbidden. This employee is not in your managed department.');
@@ -373,6 +373,10 @@ class EmployeeController extends Controller
             $employee = Employee::findOrFail($id);
             $user = $employee->user;
             
+            if ($user && $user->hasRole('Super Admin') && !$request->user()->hasRole('Super Admin')) {
+                return $this->errorResponse('Only a Super Admin can edit another Super Admin.', 403);
+            }
+
             DB::beginTransaction();
 
             // Update User
@@ -389,13 +393,11 @@ class EmployeeController extends Controller
             }
             
             $userUpdates = [];
-            if ($request->has('role')) {
-                $roleName = $request->role;
-                $role = \App\Models\Role::where('name', $roleName)->first();
-                if ($role) {
-                    $user->assignedRoles()->sync([$role->id]);
-                }
-            }
+            // NOTE: Role changes are intentionally NOT handled here.
+            // Roles are exclusively managed via EmployeePermissionController::bulkUpdate
+            // (POST /api/employees/{id}/permissions/bulk). Removing this write path
+            // prevents the Edit Employee form from silently overwriting multi-role
+            // assignments with a single role sync.
             if ($request->has('department')) {
                 $departmentName = $request->department;
                 $department = \App\Models\Department::where('name', $departmentName)->first();
@@ -416,9 +418,7 @@ class EmployeeController extends Controller
                 'joining_date', 
                 'address', 'gender', 'dob', 'shift_id'
             ]);
-            if ($request->has('role')) {
-                $employeeData['job_title'] = $request->role;
-            }
+            // job_title keeps its own independent value and is not derived from role name
             $documentsData = $employee->documents ?? ['attachments' => []];
             $documentsData['marital_status'] = $request->marital_status ?? ($documentsData['marital_status'] ?? 'Single');
             $documentsData['name_kh'] = $request->name_kh ?? ($documentsData['name_kh'] ?? null);
@@ -523,6 +523,27 @@ class EmployeeController extends Controller
         try {
             $employee = Employee::findOrFail($id);
 
+            $isTargetSuperAdmin = $employee->user && $employee->user->assignedRoles()->where(function($q) {
+                $q->where('name', 'Super Admin')->orWhere('is_super_admin', true);
+            })->exists();
+
+            if ($isTargetSuperAdmin) {
+                if (!$request->user()->hasRole('Super Admin')) {
+                    return $this->errorResponse('Only a Super Admin can delete a Super Admin.', 403);
+                }
+                
+                $superAdminRole = \App\Models\Role::where('is_super_admin', true)->orWhere('name', 'Super Admin')->first();
+                if ($superAdminRole) {
+                    $superAdminCount = \App\Models\User::whereHas('assignedRoles', function($q) use ($superAdminRole) {
+                        $q->where('roles.id', $superAdminRole->id);
+                    })->count();
+                    
+                    if ($superAdminCount <= 1) {
+                        return $this->errorResponse('Cannot delete the last Super Admin in the system.', 403);
+                    }
+                }
+            }
+
             DB::beginTransaction();
             
             $employeeName = $employee->last_name . ' ' . $employee->first_name;
@@ -541,7 +562,7 @@ class EmployeeController extends Controller
                 'employee'      => $employeeName,
             ]);
 
-            return $this->successResponse(null, 'Employee terminated and archived (recoverable via restore)');
+            return $this->successResponse(null, 'Employee deleted (recoverable via restore)');
 
         } catch (\Exception $e) {
             DB::rollBack();

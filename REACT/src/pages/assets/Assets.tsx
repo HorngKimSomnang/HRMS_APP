@@ -228,8 +228,12 @@ export default function Assets() {
                 ) : assets.length === 0 ? (
                     <div className="p-12 text-center">
                         <Package className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground mb-4">{t('assets.empty', 'No assets yet. Register the first company asset.')}</p>
-                        {hasPermission('assets.create') && (
+                        <p className="text-sm text-muted-foreground mb-4">
+                            {(search || statusFilter || categoryFilter) 
+                                ? t('assets.no_results', 'No assets match your search criteria.')
+                                : t('assets.empty', 'No assets found in your scope.')}
+                        </p>
+                        {hasPermission('assets.create') && !(search || statusFilter || categoryFilter) && (
                             <Button variant="outline" onClick={() => setAssetForm({ ...emptyAsset })}>
                                 <Plus className="h-4 w-4 mr-1" /> {t('assets.new_asset', 'New Asset')}
                             </Button>

@@ -36,24 +36,43 @@ class LifecycleController extends Controller
     {
         $soon = Carbon::today()->addDays(30);
 
-        $expiringContracts = Contract::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
-            ->where('status', 'active')
+        $user = auth()->user();
+        
+        $contractQuery = Contract::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
+            ->where('status', 'active');
+            
+        $offboardingQuery = Offboarding::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
+            ->whereIn('status', ['pending', 'in_progress', 'deleted'])
+            ->orderBy('last_working_day');
+            
+        if (!$user->hasRole('Super Admin')) {
+            $managedIds = $user->getManagedDepartmentIds();
+            if (empty($managedIds)) {
+                $contractQuery->where('employee_id', $user->employee?->id ?? -1);
+                $offboardingQuery->where('employee_id', $user->employee?->id ?? -1);
+            } else {
+                $contractQuery->whereHas('employee.user', function ($q) use ($managedIds) {
+                    $q->whereIn('department_id', $managedIds);
+                });
+                $offboardingQuery->whereHas('employee.user', function ($q) use ($managedIds) {
+                    $q->whereIn('department_id', $managedIds);
+                });
+            }
+        }
+
+        $expiringContracts = (clone $contractQuery)
             ->whereNotNull('end_date')
             ->whereDate('end_date', '<=', $soon)
             ->whereDate('end_date', '>=', Carbon::today())
             ->orderBy('end_date')
             ->get();
 
-        $probations = Contract::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
-            ->where('status', 'active')
+        $probations = (clone $contractQuery)
             ->where('type', 'probation')
             ->orderBy('end_date')
             ->get();
 
-        $openOffboardings = Offboarding::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
-            ->whereIn('status', ['pending', 'in_progress', 'deleted'])
-            ->orderBy('last_working_day')
-            ->get();
+        $openOffboardings = $offboardingQuery->get();
 
         return response()->json([
             'expiring_contracts' => $expiringContracts,
@@ -95,6 +114,18 @@ class LifecycleController extends Controller
     {
         $query = Contract::with(['employee' => fn($q) => $q->withTrashed()->select('id', 'first_name', 'last_name', 'job_title')])
             ->orderBy('start_date', 'desc');
+
+        $user = auth()->user();
+        if (!$user->hasRole('Super Admin')) {
+            $managedIds = $user->getManagedDepartmentIds();
+            if (empty($managedIds)) {
+                $query->where('employee_id', $user->employee?->id ?? -1);
+            } else {
+                $query->whereHas('employee.user', function ($q) use ($managedIds) {
+                    $q->whereIn('department_id', $managedIds);
+                });
+            }
+        }
 
         if ($request->filled('employee_id')) {
             $query->where('employee_id', $request->employee_id);
